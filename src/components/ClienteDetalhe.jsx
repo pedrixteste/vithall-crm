@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, Instagram, Minus, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp } from 'lucide-react'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
@@ -138,7 +138,7 @@ export default function ClienteDetalhe({ client, onBack }) {
               <a href={`https://instagram.com/${currentClient.instagram.replace('@', '')}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2.5 text-sm" style={{ color: '#6B6560' }}>
-                <Instagram size={14} style={{ color: '#C9A84C' }} />
+                <AtSign size={14} style={{ color: '#C9A84C' }} />
                 {currentClient.instagram}
               </a>
             )}
