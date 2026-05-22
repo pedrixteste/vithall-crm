@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
+import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -28,14 +29,27 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm] = useState(false)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    setupReminders()
+  }, [])
+
+  async function setupReminders() {
+    const granted = await requestNotificationPermission()
+    if (!granted) return
+    const { data } = await supabase
+      .from('clients')
+      .select('id, contact_name, company_name, reminder_config, created_at')
+      .not('reminder_config', 'is', null)
+    scheduleTodayReminders(data || [])
+  }
 
   async function fetchData() {
     const [c, v, t, cl, rv, pt] = await Promise.all([
       supabase.from('clients').select('id', { count: 'exact' }),
       supabase.from('visits').select('id', { count: 'exact' }),
       supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false),
-      supabase.from('clients').select('id', { count: 'exact' }).eq('pipeline_stage', 'fechado'),
+      supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado'),
       supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4),
       supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4),
     ])
