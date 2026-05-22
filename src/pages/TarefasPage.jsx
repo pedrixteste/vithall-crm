@@ -43,7 +43,7 @@ export default function TarefasPage() {
   )
 
   return (
-    <div className="animate-in space-y-7">
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
         <h1 style={{ color: '#EFEFEF' }}>Tarefas</h1>

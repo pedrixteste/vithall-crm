@@ -60,7 +60,7 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in space-y-12">
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
 
       {/* Saudação */}
       <div className="pt-2">
@@ -72,7 +72,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2" style={{ gap: '16px' }}>
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
             <div className="rounded-2xl border p-8 transition-all active:scale-[0.98] cursor-pointer"
@@ -100,8 +100,8 @@ export default function Dashboard() {
           <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {recentVisits.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-2xl mb-3">🗺️</p>
+          <div className="text-center" style={{ padding: '48px 0' }}>
+            <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
             <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
           </div>
         ) : (
@@ -131,8 +131,8 @@ export default function Dashboard() {
           <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {pendingTasks.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-2xl mb-3">🎉</p>
+          <div className="text-center" style={{ padding: '48px 0' }}>
+            <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🎉</p>
             <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
           </div>
         ) : (
