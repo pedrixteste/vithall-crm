@@ -4,7 +4,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
-const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall']
+const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAPE', 'Academia Vithall']
 
 const STAGES = {
   nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },

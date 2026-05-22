@@ -7,6 +7,7 @@ import PipelinePage from './pages/PipelinePage'
 import TarefasPage from './pages/TarefasPage'
 import PerfilPage from './pages/PerfilPage'
 import EquipePage from './pages/EquipePage'
+import RelatoriosPage from './pages/RelatoriosPage'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -48,6 +49,11 @@ function AppRoutes() {
       <Route path="/perfil" element={
         <PrivateRoute>
           <Layout><PerfilPage /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/relatorios" element={
+        <PrivateRoute>
+          <Layout><RelatoriosPage /></Layout>
         </PrivateRoute>
       } />
       <Route path="/equipe" element={

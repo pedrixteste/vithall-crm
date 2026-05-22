@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2 } from 'lucide-react'
+import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2 } from 'lucide-react'
 
 const BASE_NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/pipeline', label: 'Funil', icon: GitBranch },
-  { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
-  { to: '/perfil', label: 'Perfil', icon: UserCircle },
+  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/clientes',   label: 'Clientes',   icon: Users },
+  { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
+  { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
+  { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare },
+  { to: '/perfil',     label: 'Perfil',     icon: UserCircle, mobileHide: true },
 ]
 
 export default function Layout({ children }) {
@@ -15,7 +16,7 @@ export default function Layout({ children }) {
   const location = useLocation()
 
   const navItems = profile?.role === 'gerente'
-    ? [...BASE_NAV.slice(0, 4), { to: '/equipe', label: 'Equipe', icon: Users2 }, BASE_NAV[4]]
+    ? [...BASE_NAV.slice(0, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
     : BASE_NAV
 
   const isActive = (to) => location.pathname === to
@@ -82,7 +83,7 @@ export default function Layout({ children }) {
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t"
         style={{ background: 'rgba(10,10,10,0.97)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)' }}>
         <div className="flex pb-safe">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {navItems.filter(i => !i.mobileHide).map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}
               className="flex-1 flex flex-col items-center py-3 gap-1.5 transition-all"
               style={{ color: isActive(to) ? '#C9A84C' : '#333030' }}>
