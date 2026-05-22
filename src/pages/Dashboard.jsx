@@ -58,16 +58,17 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-4">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
-            <Card hover className="p-6">
+            <div className="rounded-2xl border p-6 transition-all active:scale-[0.98] cursor-pointer"
+              style={{ background: '#161616', borderColor: `${accent}22` }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-6"
-                style={{ background: `${accent}14` }}>
+                style={{ background: `${accent}18` }}>
                 <Icon size={18} style={{ color: accent }} />
               </div>
               <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
                 {value}
               </p>
               <p className="text-xs mt-2 font-medium" style={{ color: '#6B6560' }}>{label}</p>
-            </Card>
+            </div>
           </Link>
         ))}
       </div>
