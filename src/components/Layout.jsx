@@ -5,7 +5,7 @@ import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, LogOut } fr
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/pipeline', label: 'Pipeline', icon: GitBranch },
+  { to: '/pipeline', label: 'Funil', icon: GitBranch },
   { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
   { to: '/perfil', label: 'Perfil', icon: UserCircle },
 ]
