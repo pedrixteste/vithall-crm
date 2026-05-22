@@ -12,7 +12,7 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
 
   const sizes = {
     sm: 'text-xs px-3 py-2',
-    md: 'text-sm px-4 py-2.5',
+    md: 'text-sm px-5 py-2.5',
     lg: 'text-sm px-5 py-3.5',
     icon: 'p-2',
   }
