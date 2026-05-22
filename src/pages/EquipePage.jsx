@@ -98,20 +98,27 @@ export default function EquipePage() {
                     </p>
                   </div>
 
-                  {/* Role badge (clicavel) */}
-                  <button
-                    onClick={() => setEditingId(isEditing ? null : member.id)}
-                    disabled={saving}
-                    className="text-xs font-semibold rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      padding: '5px 12px',
-                      background: roleInfo.bg,
-                      color: roleInfo.color,
-                      border: `1px solid ${roleInfo.border}`,
-                      cursor: 'pointer',
-                    }}>
-                    {roleInfo.label} ▾
-                  </button>
+                  {/* Role badge (clicavel so para outros) */}
+                  {isMe ? (
+                    <span className="text-xs font-semibold rounded-full flex-shrink-0"
+                      style={{ padding: '5px 12px', background: roleInfo.bg, color: roleInfo.color, border: `1px solid ${roleInfo.border}` }}>
+                      {roleInfo.label}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setEditingId(isEditing ? null : member.id)}
+                      disabled={saving}
+                      className="text-xs font-semibold rounded-full flex-shrink-0 transition-all"
+                      style={{
+                        padding: '5px 12px',
+                        background: roleInfo.bg,
+                        color: roleInfo.color,
+                        border: `1px solid ${roleInfo.border}`,
+                        cursor: 'pointer',
+                      }}>
+                      {roleInfo.label} ▾
+                    </button>
+                  )}
                 </div>
 
                 {/* Seletor de role */}
