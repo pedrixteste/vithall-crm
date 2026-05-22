@@ -1,55 +1,33 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { X, Plus } from 'lucide-react'
+import { Sheet } from './ui/Sheet'
+import { Input, Textarea } from './ui/Input'
+import { Button } from './ui/Button'
+import { Plus } from 'lucide-react'
 
 const EXEMPLOS_SUGERIDOS = [
   'Case de sucesso', 'ROI demonstrado', 'Produto ao vivo', 'Depoimento de cliente',
   'Comparativo concorrentes', 'Planilha de resultados', 'Vídeo institucional', 'Proposta personalizada'
 ]
 
-const inputStyle = {
-  background: '#161616',
-  border: '1px solid #2A2A2A',
-  color: '#F0EAD6',
-  width: '100%',
-  padding: '10px 14px',
-  borderRadius: '10px',
-  fontSize: '14px',
-  outline: 'none',
-  marginTop: '4px',
-}
-
-const labelStyle = {
-  fontSize: '11px',
-  fontWeight: '600',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: '#7A7570',
-}
-
 export default function VisitaForm({ clientId, onClose, onSaved }) {
   const { user } = useAuth()
   const [form, setForm] = useState({
     visit_date: new Date().toISOString().split('T')[0],
-    outcome: '',
-    next_step: '',
-    notes: '',
+    outcome: '', next_step: '', notes: '',
   })
   const [exemplos, setExemplos] = useState([])
   const [customExemplo, setCustomExemplo] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  function toggleExemplo(ex) {
+  const toggleExemplo = (ex) =>
     setExemplos(prev => prev.includes(ex) ? prev.filter(e => e !== ex) : [...prev, ex])
-  }
 
-  function addCustomExemplo() {
-    if (customExemplo.trim() && !exemplos.includes(customExemplo.trim())) {
-      setExemplos(prev => [...prev, customExemplo.trim()])
-      setCustomExemplo('')
-    }
+  function addCustom() {
+    const v = customExemplo.trim()
+    if (v && !exemplos.includes(v)) { setExemplos(p => [...p, v]); setCustomExemplo('') }
   }
 
   async function handleSubmit(e) {
@@ -64,122 +42,81 @@ export default function VisitaForm({ clientId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.8)' }}>
-      <div className="w-full max-w-lg flex flex-col" style={{
-        background: '#1E1E1E',
-        border: '1px solid #2A2A2A',
-        borderRadius: '20px 20px 0 0',
-        maxHeight: '92vh',
-      }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ background: '#2A2A2A' }} />
-        </div>
+    <Sheet open onClose={onClose} title="Registrar visita">
+      <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+        <Input label="Data da visita *" type="date" value={form.visit_date}
+          onChange={e => setForm(f => ({ ...f, visit_date: e.target.value }))} required />
 
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#2A2A2A' }}>
-          <h2 className="font-bold text-base" style={{ color: '#F0EAD6' }}>Registrar visita</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: '#7A7570', background: '#2A2A2A' }}>
-            <X size={16} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-5 flex-1">
-          <div>
-            <label style={labelStyle}>Data da visita *</label>
-            <input type="date" value={form.visit_date}
-              onChange={e => setForm(f => ({ ...f, visit_date: e.target.value }))}
-              style={inputStyle} required
-              onFocus={e => e.target.style.borderColor = '#C9A84C'}
-              onBlur={e => e.target.style.borderColor = '#2A2A2A'} />
+        {/* Exemplos */}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B6560' }}>
+            Exemplos apresentados
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {EXEMPLOS_SUGERIDOS.map(ex => (
+              <button key={ex} type="button" onClick={() => toggleExemplo(ex)}
+                className="text-xs px-3 py-1.5 rounded-full border transition-all"
+                style={{
+                  background: exemplos.includes(ex) ? 'rgba(201,168,76,0.12)' : 'transparent',
+                  borderColor: exemplos.includes(ex) ? 'rgba(201,168,76,0.4)' : '#252525',
+                  color: exemplos.includes(ex) ? '#C9A84C' : '#6B6560',
+                }}>
+                {exemplos.includes(ex) && '✓ '}{ex}
+              </button>
+            ))}
           </div>
 
-          <div>
-            <label style={{ ...labelStyle, display: 'block', marginBottom: '10px' }}>
-              Exemplos apresentados
-            </label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {EXEMPLOS_SUGERIDOS.map(ex => (
-                <button key={ex} type="button" onClick={() => toggleExemplo(ex)}
-                  className="text-xs px-3 py-1.5 rounded-full transition-all"
-                  style={{
-                    background: exemplos.includes(ex) ? 'rgba(201,168,76,0.2)' : '#161616',
-                    border: exemplos.includes(ex) ? '1px solid rgba(201,168,76,0.5)' : '1px solid #2A2A2A',
-                    color: exemplos.includes(ex) ? '#C9A84C' : '#7A7570',
-                  }}>
-                  {ex}
-                </button>
+          {/* Custom exemplo */}
+          <div className="flex gap-2">
+            <input value={customExemplo} onChange={e => setCustomExemplo(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustom())}
+              placeholder="Adicionar personalizado..."
+              className="flex-1 px-3.5 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }}
+              onFocus={e => e.target.style.borderColor = '#C9A84C'}
+              onBlur={e => e.target.style.borderColor = '#252525'} />
+            <button type="button" onClick={addCustom}
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#C9A84C' }}>
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {exemplos.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl flex flex-wrap gap-1.5"
+              style={{ background: '#111111', border: '1px solid #1C1C1C' }}>
+              {exemplos.map(ex => (
+                <span key={ex} onClick={() => toggleExemplo(ex)}
+                  className="text-xs px-2.5 py-1 rounded-full cursor-pointer"
+                  style={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.25)' }}>
+                  {ex} ×
+                </span>
               ))}
             </div>
-            <div className="flex gap-2">
-              <input value={customExemplo}
-                onChange={e => setCustomExemplo(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomExemplo())}
-                placeholder="Exemplo personalizado..."
-                style={{ ...inputStyle, marginTop: 0, flex: 1 }}
-                onFocus={e => e.target.style.borderColor = '#C9A84C'}
-                onBlur={e => e.target.style.borderColor = '#2A2A2A'} />
-              <button type="button" onClick={addCustomExemplo}
-                className="px-3 rounded-xl flex items-center justify-center"
-                style={{ background: '#2A2A2A', color: '#C9A84C', border: '1px solid #2A2A2A' }}>
-                <Plus size={16} />
-              </button>
-            </div>
-            {exemplos.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {exemplos.map(ex => (
-                  <span key={ex} onClick={() => toggleExemplo(ex)}
-                    className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-all"
-                    style={{ background: 'rgba(201,168,76,0.15)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.3)' }}>
-                    {ex} ×
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          <div>
-            <label style={labelStyle}>Resultado da visita</label>
-            <input value={form.outcome} onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))}
-              style={inputStyle} placeholder="Ex: Interesse confirmado, pediu proposta..."
-              onFocus={e => e.target.style.borderColor = '#C9A84C'}
-              onBlur={e => e.target.style.borderColor = '#2A2A2A'} />
-          </div>
+        <Input label="Resultado da visita" value={form.outcome}
+          onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))}
+          placeholder="Ex: Interesse confirmado, pediu proposta..." />
 
-          <div>
-            <label style={labelStyle}>Próximo passo</label>
-            <input value={form.next_step} onChange={e => setForm(f => ({ ...f, next_step: e.target.value }))}
-              style={inputStyle} placeholder="Ex: Retornar em 1 semana com proposta"
-              onFocus={e => e.target.style.borderColor = '#C9A84C'}
-              onBlur={e => e.target.style.borderColor = '#2A2A2A'} />
-          </div>
+        <Input label="Próximo passo" value={form.next_step}
+          onChange={e => setForm(f => ({ ...f, next_step: e.target.value }))}
+          placeholder="Ex: Retornar em 1 semana com proposta" />
 
-          <div>
-            <label style={labelStyle}>Observações</label>
-            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3}
-              style={{ ...inputStyle, resize: 'none' }} placeholder="Anotações adicionais..."
-              onFocus={e => e.target.style.borderColor = '#C9A84C'}
-              onBlur={e => e.target.style.borderColor = '#2A2A2A'} />
-          </div>
+        <Textarea label="Observações" value={form.notes}
+          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+          rows={3} placeholder="Anotações adicionais..." />
 
-          {error && <p className="text-xs" style={{ color: '#E88080' }}>{error}</p>}
+        {error && <p className="text-xs" style={{ color: '#E85555' }}>{error}</p>}
 
-          <div className="flex gap-3 pb-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-3 rounded-xl text-sm font-medium"
-              style={{ background: '#2A2A2A', color: '#7A7570' }}>
-              Cancelar
-            </button>
-            <button type="submit" disabled={saving}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold"
-              style={{
-                background: saving ? '#2A2A2A' : 'linear-gradient(135deg, #7B1C3A, #C9A84C)',
-                color: saving ? '#7A7570' : '#F0EAD6',
-              }}>
-              {saving ? 'Salvando...' : 'Salvar visita'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-3 pt-1">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" className="flex-1" disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar visita'}
+          </Button>
+        </div>
+      </form>
+    </Sheet>
   )
 }

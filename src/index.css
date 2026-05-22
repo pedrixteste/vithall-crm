@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 * {
   box-sizing: border-box;
@@ -9,37 +10,73 @@
 :root {
   --gold: #C9A84C;
   --gold-light: #E2C06A;
+  --gold-dim: rgba(201,168,76,0.12);
   --bordo: #7B1C3A;
   --bordo-light: #9B2D4E;
-  --bg: #0D0D0D;
-  --surface: #161616;
-  --card: #1E1E1E;
-  --border: #2A2A2A;
-  --text: #F0EAD6;
-  --text-muted: #7A7570;
+  --bg: #0A0A0A;
+  --surface: #111111;
+  --card: #1A1A1A;
+  --card-hover: #1F1F1F;
+  --border: #252525;
+  --border-subtle: #1C1C1C;
+  --text: #EFEFEF;
+  --text-secondary: #6B6560;
+  --text-muted: #333030;
+  --danger: #E85555;
+  --success: #4ADE80;
+  --warning: #E8834A;
+  --info: #60A5FA;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-gold: 0 4px 20px rgba(201,168,76,0.15);
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-#root {
-  min-height: 100vh;
-}
+#root { min-height: 100vh; }
 
-/* Scrollbar customizada */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg); }
+/* Tipografia */
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2; }
+h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+h3 { font-size: 15px; font-weight: 600; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* Input autofill dark */
+/* Inputs autofill */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text);
-  -webkit-box-shadow: 0 0 0px 1000px #1E1E1E inset;
-  transition: background-color 5000s ease-in-out 0s;
+  -webkit-box-shadow: 0 0 0px 1000px var(--card) inset;
 }
+
+/* Animações */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeIn 0.2s ease-out; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1); }

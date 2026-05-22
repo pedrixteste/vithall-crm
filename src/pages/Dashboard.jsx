@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Users, MapPin, CheckSquare, TrendingUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Card, CardHeader } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -14,147 +16,125 @@ export default function Dashboard() {
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
-    const [clientsRes, visitsRes, tasksRes, closedRes, recentVisitsRes, pendingTasksRes] = await Promise.all([
+    const [c, v, t, cl, rv, pt] = await Promise.all([
       supabase.from('clients').select('id', { count: 'exact' }),
       supabase.from('visits').select('id', { count: 'exact' }),
       supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false),
       supabase.from('clients').select('id', { count: 'exact' }).eq('pipeline_stage', 'fechado'),
-      supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(5),
-      supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(5),
+      supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4),
+      supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4),
     ])
-    setStats({ clients: clientsRes.count || 0, visits: visitsRes.count || 0, tasks: tasksRes.count || 0, closed: closedRes.count || 0 })
-    setRecentVisits(recentVisitsRes.data || [])
-    setPendingTasks(pendingTasksRes.data || [])
+    setStats({ clients: c.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
+    setRecentVisits(rv.data || [])
+    setPendingTasks(pt.data || [])
     setLoading(false)
   }
 
-  const cards = [
-    { label: 'Clientes', value: stats.clients, icon: Users, to: '/clientes', accent: '#C9A84C' },
-    { label: 'Visitas', value: stats.visits, icon: MapPin, to: '/clientes', accent: '#9B5DE5' },
-    { label: 'Tarefas', value: stats.tasks, icon: CheckSquare, to: '/tarefas', accent: '#E8834A' },
-    { label: 'Fechados', value: stats.closed, icon: TrendingUp, to: '/pipeline', accent: '#4ADE80' },
+  const statCards = [
+    { label: 'Clientes', value: stats.clients, icon: Users, accent: '#C9A84C', to: '/clientes' },
+    { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
+    { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
+    { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
   ]
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+      <div className="w-7 h-7 rounded-full border-2 animate-spin"
         style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
     </div>
   )
 
   return (
-    <div>
+    <div className="animate-in space-y-5">
       {/* Saudação */}
-      <div className="mb-7">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>
-          Bem-vindo de volta
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
+          Olá, {profile?.name?.split(' ')[0]}
         </p>
-        <h1 className="text-2xl font-bold" style={{ color: '#F0EAD6' }}>
-          {profile?.name?.split(' ')[0]} 👋
-        </h1>
+        <h1 style={{ color: '#EFEFEF' }}>Resumo do dia</h1>
       </div>
 
-      {/* Cards de estatísticas */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        {cards.map(({ label, value, icon: Icon, to, accent }) => (
-          <Link key={label} to={to}
-            className="rounded-2xl p-4 transition-all active:scale-95"
-            style={{
-              background: '#1E1E1E',
-              border: '1px solid #2A2A2A',
-            }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: `${accent}15`, border: `1px solid ${accent}25` }}>
-                <Icon size={17} style={{ color: accent }} />
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-2.5">
+        {statCards.map(({ label, value, icon: Icon, accent, to }) => (
+          <Link key={label} to={to}>
+            <Card hover className="p-4">
+              <div className="flex items-start justify-between mb-5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: `${accent}14` }}>
+                  <Icon size={16} style={{ color: accent }} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: accent, opacity: 0.6 }}>
+                  Total
+                </span>
               </div>
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ background: `${accent}10`, color: accent }}>
-                ↑
-              </span>
-            </div>
-            <p className="text-3xl font-bold mb-1" style={{ color: '#F0EAD6' }}>{value}</p>
-            <p className="text-xs" style={{ color: '#7A7570' }}>{label}</p>
+              <p className="text-3xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-1px' }}>
+                {value}
+              </p>
+              <p className="text-xs mt-0.5 font-medium" style={{ color: '#6B6560' }}>{label}</p>
+            </Card>
           </Link>
         ))}
       </div>
 
-      {/* Divider com label */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px" style={{ background: '#2A2A2A' }} />
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#3A3530' }}>Atividade</span>
-        <div className="flex-1 h-px" style={{ background: '#2A2A2A' }} />
-      </div>
-
       {/* Visitas recentes */}
-      <div className="rounded-2xl mb-4 overflow-hidden" style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
-        <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: '#2A2A2A' }}>
+      <Card>
+        <CardHeader>
           <div className="flex items-center gap-2">
-            <MapPin size={14} style={{ color: '#C9A84C' }} />
-            <span className="text-sm font-semibold" style={{ color: '#F0EAD6' }}>Visitas recentes</span>
+            <MapPin size={13} style={{ color: '#C9A84C' }} />
+            <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas recentes</span>
           </div>
-          <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas →</Link>
-        </div>
+          <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+        </CardHeader>
         {recentVisits.length === 0 ? (
-          <div className="py-8 text-center">
-            <MapPin size={24} className="mx-auto mb-2" style={{ color: '#2A2A2A' }} />
-            <p className="text-xs" style={{ color: '#3A3530' }}>Nenhuma visita registrada</p>
-          </div>
+          <div className="py-8 text-center text-xs" style={{ color: '#333030' }}>Nenhuma visita registrada</div>
         ) : (
-          <ul>
-            {recentVisits.map((v, i) => (
-              <li key={v.id} className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: i < recentVisits.length - 1 ? '1px solid #222' : 'none' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
-                  <span className="text-sm font-medium" style={{ color: '#F0EAD6' }}>{v.clients?.company_name}</span>
+          <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+            {recentVisits.map(v => (
+              <li key={v.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
+                  <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
                 </div>
-                <span className="text-xs" style={{ color: '#7A7570' }}>
-                  {new Date(v.visit_date).toLocaleDateString('pt-BR')}
+                <span className="text-xs tabular-nums" style={{ color: '#6B6560' }}>
+                  {new Date(v.visit_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                 </span>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
       {/* Tarefas pendentes */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
-        <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: '#2A2A2A' }}>
+      <Card>
+        <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckSquare size={14} style={{ color: '#E8834A' }} />
-            <span className="text-sm font-semibold" style={{ color: '#F0EAD6' }}>Tarefas pendentes</span>
+            <CheckSquare size={13} style={{ color: '#E8834A' }} />
+            <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
           </div>
-          <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas →</Link>
-        </div>
+          <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+        </CardHeader>
         {pendingTasks.length === 0 ? (
-          <div className="py-8 text-center">
-            <CheckSquare size={24} className="mx-auto mb-2" style={{ color: '#2A2A2A' }} />
-            <p className="text-xs" style={{ color: '#3A3530' }}>Nenhuma tarefa pendente</p>
-          </div>
+          <div className="py-8 text-center text-xs" style={{ color: '#333030' }}>Nenhuma tarefa pendente 🎉</div>
         ) : (
-          <ul>
-            {pendingTasks.map((t, i) => (
-              <li key={t.id} className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: i < pendingTasks.length - 1 ? '1px solid #222' : 'none' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#E8834A' }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#F0EAD6' }}>{t.title}</p>
-                    <p className="text-xs" style={{ color: '#7A7570' }}>{t.clients?.company_name}</p>
-                  </div>
+          <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+            {pendingTasks.map(t => (
+              <li key={t.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
                 </div>
                 {t.due_date && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(232,131,74,0.1)', color: '#E8834A' }}>
-                    {new Date(t.due_date).toLocaleDateString('pt-BR')}
-                  </span>
+                  <Badge variant="orange">
+                    {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </Badge>
                 )}
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, ChevronRight, X, Users } from 'lucide-react'
+import { Plus, Search, ChevronRight, X } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
-
-const STAGES = {
-  lead: { label: 'Lead', color: '#7A7570', bg: 'rgba(122,117,112,0.12)' },
-  negociacao: { label: 'Em negociação', color: '#C9A84C', bg: 'rgba(201,168,76,0.12)' },
-  proposta: { label: 'Proposta', color: '#9B5DE5', bg: 'rgba(155,93,229,0.12)' },
-  fechado: { label: 'Fechado', color: '#4ADE80', bg: 'rgba(74,222,128,0.12)' },
-}
+import { Card } from '../components/ui/Card'
+import { Badge, STAGE_BADGES } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
 
 export default function ClientesPage() {
   const [clients, setClients] = useState([])
@@ -36,88 +32,82 @@ export default function ClientesPage() {
   )
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="animate-in space-y-4">
+      <div className="flex items-end justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
-          <h1 className="text-2xl font-bold" style={{ color: '#F0EAD6' }}>Clientes</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
+          <h1 style={{ color: '#EFEFEF' }}>Clientes</h1>
         </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95"
-          style={{
-            background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)',
-            color: '#F0EAD6',
-            boxShadow: '0 4px 15px rgba(201,168,76,0.2)'
-          }}>
-          <Plus size={16} /> Novo
-        </button>
+        <Button onClick={() => setShowForm(true)} size="md">
+          <Plus size={15} /> Novo
+        </Button>
       </div>
 
       {/* Busca */}
-      <div className="relative mb-5">
-        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#3A3530' }} />
+      <div className="relative">
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#333030' }} />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar empresa ou contato..."
-          className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
-          style={{
-            background: '#1E1E1E',
-            border: '1px solid #2A2A2A',
-            color: '#F0EAD6',
-          }}
+          className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
+          style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#EFEFEF' }}
           onFocus={e => e.target.style.borderColor = '#C9A84C'}
-          onBlur={e => e.target.style.borderColor = '#2A2A2A'}
+          onBlur={e => e.target.style.borderColor = '#252525'}
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
-            <X size={14} style={{ color: '#7A7570' }} />
+          <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+            <X size={13} style={{ color: '#6B6560' }} />
           </button>
         )}
       </div>
 
+      {/* Contador */}
+      {!loading && (
+        <p className="text-xs" style={{ color: '#333030' }}>
+          {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
+        </p>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-8 h-8 rounded-full border-2 animate-spin"
+          <div className="w-7 h-7 rounded-full border-2 animate-spin"
             style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-            style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
-            <Users size={24} style={{ color: '#3A3530' }} />
-          </div>
-          <p className="text-sm font-medium mb-1" style={{ color: '#7A7570' }}>Nenhum cliente encontrado</p>
-          <p className="text-xs" style={{ color: '#3A3530' }}>Adicione seu primeiro cliente</p>
+          <p className="text-3xl mb-3">🏢</p>
+          <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum cliente encontrado</p>
+          <p className="text-xs" style={{ color: '#333030' }}>Toque em "Novo" para adicionar</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(client => {
-            const stage = STAGES[client.pipeline_stage] || STAGES.lead
-            return (
-              <button key={client.id} onClick={() => setSelected(client)}
-                className="w-full rounded-2xl p-4 flex items-center justify-between transition-all active:scale-98 text-left"
-                style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.15)' }}>
-                    <span className="font-bold text-sm" style={{ color: '#C9A84C' }}>
-                      {client.company_name?.[0]?.toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-1" style={{ color: '#F0EAD6' }}>{client.company_name}</p>
-                    <p className="text-xs mb-1.5" style={{ color: '#7A7570' }}>{client.contact_name}</p>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{ background: stage.bg, color: stage.color }}>
-                      {stage.label}
-                    </span>
-                  </div>
+          {filtered.map(client => (
+            <Card key={client.id} hover onClick={() => setSelected(client)}>
+              <div className="flex items-center gap-3 p-4">
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                  style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.12)' }}>
+                  {client.company_name?.[0]?.toUpperCase()}
                 </div>
-                <ChevronRight size={16} style={{ color: '#3A3530' }} />
-              </button>
-            )
-          })}
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
+                    {client.company_name}
+                  </p>
+                  {client.contact_name && (
+                    <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
+                      {client.contact_name} · {client.contact_role}
+                    </p>
+                  )}
+                  <div className="mt-2">{STAGE_BADGES[client.pipeline_stage]}</div>
+                </div>
+
+                <ChevronRight size={15} style={{ color: '#2A2A2A', flexShrink: 0 }} />
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 

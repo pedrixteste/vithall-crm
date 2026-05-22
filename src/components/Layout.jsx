@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, LogOut, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { LayoutDashboard, Users, GitBranch, CheckSquare, LogOut } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,115 +12,81 @@ const navItems = [
 export default function Layout({ children }) {
   const { profile, signOut } = useAuth()
   const location = useLocation()
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const isActive = (to) => location.pathname === to
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0D0D0D' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#0A0A0A' }}>
 
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b" style={{
-        background: '#161616',
-        borderColor: '#2A2A2A',
-      }}>
-        <div className="flex items-center gap-3">
-          <div className="h-8 rounded-lg overflow-hidden flex items-center justify-center px-2"
-            style={{ background: '#fff' }}>
-            <img src="/logo.png" alt="Vithall" className="h-6 object-contain" />
+      <header className="flex items-center justify-between px-4 h-14 border-b flex-shrink-0 sticky top-0 z-40"
+        style={{ background: 'rgba(10,10,10,0.95)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)' }}>
+
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 px-2 rounded-lg flex items-center" style={{ background: '#fff' }}>
+            <img src="/logo.png" alt="Vithall" className="h-5 object-contain" />
           </div>
-          <span className="font-bold text-sm" style={{ color: '#C9A84C', letterSpacing: '0.05em' }}>
-            CRM
-          </span>
+          <span className="text-xs font-bold tracking-[0.1em] uppercase" style={{ color: '#C9A84C' }}>CRM</span>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs hidden sm:block" style={{ color: '#7A7570' }}>
-            {profile?.name}
-          </span>
+          {profile?.name && (
+            <span className="text-xs hidden sm:block" style={{ color: '#6B6560' }}>
+              {profile.name.split(' ')[0]}
+            </span>
+          )}
           <button onClick={signOut}
-            className="p-2 rounded-lg transition-all"
-            style={{ color: '#7A7570' }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={{ color: '#6B6560', background: '#1A1A1A', border: '1px solid #252525' }}
             onMouseEnter={e => e.currentTarget.style.color = '#C9A84C'}
-            onMouseLeave={e => e.currentTarget.style.color = '#7A7570'}
-            title="Sair">
-            <LogOut size={18} />
-          </button>
-          <button className="sm:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}
-            style={{ color: '#7A7570' }}>
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            onMouseLeave={e => e.currentTarget.style.color = '#6B6560'}>
+            <LogOut size={15} />
           </button>
         </div>
       </header>
 
-      <div className="flex flex-1">
-        {/* Sidebar desktop */}
-        <aside className="hidden sm:flex flex-col w-56 pt-6 border-r" style={{
-          background: '#161616',
-          borderColor: '#2A2A2A',
-        }}>
-          <p className="px-5 pb-3 text-xs font-semibold uppercase tracking-widest" style={{ color: '#3A3530' }}>
-            Menu
+      {/* Sidebar desktop */}
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden sm:flex flex-col w-52 border-r flex-shrink-0 pt-4"
+          style={{ background: '#0A0A0A', borderColor: '#1C1C1C' }}>
+          <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#2A2A2A' }}>
+            Navegação
           </p>
           {navItems.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}
-              className="flex items-center gap-3 mx-3 px-3 py-3 rounded-xl text-sm font-medium transition-all mb-1"
+              className="flex items-center gap-3 mx-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5"
               style={{
-                color: isActive(to) ? '#C9A84C' : '#7A7570',
+                color: isActive(to) ? '#C9A84C' : '#6B6560',
                 background: isActive(to) ? 'rgba(201,168,76,0.08)' : 'transparent',
-                border: isActive(to) ? '1px solid rgba(201,168,76,0.15)' : '1px solid transparent',
+                borderLeft: isActive(to) ? '2px solid #C9A84C' : '2px solid transparent',
               }}>
-              <Icon size={17} />
+              <Icon size={16} />
               {label}
             </Link>
           ))}
         </aside>
 
-        {/* Mobile overlay menu */}
-        {menuOpen && (
-          <div className="sm:hidden fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.7)' }}
-            onClick={() => setMenuOpen(false)}>
-            <div className="w-64 h-full pt-6 border-r" style={{ background: '#161616', borderColor: '#2A2A2A' }}
-              onClick={e => e.stopPropagation()}>
-              <div className="px-5 pb-4 border-b mb-3" style={{ borderColor: '#2A2A2A' }}>
-                <p className="font-semibold text-sm" style={{ color: '#F0EAD6' }}>{profile?.name}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#7A7570' }}>Vendedor</p>
-              </div>
-              {navItems.map(({ to, label, icon: Icon }) => (
-                <Link key={to} to={to}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 mx-3 px-3 py-3 rounded-xl text-sm font-medium transition-all mb-1"
-                  style={{
-                    color: isActive(to) ? '#C9A84C' : '#7A7570',
-                    background: isActive(to) ? 'rgba(201,168,76,0.08)' : 'transparent',
-                  }}>
-                  <Icon size={17} />
-                  {label}
-                </Link>
-              ))}
-            </div>
+        {/* Conteúdo */}
+        <main className="flex-1 overflow-y-auto pb-20 sm:pb-6">
+          <div className="max-w-lg mx-auto px-4 pt-5">
+            {children}
           </div>
-        )}
-
-        {/* Conteúdo principal */}
-        <main className="flex-1 p-5 overflow-auto pb-24 sm:pb-5">
-          {children}
         </main>
       </div>
 
       {/* Bottom nav mobile */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 flex border-t" style={{
-        background: '#161616',
-        borderColor: '#2A2A2A',
-      }}>
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to}
-            className="flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-all"
-            style={{ color: isActive(to) ? '#C9A84C' : '#3A3530' }}>
-            <Icon size={20} />
-            <span style={{ fontSize: '10px' }}>{label}</span>
-          </Link>
-        ))}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t"
+        style={{ background: 'rgba(10,10,10,0.97)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)' }}>
+        <div className="flex">
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to}
+              className="flex-1 flex flex-col items-center py-2.5 gap-1 transition-all"
+              style={{ color: isActive(to) ? '#C9A84C' : '#333030' }}>
+              <Icon size={20} strokeWidth={isActive(to) ? 2.5 : 1.8} />
+              <span className="text-[10px] font-semibold">{label}</span>
+            </Link>
+          ))}
+        </div>
       </nav>
     </div>
   )
