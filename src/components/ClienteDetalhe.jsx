@@ -161,8 +161,8 @@ export default function ClienteDetalhe({ client, onBack }) {
               <div className="flex items-center gap-2.5 text-sm">
                 <TrendingUp size={14} style={{ color: '#C9A84C' }} />
                 <span style={{ color: '#6B6560' }}>Origem: </span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: `${origin.color}18`, color: origin.color, border: `1px solid ${origin.color}30` }}>
+                <span className="text-xs font-semibold rounded-full"
+                  style={{ padding: '4px 12px', background: `${origin.color}18`, color: origin.color, border: `1px solid ${origin.color}30` }}>
                   {origin.label}
                 </span>
               </div>
@@ -172,8 +172,8 @@ export default function ClienteDetalhe({ client, onBack }) {
                 <Flag size={14} style={{ color: '#C9A84C' }} />
                 <span style={{ color: '#6B6560' }}>Estagio: </span>
                 <button onClick={() => setEditingStage(e => !e)}
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full transition-all"
-                  style={{ background: stage.bg, color: stage.color, border: `1px solid ${stage.color}40`, cursor: 'pointer' }}>
+                  className="text-xs font-semibold rounded-full transition-all"
+                  style={{ padding: '4px 12px', background: stage.bg, color: stage.color, border: `1px solid ${stage.color}40`, cursor: 'pointer' }}>
                   {stage.label} ▾
                 </button>
               </div>
@@ -181,8 +181,9 @@ export default function ClienteDetalhe({ client, onBack }) {
                 <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
                   {Object.entries(STAGES).map(([key, s]) => (
                     <button key={key} onClick={() => updateStage(key)}
-                      className="text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
+                      className="text-xs font-semibold rounded-full transition-all"
                       style={{
+                        padding: '5px 12px',
                         background: currentClient.matricula_stage === key ? s.bg : 'transparent',
                         color: s.color,
                         border: `1px solid ${s.color}${currentClient.matricula_stage === key ? '50' : '25'}`,

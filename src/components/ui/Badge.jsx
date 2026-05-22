@@ -14,7 +14,7 @@ export function Badge({ children, variant = 'muted', className }) {
   const v = variants[variant]
   return (
     <span
-      className={cn('inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full border', className)}
+      className={cn('inline-flex items-center text-[11px] font-semibold px-3 py-1 rounded-full border', className)}
       style={{ color: v.color, background: v.bg, borderColor: v.border }}
     >
       {children}
