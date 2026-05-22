@@ -67,8 +67,8 @@ export default function Layout({ children }) {
         </aside>
 
         {/* Conteúdo */}
-        <main className="flex-1 overflow-y-auto pb-20 sm:pb-6">
-          <div className="max-w-lg mx-auto px-4 pt-5">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 sm:pb-6">
+          <div className="w-full max-w-lg mx-auto px-4 pt-5">
             {children}
           </div>
         </main>

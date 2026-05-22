@@ -49,7 +49,7 @@ export default function Dashboard() {
       {/* Saudação */}
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
-          Olá, {profile?.name?.split(' ')[0]}
+          Olá, {profile?.name?.split(' ')[0]?.split('@')[0]}
         </p>
         <h1 style={{ color: '#EFEFEF' }}>Resumo do dia</h1>
       </div>
@@ -57,22 +57,16 @@ export default function Dashboard() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-2.5">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
-          <Link key={label} to={to}>
+          <Link key={label} to={to} className="block min-w-0">
             <Card hover className="p-4">
-              <div className="flex items-start justify-between mb-5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: `${accent}14` }}>
-                  <Icon size={16} style={{ color: accent }} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider"
-                  style={{ color: accent, opacity: 0.6 }}>
-                  Total
-                </span>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-4"
+                style={{ background: `${accent}14` }}>
+                <Icon size={16} style={{ color: accent }} />
               </div>
               <p className="text-3xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-1px' }}>
                 {value}
               </p>
-              <p className="text-xs mt-0.5 font-medium" style={{ color: '#6B6560' }}>{label}</p>
+              <p className="text-xs mt-1 font-medium" style={{ color: '#6B6560' }}>{label}</p>
             </Card>
           </Link>
         ))}
