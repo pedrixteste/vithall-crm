@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Badge } from '../components/ui/Badge'
-import { Card } from '../components/ui/Card'
+import ClienteDetalhe from '../components/ClienteDetalhe'
+import { ChevronRight } from 'lucide-react'
 
 const STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda',   badge: 'muted',  dot: '#6B6560' },
@@ -14,6 +15,7 @@ const STAGES = [
 export default function PipelinePage() {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
 
   useEffect(() => { fetchClients() }, [])
 
@@ -23,12 +25,11 @@ export default function PipelinePage() {
     setLoading(false)
   }
 
-  async function moveStage(clientId, newStage) {
-    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', clientId)
-    fetchClients()
-  }
-
   const byStage = (key) => clients.filter(c => c.matricula_stage === key)
+
+  if (selected) return (
+    <ClienteDetalhe client={selected} onBack={() => { setSelected(null); fetchClients() }} />
+  )
 
   if (loading) return (
     <div className="flex justify-center py-16">
@@ -44,23 +45,27 @@ export default function PipelinePage() {
         <h1 style={{ color: '#EFEFEF' }}>Funil de Matricula</h1>
       </div>
 
-      {/* Barra de progresso visual */}
+      {/* Barra de progresso */}
       <div className="flex rounded-xl overflow-hidden h-2 gap-px" style={{ background: '#111' }}>
         {STAGES.map(s => {
           const count = byStage(s.key).length
           const pct = clients.length ? (count / clients.length) * 100 : 0
           return (
-            <div key={s.key} className="transition-all" style={{ width: `${pct}%`, background: s.dot, minWidth: pct > 0 ? '4px' : 0 }} />
+            <div key={s.key} className="transition-all"
+              style={{ width: `${pct}%`, background: s.dot, minWidth: pct > 0 ? '4px' : 0 }} />
           )
         })}
       </div>
 
-      {/* Colunas */}
-      <div className="space-y-4">
+      {/* Etapas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {STAGES.map(stage => (
-          <div key={stage.key} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #303030', background: '#161616' }}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#222' }}>
+          <div key={stage.key} className="rounded-2xl overflow-hidden"
+            style={{ border: '1px solid #303030', background: '#161616' }}>
+
+            {/* Header da etapa */}
+            <div className="flex items-center justify-between border-b"
+              style={{ padding: '14px 20px', borderColor: '#222' }}>
               <div className="flex items-center gap-2.5">
                 <div className="w-2 h-2 rounded-full" style={{ background: stage.dot }} />
                 <Badge variant={stage.badge}>{stage.label}</Badge>
@@ -71,36 +76,33 @@ export default function PipelinePage() {
             </div>
 
             {byStage(stage.key).length === 0 ? (
-              <p className="text-xs text-center py-5" style={{ color: '#252525' }}>Sem clientes</p>
+              <p className="text-xs text-center" style={{ padding: '20px 0', color: '#252525' }}>
+                Sem clientes
+              </p>
             ) : (
-              <div className="p-3 space-y-2.5">
+              <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {byStage(stage.key).map(client => (
-                  <div key={client.id} className="rounded-xl p-5"
-                    style={{ background: '#1A1A1A', border: '1px solid #2A2A2A' }}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: `${stage.dot}12`, color: stage.dot }}>
-                        {client.company_name?.[0]?.toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{client.company_name}</p>
-                        {client.contact_name && (
-                          <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>{client.contact_name}</p>
-                        )}
-                      </div>
+                  <button
+                    key={client.id}
+                    onClick={() => setSelected(client)}
+                    className="w-full text-left rounded-xl flex items-center gap-3 transition-all active:scale-[0.98]"
+                    style={{ padding: '14px 16px', background: '#1A1A1A', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{ background: `${stage.dot}15`, color: stage.dot }}>
+                      {(client.contact_name || client.company_name)?.[0]?.toUpperCase()}
                     </div>
-
-                    {/* Mover para */}
-                    <div className="flex gap-1.5 flex-wrap">
-                      {STAGES.filter(s => s.key !== stage.key).map(s => (
-                        <button key={s.key} onClick={() => moveStage(client.id, s.key)}
-                          className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
-                          style={{ background: `${s.dot}10`, color: s.dot, border: `1px solid ${s.dot}20` }}>
-                          → {s.label}
-                        </button>
-                      ))}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
+                        {client.contact_name || client.company_name}
+                      </p>
+                      {client.contact_name && client.company_name && (
+                        <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
+                          {client.company_name}
+                        </p>
+                      )}
                     </div>
-                  </div>
+                    <ChevronRight size={14} style={{ color: '#333030', flexShrink: 0 }} />
+                  </button>
                 ))}
               </div>
             )}
