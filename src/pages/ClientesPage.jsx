@@ -42,6 +42,8 @@ export default function ClientesPage() {
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
   const [filterCity, setFilterCity] = useState('')
+  const [filterHasDone, setFilterHasDone]   = useState([])
+  const [filterNotDone, setFilterNotDone]   = useState([])
 
   useEffect(() => { fetchClients() }, [profile])
 
@@ -64,9 +66,15 @@ export default function ClientesPage() {
     setFilterFrom('')
     setFilterTo('')
     setFilterCity('')
+    setFilterHasDone([])
+    setFilterNotDone([])
   }
 
-  const activeFilters = [filterStage, filterPeriod, filterCity].filter(Boolean).length
+  const activeFilters = [
+    filterStage, filterPeriod, filterCity,
+    filterHasDone.length > 0 ? 'hasDone' : '',
+    filterNotDone.length > 0 ? 'notDone' : '',
+  ].filter(Boolean).length
 
   // Cidades unicas normalizadas (case-insensitive)
   const uniqueCities = (() => {
@@ -85,8 +93,12 @@ export default function ClientesPage() {
       c.company_name?.toLowerCase().includes(search.toLowerCase()) ||
       c.contact_name?.toLowerCase().includes(search.toLowerCase())
 
-    const matchesStage = !filterStage || c.matricula_stage === filterStage
-    const matchesCity  = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
+    const matchesStage   = !filterStage || c.matricula_stage === filterStage
+    const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
+    const matchesHasDone = filterHasDone.length === 0 ||
+      filterHasDone.some(t => (c.matriculas || []).includes(t))
+    const matchesNotDone = filterNotDone.length === 0 ||
+      filterNotDone.every(t => !(c.matriculas || []).includes(t))
 
     let matchesDate = true
     if (filterPeriod) {
@@ -107,7 +119,7 @@ export default function ClientesPage() {
       }
     }
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone
   })
 
   if (selected) return (
@@ -214,6 +226,52 @@ export default function ClientesPage() {
                 </div>
               </>
             )}
+
+            {/* Fez o treinamento */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+              Fez o treinamento
+            </p>
+            <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+              {['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall'].map(t => {
+                const active = filterHasDone.includes(t)
+                return (
+                  <button key={t} type="button"
+                    onClick={() => setFilterHasDone(prev => active ? prev.filter(x => x !== t) : [...prev, t])}
+                    className="text-xs font-semibold rounded-full transition-all"
+                    style={{
+                      padding: '5px 12px',
+                      background: active ? 'rgba(74,222,128,0.12)' : 'transparent',
+                      border: `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
+                      color: active ? '#4ADE80' : '#6B6560',
+                    }}>
+                    {active ? '✓ ' : ''}{t}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Ainda nao fez */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+              Ainda nao fez
+            </p>
+            <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+              {['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall'].map(t => {
+                const active = filterNotDone.includes(t)
+                return (
+                  <button key={t} type="button"
+                    onClick={() => setFilterNotDone(prev => active ? prev.filter(x => x !== t) : [...prev, t])}
+                    className="text-xs font-semibold rounded-full transition-all"
+                    style={{
+                      padding: '5px 12px',
+                      background: active ? 'rgba(232,131,74,0.12)' : 'transparent',
+                      border: `1px solid ${active ? 'rgba(232,131,74,0.4)' : '#2A2A2A'}`,
+                      color: active ? '#E8834A' : '#6B6560',
+                    }}>
+                    {active ? '✗ ' : ''}{t}
+                  </button>
+                )
+              })}
+            </div>
 
             {/* Periodo */}
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
