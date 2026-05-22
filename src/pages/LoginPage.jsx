@@ -40,14 +40,13 @@ export default function LoginPage() {
       <div className="w-full max-w-sm relative z-10">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center relative"
+          <div className="w-36 mx-auto mb-5 rounded-2xl overflow-hidden flex items-center justify-center p-3"
             style={{
-              background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)',
-              boxShadow: '0 0 40px rgba(201,168,76,0.2), 0 0 80px rgba(123,28,58,0.15)'
+              background: '#fff',
+              boxShadow: '0 0 40px rgba(201,168,76,0.15), 0 0 80px rgba(123,28,58,0.1)'
             }}>
-            <span className="text-white font-bold text-3xl">V</span>
+            <img src="/logo.png" alt="Vithall" className="w-full object-contain" />
           </div>
-          <h1 className="text-3xl font-bold mb-1" style={{ color: '#F0EAD6' }}>Vithall CRM</h1>
           <p style={{ color: '#7A7570', fontSize: '14px' }}>Gestão comercial de alta performance</p>
         </div>
 

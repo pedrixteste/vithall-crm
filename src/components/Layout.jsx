@@ -26,12 +26,12 @@ export default function Layout({ children }) {
         borderColor: '#2A2A2A',
       }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)' }}>
-            <span className="text-white font-bold text-sm">V</span>
+          <div className="h-8 rounded-lg overflow-hidden flex items-center justify-center px-2"
+            style={{ background: '#fff' }}>
+            <img src="/logo.png" alt="Vithall" className="h-6 object-contain" />
           </div>
-          <span className="font-bold text-base" style={{ color: '#F0EAD6', letterSpacing: '-0.01em' }}>
-            Vithall <span style={{ color: '#C9A84C' }}>CRM</span>
+          <span className="font-bold text-sm" style={{ color: '#C9A84C', letterSpacing: '0.05em' }}>
+            CRM
           </span>
         </div>
 
