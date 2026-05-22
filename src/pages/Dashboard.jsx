@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp } from 'lucide-react'
+import { Users, MapPin, CheckSquare, TrendingUp, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
+import ClienteForm from '../components/ClienteForm'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const [recentVisits, setRecentVisits] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showClienteForm, setShowClienteForm] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -60,100 +62,134 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+    <>
+      <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
 
-      {/* Saudação */}
-      <div className="pt-2">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 capitalize" style={{ color: '#C9A84C' }}>
-          {getDateLabel()}
-        </p>
-        <h1 style={{ color: '#EFEFEF' }}>{getGreeting()}{firstName ? `, ${firstName}` : ''} 👋</h1>
-        <p className="text-sm mt-2" style={{ color: '#6B6560' }}>Veja o resumo de hoje</p>
-      </div>
+        {/* Saudação */}
+        <div className="pt-2">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 capitalize" style={{ color: '#C9A84C' }}>
+            {getDateLabel()}
+          </p>
+          <h1 style={{ color: '#EFEFEF' }}>{getGreeting()}{firstName ? `, ${firstName}` : ''} 👋</h1>
+          <p className="text-sm mt-2" style={{ color: '#6B6560' }}>Veja o resumo de hoje</p>
+        </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2" style={{ gap: '16px' }}>
-        {statCards.map(({ label, value, icon: Icon, accent, to }) => (
-          <Link key={label} to={to} className="block min-w-0">
-            <div className="rounded-2xl border p-8 transition-all active:scale-[0.98] cursor-pointer"
-              style={{ background: '#161616', borderColor: `${accent}28` }}>
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-8"
-                style={{ background: `${accent}18` }}>
-                <Icon size={19} style={{ color: accent }} />
+        {/* Stats grid */}
+        <div className="grid grid-cols-2" style={{ gap: '16px' }}>
+          {statCards.map(({ label, value, icon: Icon, accent, to }) => (
+            <Link key={label} to={to} className="block min-w-0">
+              <div className="rounded-2xl border transition-all active:scale-[0.98] cursor-pointer"
+                style={{ background: '#161616', borderColor: `${accent}28`, padding: '28px 20px' }}>
+                <div className="rounded-xl flex items-center justify-center"
+                  style={{ background: `${accent}18`, width: '44px', height: '44px', marginBottom: '24px' }}>
+                  <Icon size={19} style={{ color: accent }} />
+                </div>
+                <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px', marginBottom: '4px' }}>
+                  {value}
+                </p>
+                <p className="text-xs font-medium" style={{ color: '#6B6560' }}>{label}</p>
               </div>
-              <p className="text-4xl font-bold tabular-nums mb-1" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
-                {value}
-              </p>
-              <p className="text-xs font-medium" style={{ color: '#6B6560' }}>{label}</p>
+            </Link>
+          ))}
+        </div>
+
+        {/* Visitas recentes */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2.5">
+              <MapPin size={14} style={{ color: '#C9A84C' }} />
+              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas recentes</span>
             </div>
-          </Link>
-        ))}
+            <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+          </CardHeader>
+          {recentVisits.length === 0 ? (
+            <div className="text-center" style={{ padding: '48px 0' }}>
+              <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
+              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
+            </div>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+              {recentVisits.map(v => (
+                <li key={v.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
+                    <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
+                  </div>
+                  <span className="text-xs tabular-nums" style={{ color: '#6B6560' }}>
+                    {new Date(v.visit_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {/* Tarefas pendentes */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2.5">
+              <CheckSquare size={14} style={{ color: '#E8834A' }} />
+              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
+            </div>
+            <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+          </CardHeader>
+          {pendingTasks.length === 0 ? (
+            <div className="text-center" style={{ padding: '48px 0' }}>
+              <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🎉</p>
+              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
+            </div>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+              {pendingTasks.map(t => (
+                <li key={t.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                    <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
+                  </div>
+                  {t.due_date && (
+                    <Badge variant="orange">
+                      {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
       </div>
 
-      {/* Visitas recentes */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2.5">
-            <MapPin size={14} style={{ color: '#C9A84C' }} />
-            <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas recentes</span>
-          </div>
-          <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
-        </CardHeader>
-        {recentVisits.length === 0 ? (
-          <div className="text-center" style={{ padding: '48px 0' }}>
-            <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
-            <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
-          </div>
-        ) : (
-          <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
-            {recentVisits.map(v => (
-              <li key={v.id} style={{ padding: '22px 28px' }} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
-                  <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
-                </div>
-                <span className="text-xs tabular-nums" style={{ color: '#6B6560' }}>
-                  {new Date(v.visit_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      {/* FAB - Novo Cliente */}
+      <button
+        onClick={() => setShowClienteForm(true)}
+        style={{
+          position: 'fixed',
+          bottom: '88px',
+          right: '20px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '18px',
+          background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
+          boxShadow: '0 4px 20px rgba(201,168,76,0.35)',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 30,
+        }}
+        onTouchStart={e => e.currentTarget.style.transform = 'scale(0.93)'}
+        onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <Plus size={24} color="#F0EAD6" strokeWidth={2.5} />
+      </button>
 
-      {/* Tarefas pendentes */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2.5">
-            <CheckSquare size={14} style={{ color: '#E8834A' }} />
-            <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
-          </div>
-          <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
-        </CardHeader>
-        {pendingTasks.length === 0 ? (
-          <div className="text-center" style={{ padding: '48px 0' }}>
-            <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🎉</p>
-            <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
-          </div>
-        ) : (
-          <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
-            {pendingTasks.map(t => (
-              <li key={t.id} style={{ padding: '22px 28px' }} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
-                  <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
-                </div>
-                {t.due_date && (
-                  <Badge variant="orange">
-                    {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  </Badge>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-    </div>
+      {showClienteForm && (
+        <ClienteForm
+          onClose={() => setShowClienteForm(false)}
+          onSaved={() => { setShowClienteForm(false); fetchData() }}
+        />
+      )}
+    </>
   )
 }
