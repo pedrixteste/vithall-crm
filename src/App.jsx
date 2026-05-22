@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import ClientesPage from './pages/ClientesPage'
 import PipelinePage from './pages/PipelinePage'
 import TarefasPage from './pages/TarefasPage'
+import PerfilPage from './pages/PerfilPage'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -41,6 +42,11 @@ function AppRoutes() {
       <Route path="/tarefas" element={
         <PrivateRoute>
           <Layout><TarefasPage /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/perfil" element={
+        <PrivateRoute>
+          <Layout><PerfilPage /></Layout>
         </PrivateRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />

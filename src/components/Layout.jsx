@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, LogOut } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/pipeline', label: 'Pipeline', icon: GitBranch },
   { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+  { to: '/perfil', label: 'Perfil', icon: UserCircle },
 ]
 
 export default function Layout({ children }) {
@@ -29,19 +30,18 @@ export default function Layout({ children }) {
           <span className="text-xs font-bold tracking-[0.1em] uppercase" style={{ color: '#C9A84C' }}>CRM</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {profile?.name && (
-            <span className="text-xs hidden sm:block" style={{ color: '#6B6560' }}>
-              {profile.name.split(' ')[0]}
+        <div className="flex items-center gap-2">
+          <Link to="/perfil"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all"
+            style={{ background: '#1A1A1A', border: '1px solid #252525' }}>
+            <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-bold"
+              style={{ background: 'rgba(201,168,76,0.15)', color: '#C9A84C' }}>
+              {profile?.name?.[0]?.toUpperCase() || '?'}
+            </div>
+            <span className="text-xs font-medium hidden sm:block" style={{ color: '#6B6560' }}>
+              {profile?.name?.split(' ')[0]?.split('@')[0]}
             </span>
-          )}
-          <button onClick={signOut}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
-            style={{ color: '#6B6560', background: '#1A1A1A', border: '1px solid #252525' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#C9A84C'}
-            onMouseLeave={e => e.currentTarget.style.color = '#6B6560'}>
-            <LogOut size={15} />
-          </button>
+          </Link>
         </div>
       </header>
 
