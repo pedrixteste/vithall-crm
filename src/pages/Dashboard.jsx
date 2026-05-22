@@ -107,7 +107,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} className="flex items-center justify-between px-8 py-6">
+              <li key={v.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
@@ -138,7 +138,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} className="flex items-center justify-between px-8 py-6">
+              <li key={t.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
                   <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
