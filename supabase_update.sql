@@ -14,7 +14,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'pre_vendas';
 ALTER TABLE clients  ADD COLUMN IF NOT EXISTS assigned_to uuid REFERENCES profiles(id);
 ALTER TABLE clients  ADD COLUMN IF NOT EXISTS matriculas text[] DEFAULT '{}';
 
--- Correcao do nome do treinamento: LORAP → LORAPE
+-- Revertendo: LORAPE → LORAP (nome correto e LORAP)
 UPDATE clients
-SET matriculas = array_replace(matriculas, 'LORAP', 'LORAPE')
-WHERE 'LORAP' = ANY(matriculas);
+SET matriculas = array_replace(matriculas, 'LORAPE', 'LORAP')
+WHERE 'LORAPE' = ANY(matriculas);
