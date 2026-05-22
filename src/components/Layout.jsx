@@ -25,8 +25,8 @@ export default function Layout({ children }) {
     <div className="min-h-screen flex flex-col" style={{ background: '#0A0A0A' }}>
 
       {/* Header */}
-      <header className="flex items-center justify-between px-4 h-14 border-b flex-shrink-0 sticky top-0 z-40"
-        style={{ background: 'rgba(10,10,10,0.95)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)' }}>
+      <header className="flex items-center justify-between h-14 border-b flex-shrink-0 sticky top-0 z-40"
+        style={{ background: 'rgba(10,10,10,0.95)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)', paddingLeft: '20px', paddingRight: '20px' }}>
 
         <div className="flex items-center gap-2.5">
           <div className="h-7 px-2 rounded-lg flex items-center" style={{ background: '#fff' }}>
