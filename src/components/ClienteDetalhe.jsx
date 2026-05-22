@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag } from 'lucide-react'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
@@ -27,6 +27,7 @@ export default function ClienteDetalhe({ client, onBack }) {
   const [showTarefaForm, setShowTarefaForm] = useState(false)
   const [currentClient, setCurrentClient] = useState(client)
   const [addingVisit, setAddingVisit] = useState(false)
+  const [editingVisitId, setEditingVisitId] = useState(null)
 
   useEffect(() => { fetchVisits(); fetchTasks() }, [])
 
@@ -69,6 +70,13 @@ export default function ClienteDetalhe({ client, onBack }) {
   async function deleteVisit(id) {
     if (!confirm('Excluir esta visita?')) return
     await supabase.from('visits').delete().eq('id', id)
+    fetchVisits()
+  }
+
+  async function updateVisitDate(visitId, newDate) {
+    if (!newDate) return
+    await supabase.from('visits').update({ visit_date: newDate }).eq('id', visitId)
+    setEditingVisitId(null)
     fetchVisits()
   }
 
@@ -152,6 +160,14 @@ export default function ClienteDetalhe({ client, onBack }) {
                 </span>
               </div>
             )}
+            <div className="flex items-center gap-2.5 text-sm">
+              <Flag size={14} style={{ color: '#C9A84C' }} />
+              <span style={{ color: '#6B6560' }}>Estagio: </span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: stage.bg, color: stage.color, border: `1px solid ${stage.color}30` }}>
+                {stage.label}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -226,9 +242,21 @@ export default function ClienteDetalhe({ client, onBack }) {
                       <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>
                         {i === 0 ? 'Visita mais recente' : `${visits.length - i}a visita`}
                       </p>
-                      <p className="text-xs mt-0.5" style={{ color: '#6B6560' }}>
-                        {new Date(v.visit_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                      </p>
+                      {editingVisitId === v.id ? (
+                        <input
+                          type="date"
+                          defaultValue={v.visit_date}
+                          autoFocus
+                          onChange={e => updateVisitDate(v.id, e.target.value)}
+                          onBlur={() => setEditingVisitId(null)}
+                          style={{ marginTop: '4px', background: '#111', border: '1px solid #C9A84C', color: '#EFEFEF', borderRadius: '8px', padding: '3px 8px', fontSize: '12px', outline: 'none' }}
+                        />
+                      ) : (
+                        <p className="text-xs mt-0.5" onClick={() => setEditingVisitId(v.id)}
+                          style={{ color: '#6B6560', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
+                          {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button onClick={() => deleteVisit(v.id)}>
