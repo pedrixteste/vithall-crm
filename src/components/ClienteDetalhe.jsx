@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck } from 'lucide-react'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
@@ -29,8 +29,15 @@ export default function ClienteDetalhe({ client, onBack }) {
   const [addingVisit, setAddingVisit] = useState(false)
   const [editingVisitId, setEditingVisitId] = useState(null)
   const [editingStage, setEditingStage] = useState(false)
+  const [assignedName, setAssignedName] = useState(null)
 
-  useEffect(() => { fetchVisits(); fetchTasks() }, [])
+  useEffect(() => { fetchVisits(); fetchTasks(); fetchAssigned() }, [])
+
+  async function fetchAssigned() {
+    if (!client.assigned_to) return
+    const { data } = await supabase.from('profiles').select('name').eq('id', client.assigned_to).single()
+    if (data) setAssignedName(data.name || 'Vendedor')
+  }
 
   async function fetchVisits() {
     const { data } = await supabase.from('visits').select('*').eq('client_id', client.id).order('visit_date', { ascending: false })
@@ -193,6 +200,20 @@ export default function ClienteDetalhe({ client, onBack }) {
                     </button>
                   ))}
                 </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2.5 text-sm">
+              <UserCheck size={14} style={{ color: '#C9A84C' }} />
+              <span style={{ color: '#6B6560' }}>Vendedor: </span>
+              {currentClient.assigned_to ? (
+                <span className="text-xs font-semibold rounded-full"
+                  style={{ padding: '4px 12px', background: 'rgba(74,222,128,0.1)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.25)' }}>
+                  {assignedName || '...'}
+                </span>
+              ) : (
+                <span className="text-xs font-semibold" style={{ color: '#E8834A' }}>
+                  ⚠️ Nao atribuido
+                </span>
               )}
             </div>
           </div>

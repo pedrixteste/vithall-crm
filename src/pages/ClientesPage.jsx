@@ -6,6 +6,7 @@ import ClienteDetalhe from '../components/ClienteDetalhe'
 import { Card } from '../components/ui/Card'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { useAuth } from '../contexts/AuthContext'
 
 const STAGE_OPTIONS = [
   { key: 'nao_marcou',     label: 'Nao marcou',    color: '#6B6560' },
@@ -23,6 +24,7 @@ const PERIOD_OPTIONS = [
 ]
 
 export default function ClientesPage() {
+  const { profile, user } = useAuth()
   const [clients, setClients]       = useState([])
   const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
@@ -34,10 +36,17 @@ export default function ClientesPage() {
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
 
-  useEffect(() => { fetchClients() }, [])
+  useEffect(() => { fetchClients() }, [profile])
 
   async function fetchClients() {
-    const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('clients').select('*').order('created_at', { ascending: false })
+    if (profile?.role === 'pre_vendas') {
+      query = query.eq('created_by', user.id)
+    } else if (profile?.role === 'vendedor') {
+      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+    }
+    // gerente: sem filtro, ve tudo
+    const { data } = await query
     setClients(data || [])
     setLoading(false)
   }
@@ -248,9 +257,14 @@ export default function ClientesPage() {
                   {(client.contact_name || client.company_name)?.[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
-                    {client.contact_name || client.company_name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
+                      {client.contact_name || client.company_name}
+                    </p>
+                    {!client.assigned_to && profile?.role === 'pre_vendas' && (
+                      <span title="Nao atribuido a nenhum vendedor" style={{ fontSize: '14px', flexShrink: 0 }}>⚠️</span>
+                    )}
+                  </div>
                   {client.contact_name && client.company_name && (
                     <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
                       {client.company_name}{client.contact_role ? ` · ${client.contact_role}` : ''}

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Badge } from '../components/ui/Badge'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { ChevronRight } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 const STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda',   badge: 'muted',  dot: '#6B6560' },
@@ -13,14 +14,21 @@ const STAGES = [
 ]
 
 export default function PipelinePage() {
+  const { profile, user } = useAuth()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
 
-  useEffect(() => { fetchClients() }, [])
+  useEffect(() => { fetchClients() }, [profile])
 
   async function fetchClients() {
-    const { data } = await supabase.from('clients').select('*').order('company_name')
+    let query = supabase.from('clients').select('*').order('company_name')
+    if (profile?.role === 'pre_vendas') {
+      query = query.eq('created_by', user.id)
+    } else if (profile?.role === 'vendedor') {
+      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+    }
+    const { data } = await query
     setClients(data || [])
     setLoading(false)
   }

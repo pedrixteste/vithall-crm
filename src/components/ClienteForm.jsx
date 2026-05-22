@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Sheet } from './ui/Sheet'
@@ -42,7 +42,7 @@ const WEEK_DAYS = [
 const PRESET_TIMES = ['07:00', '08:00', '09:00', '12:00', '14:00', '17:00', '18:00', '19:00']
 
 export default function ClienteForm({ onClose, onSaved, initialData }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [form, setForm] = useState({
     contact_name:    initialData?.contact_name    || '',
     company_name:    initialData?.company_name    || '',
@@ -53,7 +53,21 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     origin:          initialData?.origin          || '',
     matricula_stage: initialData?.matricula_stage || 'nao_marcou',
     notes:           initialData?.notes           || '',
+    assigned_to:     initialData?.assigned_to     || '',
   })
+
+  const [vendedores, setVendedores] = useState([])
+
+  useEffect(() => {
+    async function fetchVendedores() {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('role', ['vendedor', 'gerente'])
+      setVendedores(data || [])
+    }
+    fetchVendedores()
+  }, [])
 
   const rc = initialData?.reminder_config
   const [reminderType, setReminderType]     = useState(rc?.type    || '')
@@ -94,7 +108,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       times: reminderTimes,
     } : null
 
-    const payload = { ...form, created_by: user.id, reminder_config }
+    const payload = { ...form, assigned_to: form.assigned_to || null, created_by: user.id, reminder_config }
     const res = initialData?.id
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
       : await supabase.from('clients').insert(payload)
@@ -184,6 +198,22 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
+
+        {/* ---- ATRIBUICAO ---- */}
+        {vendedores.length > 0 && (
+          <Select
+            label="Atribuir para vendedor"
+            value={form.assigned_to}
+            onChange={e => set('assigned_to', e.target.value)}
+          >
+            <option value="" style={{ background: '#1A1A1A' }}>Nao atribuido ⚠️</option>
+            {vendedores.map(v => (
+              <option key={v.id} value={v.id} style={{ background: '#1A1A1A' }}>
+                {v.name || v.id}
+              </option>
+            ))}
+          </Select>
+        )}
 
         {/* ---- LEMBRETES ---- */}
         <div style={{ borderTop: '1px solid #1C1C1C', paddingTop: '20px' }}>
