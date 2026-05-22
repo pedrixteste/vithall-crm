@@ -270,7 +270,18 @@ export default function ClientesPage() {
                       {client.company_name}{client.contact_role ? ` · ${client.contact_role}` : ''}
                     </p>
                   )}
-                  <div style={{ marginTop: '10px' }}>{STAGE_BADGES[client.matricula_stage]}</div>
+                  <div style={{ marginTop: '10px' }}>
+                    {client.matricula_stage === 'matriculado' && client.matriculas?.length > 0 ? (
+                      <div className="flex flex-wrap" style={{ gap: '4px' }}>
+                        {client.matriculas.map(t => (
+                          <span key={t} className="inline-flex items-center text-[11px] font-semibold px-3 py-1 rounded-full border"
+                            style={{ color: '#4ADE80', background: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.2)' }}>
+                            ✓ {t}
+                          </span>
+                        ))}
+                      </div>
+                    ) : STAGE_BADGES[client.matricula_stage]}
+                  </div>
                 </div>
                 <ChevronRight size={15} style={{ color: '#333030', flexShrink: 0 }} />
               </div>

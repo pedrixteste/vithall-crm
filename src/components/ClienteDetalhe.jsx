@@ -4,6 +4,8 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
+const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall']
+
 const STAGES = {
   nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },
   nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
@@ -92,6 +94,15 @@ export default function ClienteDetalhe({ client, onBack }) {
     await supabase.from('visits').update({ visit_date: newDate }).eq('id', visitId)
     setEditingVisitId(null)
     fetchVisits()
+  }
+
+  async function toggleMatricula(training) {
+    const current = currentClient.matriculas || []
+    const updated = current.includes(training)
+      ? current.filter(t => t !== training)
+      : [...current, training]
+    await supabase.from('clients').update({ matriculas: updated }).eq('id', client.id)
+    setCurrentClient(c => ({ ...c, matriculas: updated }))
   }
 
   const stage = STAGES[currentClient.matricula_stage] || STAGES.nao_marcou
@@ -202,6 +213,31 @@ export default function ClienteDetalhe({ client, onBack }) {
                 </div>
               )}
             </div>
+            {currentClient.matricula_stage === 'matriculado' && (
+              <div style={{ paddingLeft: '22px' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                  Treinamentos matriculados
+                </p>
+                <div className="flex flex-wrap" style={{ gap: '6px' }}>
+                  {TRAININGS.map(t => {
+                    const selected = (currentClient.matriculas || []).includes(t)
+                    return (
+                      <button key={t} onClick={() => toggleMatricula(t)}
+                        className="text-xs font-semibold rounded-full transition-all"
+                        style={{
+                          padding: '5px 12px',
+                          background: selected ? 'rgba(74,222,128,0.12)' : 'transparent',
+                          color: selected ? '#4ADE80' : '#6B6560',
+                          border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
+                          cursor: 'pointer',
+                        }}>
+                        {selected ? '✓ ' : ''}{t}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2.5 text-sm">
               <UserCheck size={14} style={{ color: '#C9A84C' }} />
               <span style={{ color: '#6B6560' }}>Vendedor: </span>
