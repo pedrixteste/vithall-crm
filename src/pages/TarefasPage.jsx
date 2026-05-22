@@ -83,7 +83,7 @@ export default function TarefasPage() {
             const overdue = !t.completed && t.due_date && new Date(t.due_date + 'T23:59:59') < new Date()
             return (
               <Card key={t.id}>
-                <div className="flex items-start gap-5 px-7 py-6"
+                <div className="flex items-start gap-5 px-8 py-7"
                   style={{ opacity: t.completed ? 0.4 : 1 }}>
                   <button onClick={() => toggleTask(t)} className="mt-0.5 flex-shrink-0 transition-all">
                     {t.completed

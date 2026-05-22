@@ -18,7 +18,7 @@ export function Card({ children, className, hover = false, ...props }) {
 
 export function CardHeader({ children, className, ...props }) {
   return (
-    <div className={cn('flex items-center justify-between px-7 py-5 border-b gap-3', className)}
+    <div className={cn('flex items-center justify-between px-8 py-6 border-b gap-3', className)}
       style={{ borderColor: '#222222' }} {...props}>
       {children}
     </div>
@@ -27,7 +27,7 @@ export function CardHeader({ children, className, ...props }) {
 
 export function CardContent({ children, className, ...props }) {
   return (
-    <div className={cn('p-7', className)} {...props}>
+    <div className={cn('p-8', className)} {...props}>
       {children}
     </div>
   )

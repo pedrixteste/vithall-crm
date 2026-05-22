@@ -84,7 +84,7 @@ export default function ClientesPage() {
         <div className="space-y-3">
           {filtered.map(client => (
             <Card key={client.id} hover onClick={() => setSelected(client)}>
-              <div className="flex items-center gap-5 px-7 py-6">
+              <div className="flex items-center gap-5 px-8 py-7">
                 {/* Avatar */}
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-base"
                   style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.15)' }}>

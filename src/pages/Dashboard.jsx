@@ -60,7 +60,7 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in space-y-10">
+    <div className="animate-in space-y-12">
 
       {/* Saudação */}
       <div className="pt-2">
@@ -72,12 +72,12 @@ export default function Dashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-6">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
-            <div className="rounded-2xl border p-7 transition-all active:scale-[0.98] cursor-pointer"
+            <div className="rounded-2xl border p-8 transition-all active:scale-[0.98] cursor-pointer"
               style={{ background: '#161616', borderColor: `${accent}28` }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-7"
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-8"
                 style={{ background: `${accent}18` }}>
                 <Icon size={19} style={{ color: accent }} />
               </div>
@@ -107,7 +107,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} className="flex items-center justify-between px-7 py-5">
+              <li key={v.id} className="flex items-center justify-between px-8 py-6">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
@@ -138,7 +138,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} className="flex items-center justify-between px-7 py-5">
+              <li key={t.id} className="flex items-center justify-between px-8 py-6">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
                   <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
