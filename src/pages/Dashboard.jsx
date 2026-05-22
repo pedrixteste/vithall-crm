@@ -7,6 +7,7 @@ import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
+import { initOneSignal } from '../lib/onesignal'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -35,6 +36,7 @@ export default function Dashboard() {
   }, [])
 
   async function setupReminders() {
+    initOneSignal()
     const granted = await requestNotificationPermission()
     if (!granted) return
     const { data } = await supabase

@@ -5,6 +5,7 @@ import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
 import { Clock, Plus, X } from 'lucide-react'
+import { scheduleClientReminder } from '../lib/onesignal'
 
 const ORIGINS = ['ligacao fria', 'lead', 'feiras', 'indicacao']
 const ORIGIN_LABELS = {
@@ -98,8 +99,19 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
       : await supabase.from('clients').insert(payload)
 
-    if (res.error) setError('Erro ao salvar. Tente novamente.')
-    else onSaved()
+    if (res.error) {
+      setError('Erro ao salvar. Tente novamente.')
+    } else {
+      if (reminder_config) {
+        const name = form.contact_name || form.company_name
+        scheduleClientReminder({
+          clientName: name,
+          clientId: initialData?.id || null,
+          reminderConfig: reminder_config,
+        })
+      }
+      onSaved()
+    }
     setSaving(false)
   }
 
