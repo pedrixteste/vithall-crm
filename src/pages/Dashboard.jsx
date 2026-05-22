@@ -37,9 +37,10 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm] = useState(false)
-  const [period, setPeriod]       = useState('month')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo]   = useState('')
+  const [period, setPeriod]           = useState('max')
+  const [customFrom, setCustomFrom]   = useState('')
+  const [customTo, setCustomTo]       = useState('')
+  const [showPeriodDrop, setShowPeriodDrop] = useState(false)
   const [logCalls, setLogCalls]               = useState(0)
   const [logAppointments, setLogAppointments] = useState(0)
   const [savingLog, setSavingLog]             = useState(false)
@@ -231,46 +232,66 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Seletor de periodo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {PERIOD_OPTIONS.map(p => (
-              <button key={p.key} onClick={() => setPeriod(p.key)}
-                className="flex-shrink-0 text-xs font-semibold rounded-full transition-all"
-                style={{
-                  padding: '6px 14px',
-                  background: period === p.key ? 'rgba(201,168,76,0.12)' : '#161616',
-                  border: `1px solid ${period === p.key ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                  color: period === p.key ? '#C9A84C' : '#6B6560',
-                }}>
-                {period === p.key ? '● ' : ''}{p.label}
-              </button>
-            ))}
-          </div>
+        {/* Seletor de periodo — dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowPeriodDrop(d => !d)}
+            className="flex items-center gap-2 text-xs font-semibold rounded-xl transition-all"
+            style={{
+              padding: '8px 14px',
+              background: '#161616',
+              border: '1px solid #252525',
+              color: '#C9A84C',
+            }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#C9A84C', display: 'inline-block', flexShrink: 0 }} />
+            {PERIOD_OPTIONS.find(p => p.key === period)?.label}
+            <span style={{ color: '#6B6560', marginLeft: '2px' }}>{showPeriodDrop ? '▲' : '▼'}</span>
+          </button>
 
-          {period === 'custom' && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>De</p>
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-                  className="w-full text-xs rounded-xl outline-none"
-                  style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
-                  onFocus={e => e.target.style.borderColor = '#C9A84C'}
-                  onBlur={e => e.target.style.borderColor = '#252525'}
-                />
-              </div>
-              <div className="flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>Ate</p>
-                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-                  className="w-full text-xs rounded-xl outline-none"
-                  style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
-                  onFocus={e => e.target.style.borderColor = '#C9A84C'}
-                  onBlur={e => e.target.style.borderColor = '#252525'}
-                />
-              </div>
+          {showPeriodDrop && (
+            <div className="rounded-xl overflow-hidden"
+              style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, background: '#1A1A1A', border: '1px solid #303030', minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+              {PERIOD_OPTIONS.map(p => (
+                <button key={p.key}
+                  onClick={() => { setPeriod(p.key); setShowPeriodDrop(false) }}
+                  className="w-full text-left flex items-center gap-3 text-sm transition-all"
+                  style={{
+                    padding: '12px 16px',
+                    color: period === p.key ? '#C9A84C' : '#EFEFEF',
+                    background: period === p.key ? 'rgba(201,168,76,0.08)' : 'transparent',
+                    borderBottom: '1px solid #252525',
+                  }}>
+                  {period === p.key && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#C9A84C', flexShrink: 0 }} />}
+                  {period !== p.key && <span style={{ width: '6px', height: '6px', flexShrink: 0 }} />}
+                  {p.label}
+                </button>
+              ))}
             </div>
           )}
         </div>
+
+        {period === 'custom' && (
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>De</p>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                className="w-full text-xs rounded-xl outline-none"
+                style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
+                onFocus={e => e.target.style.borderColor = '#C9A84C'}
+                onBlur={e => e.target.style.borderColor = '#252525'}
+              />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>Ate</p>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                className="w-full text-xs rounded-xl outline-none"
+                style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
+                onFocus={e => e.target.style.borderColor = '#C9A84C'}
+                onBlur={e => e.target.style.borderColor = '#252525'}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2" style={{ gap: '16px' }}>
