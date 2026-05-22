@@ -17,6 +17,8 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
     icon: 'p-2',
   }
 
+  const sizeStyle = size === 'md' ? { paddingLeft: '20px', paddingRight: '20px' } : {}
+
   const primaryStyle = variant === 'primary' ? {
     background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
     boxShadow: '0 2px 12px rgba(201,168,76,0.2)',
@@ -25,7 +27,7 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
   return (
     <button
       className={cn(base, variants[variant], sizes[size], className)}
-      style={primaryStyle}
+      style={{ ...primaryStyle, ...sizeStyle }}
       disabled={disabled}
       {...props}
     >
