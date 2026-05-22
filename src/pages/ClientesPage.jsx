@@ -23,6 +23,12 @@ const PERIOD_OPTIONS = [
   { key: 'custom', label: 'Personalizado' },
 ]
 
+function normalizeCity(city) {
+  return city.trim().split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export default function ClientesPage() {
   const { profile, user } = useAuth()
   const [clients, setClients]       = useState([])
@@ -35,6 +41,7 @@ export default function ClientesPage() {
   const [filterPeriod, setFilterPeriod] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
+  const [filterCity, setFilterCity] = useState('')
 
   useEffect(() => { fetchClients() }, [profile])
 
@@ -56,9 +63,22 @@ export default function ClientesPage() {
     setFilterPeriod('')
     setFilterFrom('')
     setFilterTo('')
+    setFilterCity('')
   }
 
-  const activeFilters = [filterStage, filterPeriod].filter(Boolean).length
+  const activeFilters = [filterStage, filterPeriod, filterCity].filter(Boolean).length
+
+  // Cidades unicas normalizadas (case-insensitive)
+  const uniqueCities = (() => {
+    const map = new Map()
+    clients.forEach(c => {
+      if (c.city?.trim()) {
+        const key = c.city.trim().toLowerCase()
+        if (!map.has(key)) map.set(key, normalizeCity(c.city))
+      }
+    })
+    return [...map.values()].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
+  })()
 
   const filtered = clients.filter(c => {
     const matchesSearch = !search ||
@@ -66,6 +86,7 @@ export default function ClientesPage() {
       c.contact_name?.toLowerCase().includes(search.toLowerCase())
 
     const matchesStage = !filterStage || c.matricula_stage === filterStage
+    const matchesCity  = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
 
     let matchesDate = true
     if (filterPeriod) {
@@ -86,7 +107,7 @@ export default function ClientesPage() {
       }
     }
 
-    return matchesSearch && matchesStage && matchesDate
+    return matchesSearch && matchesStage && matchesDate && matchesCity
   })
 
   if (selected) return (
@@ -169,6 +190,30 @@ export default function ClientesPage() {
                 </button>
               ))}
             </div>
+
+            {/* Cidade */}
+            {uniqueCities.length > 0 && (
+              <>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                  Cidade
+                </p>
+                <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+                  {uniqueCities.map(city => (
+                    <button key={city} type="button"
+                      onClick={() => setFilterCity(f => f.toLowerCase() === city.toLowerCase() ? '' : city)}
+                      className="text-xs font-semibold rounded-full transition-all"
+                      style={{
+                        padding: '5px 12px',
+                        background: filterCity.toLowerCase() === city.toLowerCase() ? 'rgba(96,165,250,0.12)' : 'transparent',
+                        border: `1px solid ${filterCity.toLowerCase() === city.toLowerCase() ? 'rgba(96,165,250,0.4)' : '#2A2A2A'}`,
+                        color: filterCity.toLowerCase() === city.toLowerCase() ? '#60A5FA' : '#6B6560',
+                      }}>
+                      {filterCity.toLowerCase() === city.toLowerCase() ? '✓ ' : ''}{city}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Periodo */}
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
