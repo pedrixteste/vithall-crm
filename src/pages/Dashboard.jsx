@@ -45,9 +45,9 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in space-y-6">
+    <div className="animate-in space-y-8">
       {/* Saudação */}
-      <div className="pt-1">
+      <div className="pt-2">
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#C9A84C' }}>
           Olá, {profile?.name?.split(' ')[0]?.split('@')[0]}
         </p>
@@ -55,18 +55,18 @@ export default function Dashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
-            <Card hover className="p-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-5"
+            <Card hover className="p-6">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-6"
                 style={{ background: `${accent}14` }}>
-                <Icon size={17} style={{ color: accent }} />
+                <Icon size={18} style={{ color: accent }} />
               </div>
               <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
                 {value}
               </p>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: '#6B6560' }}>{label}</p>
+              <p className="text-xs mt-2 font-medium" style={{ color: '#6B6560' }}>{label}</p>
             </Card>
           </Link>
         ))}
@@ -82,11 +82,11 @@ export default function Dashboard() {
           <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {recentVisits.length === 0 ? (
-          <div className="py-8 text-center text-xs" style={{ color: '#333030' }}>Nenhuma visita registrada</div>
+          <div className="py-10 text-center text-xs" style={{ color: '#333030' }}>Nenhuma visita registrada</div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} className="flex items-center justify-between px-5 py-3.5">
+              <li key={v.id} className="flex items-center justify-between px-6 py-4">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
@@ -110,14 +110,14 @@ export default function Dashboard() {
           <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {pendingTasks.length === 0 ? (
-          <div className="py-8 text-center text-xs" style={{ color: '#333030' }}>Nenhuma tarefa pendente 🎉</div>
+          <div className="py-10 text-center text-xs" style={{ color: '#333030' }}>Nenhuma tarefa pendente 🎉</div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} className="flex items-center justify-between px-5 py-3.5">
+              <li key={t.id} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
+                  <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
                 </div>
                 {t.due_date && (
                   <Badge variant="orange">

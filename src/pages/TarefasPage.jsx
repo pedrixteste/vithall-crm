@@ -44,25 +44,25 @@ export default function TarefasPage() {
   )
 
   return (
-    <div className="animate-in space-y-4">
+    <div className="animate-in space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
         <h1 style={{ color: '#EFEFEF' }}>Tarefas</h1>
-        <p className="text-xs mt-1 tabular-nums" style={{ color: '#6B6560' }}>
+        <p className="text-xs mt-1.5 tabular-nums" style={{ color: '#6B6560' }}>
           <span style={{ color: '#E8834A', fontWeight: 600 }}>{pendingCount}</span> pendente{pendingCount !== 1 ? 's' : ''} ·{' '}
           <span style={{ color: '#4ADE80', fontWeight: 600 }}>{doneCount}</span> concluída{doneCount !== 1 ? 's' : ''}
         </p>
       </div>
 
       {/* Filtros */}
-      <div className="flex p-1 rounded-xl gap-1" style={{ background: '#1A1A1A', border: '1px solid #252525' }}>
+      <div className="flex p-1.5 rounded-xl gap-1.5" style={{ background: '#1A1A1A', border: '1px solid #252525' }}>
         {[
           { key: 'pendentes', label: 'Pendentes' },
           { key: 'concluidas', label: 'Concluídas' },
           { key: 'todas', label: 'Todas' },
         ].map(f => (
           <button key={f.key} onClick={() => setFilter(f.key)}
-            className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+            className="flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all"
             style={{
               background: filter === f.key ? 'rgba(201,168,76,0.1)' : 'transparent',
               color: filter === f.key ? '#C9A84C' : '#6B6560',
@@ -79,17 +79,17 @@ export default function TarefasPage() {
           <p className="text-sm" style={{ color: '#333030' }}>Nada aqui!</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filtered.map(t => {
             const overdue = !t.completed && t.due_date && new Date(t.due_date + 'T23:59:59') < new Date()
             return (
-              <Card key={t.id} className={overdue ? '' : ''}>
-                <div className="flex items-start gap-4 p-5"
+              <Card key={t.id}>
+                <div className="flex items-start gap-4 px-6 py-5"
                   style={{ opacity: t.completed ? 0.45 : 1 }}>
                   <button onClick={() => toggleTask(t)} className="mt-0.5 flex-shrink-0 transition-all">
                     {t.completed
-                      ? <CheckSquare size={18} style={{ color: '#4ADE80' }} />
-                      : <Square size={18} style={{ color: '#333030' }} />}
+                      ? <CheckSquare size={19} style={{ color: '#4ADE80' }} />
+                      : <Square size={19} style={{ color: '#333030' }} />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium leading-snug" style={{
@@ -98,18 +98,18 @@ export default function TarefasPage() {
                     }}>
                       {t.title}
                     </p>
-                    <p className="text-xs mt-0.5 font-medium" style={{ color: '#C9A84C' }}>
+                    <p className="text-xs mt-1 font-medium" style={{ color: '#C9A84C' }}>
                       {t.clients?.company_name}
                     </p>
                     {t.due_date && (
-                      <p className="text-xs mt-1.5 font-semibold tabular-nums" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
+                      <p className="text-xs mt-2 font-semibold tabular-nums" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
                         {overdue ? '⚠ Atrasada · ' : '📅 '}{new Date(t.due_date).toLocaleDateString('pt-BR')}
                       </p>
                     )}
-                    {t.notes && <p className="text-xs mt-1" style={{ color: '#333030' }}>{t.notes}</p>}
+                    {t.notes && <p className="text-xs mt-1.5" style={{ color: '#333030' }}>{t.notes}</p>}
                   </div>
-                  <button onClick={() => deleteTask(t.id)} className="flex-shrink-0 p-1">
-                    <Trash2 size={14} style={{ color: '#252525' }} />
+                  <button onClick={() => deleteTask(t.id)} className="flex-shrink-0 p-1.5">
+                    <Trash2 size={15} style={{ color: '#252525' }} />
                   </button>
                 </div>
               </Card>

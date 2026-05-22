@@ -32,7 +32,7 @@ export default function ClientesPage() {
   )
 
   return (
-    <div className="animate-in space-y-5">
+    <div className="animate-in space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
@@ -45,18 +45,18 @@ export default function ClientesPage() {
 
       {/* Busca */}
       <div className="relative">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#333030' }} />
+        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#333030' }} />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar empresa ou contato..."
-          className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
+          className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
           style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#EFEFEF' }}
           onFocus={e => e.target.style.borderColor = '#C9A84C'}
           onBlur={e => e.target.style.borderColor = '#252525'}
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+          <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
             <X size={13} style={{ color: '#6B6560' }} />
           </button>
         )}
@@ -81,12 +81,12 @@ export default function ClientesPage() {
           <p className="text-xs" style={{ color: '#333030' }}>Toque em "Novo" para adicionar</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filtered.map(client => (
             <Card key={client.id} hover onClick={() => setSelected(client)}>
-              <div className="flex items-center gap-4 p-5">
+              <div className="flex items-center gap-4 px-6 py-5">
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
                   style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.12)' }}>
                   {client.company_name?.[0]?.toUpperCase()}
                 </div>
@@ -101,7 +101,7 @@ export default function ClientesPage() {
                       {client.contact_name} · {client.contact_role}
                     </p>
                   )}
-                  <div className="mt-2">{STAGE_BADGES[client.pipeline_stage]}</div>
+                  <div className="mt-2.5">{STAGE_BADGES[client.pipeline_stage]}</div>
                 </div>
 
                 <ChevronRight size={15} style={{ color: '#2A2A2A', flexShrink: 0 }} />
