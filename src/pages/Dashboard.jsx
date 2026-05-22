@@ -22,6 +22,14 @@ function getDateLabel() {
   })
 }
 
+const PERIOD_OPTIONS = [
+  { key: 'week',   label: 'Semana' },
+  { key: 'month',  label: 'Mes' },
+  { key: 'year',   label: 'Ano' },
+  { key: 'custom', label: 'Personalizado' },
+  { key: 'max',    label: 'Maximo' },
+]
+
 export default function Dashboard() {
   const { profile, user } = useAuth()
   const [stats, setStats] = useState({ clients: 0, visits: 0, tasks: 0, closed: 0 })
@@ -29,6 +37,9 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm] = useState(false)
+  const [period, setPeriod]       = useState('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo]   = useState('')
   const [logCalls, setLogCalls]               = useState(0)
   const [logAppointments, setLogAppointments] = useState(0)
   const [savingLog, setSavingLog]             = useState(false)
@@ -36,14 +47,16 @@ export default function Dashboard() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  useEffect(() => {
-    fetchData()
-    setupReminders()
-  }, [])
+  useEffect(() => { setupReminders() }, [])
 
   useEffect(() => {
     if (profile?.role === 'pre_vendas' && user) fetchTodayLog()
   }, [profile])
+
+  useEffect(() => {
+    if (period === 'custom' && !customFrom) return
+    fetchData()
+  }, [period, customFrom, customTo])
 
   async function setupReminders() {
     initOneSignal()
@@ -83,13 +96,32 @@ export default function Dashboard() {
     setTimeout(() => setLogSaved(false), 2000)
   }
 
+  function getPeriodStart() {
+    if (period === 'max') return null
+    if (period === 'custom') return customFrom || null
+    const d = new Date()
+    if (period === 'week')  d.setDate(d.getDate() - 7)
+    if (period === 'month') d.setMonth(d.getMonth() - 1)
+    if (period === 'year')  d.setFullYear(d.getFullYear() - 1)
+    return d.toISOString()
+  }
+
   async function fetchData() {
+    const start = getPeriodStart()
+    const end   = period === 'custom' && customTo ? customTo + 'T23:59:59' : null
+
+    const applyDate = (q, field) => {
+      if (start) q = q.gte(field, start)
+      if (end)   q = q.lte(field, end)
+      return q
+    }
+
     const [c, v, t, cl, rv, pt] = await Promise.all([
-      supabase.from('clients').select('id', { count: 'exact' }),
-      supabase.from('visits').select('id', { count: 'exact' }),
+      applyDate(supabase.from('clients').select('id', { count: 'exact' }), 'created_at'),
+      applyDate(supabase.from('visits').select('id', { count: 'exact' }), 'visit_date'),
       supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false),
-      supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado'),
-      supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4),
+      applyDate(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado'), 'created_at'),
+      applyDate(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4), 'visit_date'),
       supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4),
     ])
     setStats({ clients: c.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
@@ -198,6 +230,47 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+
+        {/* Seletor de periodo */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {PERIOD_OPTIONS.map(p => (
+              <button key={p.key} onClick={() => setPeriod(p.key)}
+                className="flex-shrink-0 text-xs font-semibold rounded-full transition-all"
+                style={{
+                  padding: '6px 14px',
+                  background: period === p.key ? 'rgba(201,168,76,0.12)' : '#161616',
+                  border: `1px solid ${period === p.key ? 'rgba(201,168,76,0.4)' : '#252525'}`,
+                  color: period === p.key ? '#C9A84C' : '#6B6560',
+                }}>
+                {period === p.key ? '● ' : ''}{p.label}
+              </button>
+            ))}
+          </div>
+
+          {period === 'custom' && (
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>De</p>
+                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                  className="w-full text-xs rounded-xl outline-none"
+                  style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
+                  onFocus={e => e.target.style.borderColor = '#C9A84C'}
+                  onBlur={e => e.target.style.borderColor = '#252525'}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>Ate</p>
+                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                  className="w-full text-xs rounded-xl outline-none"
+                  style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
+                  onFocus={e => e.target.style.borderColor = '#C9A84C'}
+                  onBlur={e => e.target.style.borderColor = '#252525'}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Stats grid */}
         <div className="grid grid-cols-2" style={{ gap: '16px' }}>
