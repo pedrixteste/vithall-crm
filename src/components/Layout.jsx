@@ -67,8 +67,8 @@ export default function Layout({ children }) {
         </aside>
 
         {/* Conteúdo */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 sm:pb-6">
-          <div className="w-full max-w-lg mx-auto px-4 pt-5">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 sm:pb-8">
+          <div className="w-full max-w-lg mx-auto px-5 pt-6">
             {children}
           </div>
         </main>
@@ -77,12 +77,12 @@ export default function Layout({ children }) {
       {/* Bottom nav mobile */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t"
         style={{ background: 'rgba(10,10,10,0.97)', borderColor: '#1C1C1C', backdropFilter: 'blur(12px)' }}>
-        <div className="flex">
+        <div className="flex pb-safe">
           {navItems.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}
-              className="flex-1 flex flex-col items-center py-2.5 gap-1 transition-all"
+              className="flex-1 flex flex-col items-center py-3 gap-1.5 transition-all"
               style={{ color: isActive(to) ? '#C9A84C' : '#333030' }}>
-              <Icon size={20} strokeWidth={isActive(to) ? 2.5 : 1.8} />
+              <Icon size={21} strokeWidth={isActive(to) ? 2.5 : 1.8} />
               <span className="text-[10px] font-semibold">{label}</span>
             </Link>
           ))}

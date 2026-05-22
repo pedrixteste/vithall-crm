@@ -32,7 +32,7 @@ export default function ClientesPage() {
   )
 
   return (
-    <div className="animate-in space-y-4">
+    <div className="animate-in space-y-5">
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
@@ -84,7 +84,7 @@ export default function ClientesPage() {
         <div className="space-y-2">
           {filtered.map(client => (
             <Card key={client.id} hover onClick={() => setSelected(client)}>
-              <div className="flex items-center gap-3 p-4">
+              <div className="flex items-center gap-4 p-5">
                 {/* Avatar */}
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
                   style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.12)' }}>

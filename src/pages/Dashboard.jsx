@@ -45,28 +45,28 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in space-y-5">
+    <div className="animate-in space-y-6">
       {/* Saudação */}
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
+      <div className="pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#C9A84C' }}>
           Olá, {profile?.name?.split(' ')[0]?.split('@')[0]}
         </p>
         <h1 style={{ color: '#EFEFEF' }}>Resumo do dia</h1>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
-            <Card hover className="p-4">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-4"
+            <Card hover className="p-5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-5"
                 style={{ background: `${accent}14` }}>
-                <Icon size={16} style={{ color: accent }} />
+                <Icon size={17} style={{ color: accent }} />
               </div>
-              <p className="text-3xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-1px' }}>
+              <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
                 {value}
               </p>
-              <p className="text-xs mt-1 font-medium" style={{ color: '#6B6560' }}>{label}</p>
+              <p className="text-xs mt-1.5 font-medium" style={{ color: '#6B6560' }}>{label}</p>
             </Card>
           </Link>
         ))}
@@ -86,8 +86,8 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-2.5">
+              <li key={v.id} className="flex items-center justify-between px-5 py-3.5">
+                <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
                 </div>
@@ -114,7 +114,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} className="flex items-center justify-between px-4 py-3">
+              <li key={t.id} className="flex items-center justify-between px-5 py-3.5">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
                   <p className="text-xs mt-0.5" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
