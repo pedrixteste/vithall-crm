@@ -18,3 +18,14 @@ ALTER TABLE clients  ADD COLUMN IF NOT EXISTS matriculas text[] DEFAULT '{}';
 UPDATE clients
 SET matriculas = array_replace(matriculas, 'LORAPE', 'LORAP')
 WHERE 'LORAPE' = ANY(matriculas);
+
+-- Registro diario do pre-vendas
+CREATE TABLE IF NOT EXISTS daily_logs (
+  id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id       uuid REFERENCES profiles(id) NOT NULL,
+  log_date      date NOT NULL DEFAULT CURRENT_DATE,
+  calls         integer NOT NULL DEFAULT 0,
+  appointments  integer NOT NULL DEFAULT 0,
+  created_at    timestamptz DEFAULT now(),
+  UNIQUE(user_id, log_date)
+);
