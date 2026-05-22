@@ -19,7 +19,7 @@ export function Card({ children, className, hover = false, ...props }) {
 export function CardHeader({ children, className, ...props }) {
   return (
     <div className={cn('flex items-center justify-between border-b gap-3', className)}
-      style={{ borderColor: '#222222', padding: '20px 28px' }} {...props}>
+      style={{ borderColor: '#222222', padding: '22px 28px' }} {...props}>
       {children}
     </div>
   )

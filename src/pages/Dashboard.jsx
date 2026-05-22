@@ -100,14 +100,14 @@ export default function Dashboard() {
           <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {recentVisits.length === 0 ? (
-          <div className="py-12 text-center">
+          <div className="py-16 text-center">
             <p className="text-2xl mb-3">🗺️</p>
             <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
+              <li key={v.id} style={{ padding: '22px 28px' }} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
@@ -131,14 +131,14 @@ export default function Dashboard() {
           <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {pendingTasks.length === 0 ? (
-          <div className="py-12 text-center">
+          <div className="py-16 text-center">
             <p className="text-2xl mb-3">🎉</p>
             <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
+              <li key={t.id} style={{ padding: '22px 28px' }} className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
                   <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
