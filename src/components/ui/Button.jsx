@@ -17,7 +17,7 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
     icon: 'p-2',
   }
 
-  const sizeStyle = size === 'md' ? { paddingLeft: '18px', paddingRight: '18px' } : {}
+  const sizeStyle = size === 'md' ? { paddingLeft: '14px', paddingRight: '14px' } : {}
 
   const primaryStyle = variant === 'primary' ? {
     background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
