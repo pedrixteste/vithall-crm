@@ -11,9 +11,7 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     const [clientsRes, visitsRes, tasksRes, closedRes, recentVisitsRes, pendingTasksRes] = await Promise.all([
@@ -24,65 +22,96 @@ export default function Dashboard() {
       supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(5),
       supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(5),
     ])
-
-    setStats({
-      clients: clientsRes.count || 0,
-      visits: visitsRes.count || 0,
-      tasks: tasksRes.count || 0,
-      closed: closedRes.count || 0,
-    })
+    setStats({ clients: clientsRes.count || 0, visits: visitsRes.count || 0, tasks: tasksRes.count || 0, closed: closedRes.count || 0 })
     setRecentVisits(recentVisitsRes.data || [])
     setPendingTasks(pendingTasksRes.data || [])
     setLoading(false)
   }
 
   const cards = [
-    { label: 'Clientes', value: stats.clients, icon: Users, color: 'bg-blue-500', to: '/clientes' },
-    { label: 'Visitas', value: stats.visits, icon: MapPin, color: 'bg-green-500', to: '/clientes' },
-    { label: 'Tarefas pendentes', value: stats.tasks, icon: CheckSquare, color: 'bg-yellow-500', to: '/tarefas' },
-    { label: 'Vendas fechadas', value: stats.closed, icon: TrendingUp, color: 'bg-purple-500', to: '/pipeline' },
+    { label: 'Clientes', value: stats.clients, icon: Users, to: '/clientes', accent: '#C9A84C' },
+    { label: 'Visitas', value: stats.visits, icon: MapPin, to: '/clientes', accent: '#9B5DE5' },
+    { label: 'Tarefas', value: stats.tasks, icon: CheckSquare, to: '/tarefas', accent: '#E8834A' },
+    { label: 'Fechados', value: stats.closed, icon: TrendingUp, to: '/pipeline', accent: '#4ADE80' },
   ]
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
     </div>
   )
 
   return (
-    <div className="pb-20 sm:pb-4">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-800">Olá, {profile?.name?.split(' ')[0]} 👋</h1>
-        <p className="text-gray-500 text-sm">Aqui está um resumo do seu CRM</p>
+    <div>
+      {/* Saudação */}
+      <div className="mb-7">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>
+          Bem-vindo de volta
+        </p>
+        <h1 className="text-2xl font-bold" style={{ color: '#F0EAD6' }}>
+          {profile?.name?.split(' ')[0]} 👋
+        </h1>
       </div>
 
-      {/* Cards */}
+      {/* Cards de estatísticas */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        {cards.map(({ label, value, icon: Icon, color, to }) => (
-          <Link key={label} to={to} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className={`w-9 h-9 ${color} rounded-lg flex items-center justify-center mb-3`}>
-              <Icon size={18} className="text-white" />
+        {cards.map(({ label, value, icon: Icon, to, accent }) => (
+          <Link key={label} to={to}
+            className="rounded-2xl p-4 transition-all active:scale-95"
+            style={{
+              background: '#1E1E1E',
+              border: '1px solid #2A2A2A',
+            }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: `${accent}15`, border: `1px solid ${accent}25` }}>
+                <Icon size={17} style={{ color: accent }} />
+              </div>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: `${accent}10`, color: accent }}>
+                ↑
+              </span>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+            <p className="text-3xl font-bold mb-1" style={{ color: '#F0EAD6' }}>{value}</p>
+            <p className="text-xs" style={{ color: '#7A7570' }}>{label}</p>
           </Link>
         ))}
       </div>
 
+      {/* Divider com label */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-px" style={{ background: '#2A2A2A' }} />
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#3A3530' }}>Atividade</span>
+        <div className="flex-1 h-px" style={{ background: '#2A2A2A' }} />
+      </div>
+
       {/* Visitas recentes */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-4">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800 text-sm">Visitas recentes</h2>
-          <Link to="/clientes" className="text-blue-600 text-xs">Ver todas</Link>
+      <div className="rounded-2xl mb-4 overflow-hidden" style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: '#2A2A2A' }}>
+          <div className="flex items-center gap-2">
+            <MapPin size={14} style={{ color: '#C9A84C' }} />
+            <span className="text-sm font-semibold" style={{ color: '#F0EAD6' }}>Visitas recentes</span>
+          </div>
+          <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas →</Link>
         </div>
         {recentVisits.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-6">Nenhuma visita registrada</p>
+          <div className="py-8 text-center">
+            <MapPin size={24} className="mx-auto mb-2" style={{ color: '#2A2A2A' }} />
+            <p className="text-xs" style={{ color: '#3A3530' }}>Nenhuma visita registrada</p>
+          </div>
         ) : (
-          <ul className="divide-y divide-gray-50">
-            {recentVisits.map(v => (
-              <li key={v.id} className="px-4 py-3">
-                <p className="text-sm font-medium text-gray-800">{v.clients?.company_name}</p>
-                <p className="text-xs text-gray-400">{new Date(v.visit_date).toLocaleDateString('pt-BR')}</p>
+          <ul>
+            {recentVisits.map((v, i) => (
+              <li key={v.id} className="flex items-center justify-between px-4 py-3"
+                style={{ borderBottom: i < recentVisits.length - 1 ? '1px solid #222' : 'none' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
+                  <span className="text-sm font-medium" style={{ color: '#F0EAD6' }}>{v.clients?.company_name}</span>
+                </div>
+                <span className="text-xs" style={{ color: '#7A7570' }}>
+                  {new Date(v.visit_date).toLocaleDateString('pt-BR')}
+                </span>
               </li>
             ))}
           </ul>
@@ -90,23 +119,34 @@ export default function Dashboard() {
       </div>
 
       {/* Tarefas pendentes */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800 text-sm">Tarefas pendentes</h2>
-          <Link to="/tarefas" className="text-blue-600 text-xs">Ver todas</Link>
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: '#2A2A2A' }}>
+          <div className="flex items-center gap-2">
+            <CheckSquare size={14} style={{ color: '#E8834A' }} />
+            <span className="text-sm font-semibold" style={{ color: '#F0EAD6' }}>Tarefas pendentes</span>
+          </div>
+          <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas →</Link>
         </div>
         {pendingTasks.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-6">Nenhuma tarefa pendente</p>
+          <div className="py-8 text-center">
+            <CheckSquare size={24} className="mx-auto mb-2" style={{ color: '#2A2A2A' }} />
+            <p className="text-xs" style={{ color: '#3A3530' }}>Nenhuma tarefa pendente</p>
+          </div>
         ) : (
-          <ul className="divide-y divide-gray-50">
-            {pendingTasks.map(t => (
-              <li key={t.id} className="px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{t.title}</p>
-                  <p className="text-xs text-gray-400">{t.clients?.company_name}</p>
+          <ul>
+            {pendingTasks.map((t, i) => (
+              <li key={t.id} className="flex items-center justify-between px-4 py-3"
+                style={{ borderBottom: i < pendingTasks.length - 1 ? '1px solid #222' : 'none' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#E8834A' }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#F0EAD6' }}>{t.title}</p>
+                    <p className="text-xs" style={{ color: '#7A7570' }}>{t.clients?.company_name}</p>
+                  </div>
                 </div>
                 {t.due_date && (
-                  <span className="text-xs text-orange-500 font-medium">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(232,131,74,0.1)', color: '#E8834A' }}>
                     {new Date(t.due_date).toLocaleDateString('pt-BR')}
                   </span>
                 )}

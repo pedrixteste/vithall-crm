@@ -6,12 +6,40 @@
   padding: 0;
 }
 
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E2C06A;
+  --bordo: #7B1C3A;
+  --bordo-light: #9B2D4E;
+  --bg: #0D0D0D;
+  --surface: #161616;
+  --card: #1E1E1E;
+  --border: #2A2A2A;
+  --text: #F0EAD6;
+  --text-muted: #7A7570;
+}
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background-color: #f3f4f6;
+  background-color: var(--bg);
+  color: var(--text);
   min-height: 100vh;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Scrollbar customizada */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Input autofill dark */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0px 1000px #1E1E1E inset;
+  transition: background-color 5000s ease-in-out 0s;
 }

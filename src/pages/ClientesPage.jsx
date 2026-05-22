@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, ChevronRight, X, MapPin } from 'lucide-react'
+import { Plus, Search, ChevronRight, X, Users } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 
 const STAGES = {
-  lead: { label: 'Lead', color: 'bg-gray-100 text-gray-600' },
-  negociacao: { label: 'Em negociação', color: 'bg-blue-100 text-blue-600' },
-  proposta: { label: 'Proposta enviada', color: 'bg-yellow-100 text-yellow-700' },
-  fechado: { label: 'Fechado', color: 'bg-green-100 text-green-700' },
+  lead: { label: 'Lead', color: '#7A7570', bg: 'rgba(122,117,112,0.12)' },
+  negociacao: { label: 'Em negociação', color: '#C9A84C', bg: 'rgba(201,168,76,0.12)' },
+  proposta: { label: 'Proposta', color: '#9B5DE5', bg: 'rgba(155,93,229,0.12)' },
+  fechado: { label: 'Fechado', color: '#4ADE80', bg: 'rgba(74,222,128,0.12)' },
 }
 
 export default function ClientesPage() {
@@ -21,10 +21,7 @@ export default function ClientesPage() {
   useEffect(() => { fetchClients() }, [])
 
   async function fetchClients() {
-    const { data } = await supabase
-      .from('clients')
-      .select('*')
-      .order('company_name')
+    const { data } = await supabase.from('clients').select('*').order('company_name')
     setClients(data || [])
     setLoading(false)
   }
@@ -35,74 +32,97 @@ export default function ClientesPage() {
   )
 
   if (selected) return (
-    <ClienteDetalhe
-      client={selected}
-      onBack={() => { setSelected(null); fetchClients() }}
-    />
+    <ClienteDetalhe client={selected} onBack={() => { setSelected(null); fetchClients() }} />
   )
 
   return (
-    <div className="pb-20 sm:pb-4">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-800">Clientes</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1 hover:bg-blue-700 transition"
-        >
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
+          <h1 className="text-2xl font-bold" style={{ color: '#F0EAD6' }}>Clientes</h1>
+        </div>
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)',
+            color: '#F0EAD6',
+            boxShadow: '0 4px 15px rgba(201,168,76,0.2)'
+          }}>
           <Plus size={16} /> Novo
         </button>
       </div>
 
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Busca */}
+      <div className="relative mb-5">
+        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#3A3530' }} />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por empresa ou contato..."
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Buscar empresa ou contato..."
+          className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
+          style={{
+            background: '#1E1E1E',
+            border: '1px solid #2A2A2A',
+            color: '#F0EAD6',
+          }}
+          onFocus={e => e.target.style.borderColor = '#C9A84C'}
+          onBlur={e => e.target.style.borderColor = '#2A2A2A'}
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X size={14} className="text-gray-400" />
+          <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
+            <X size={14} style={{ color: '#7A7570' }} />
           </button>
         )}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex justify-center py-16">
+          <div className="w-8 h-8 rounded-full border-2 animate-spin"
+            style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <MapPin size={32} className="mx-auto mb-2 opacity-40" />
-          <p className="text-sm">Nenhum cliente encontrado</p>
+        <div className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+            style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
+            <Users size={24} style={{ color: '#3A3530' }} />
+          </div>
+          <p className="text-sm font-medium mb-1" style={{ color: '#7A7570' }}>Nenhum cliente encontrado</p>
+          <p className="text-xs" style={{ color: '#3A3530' }}>Adicione seu primeiro cliente</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(client => (
-            <button
-              key={client.id}
-              onClick={() => setSelected(client)}
-              className="w-full bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition text-left"
-            >
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">{client.company_name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{client.contact_name}</p>
-                <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full font-medium ${STAGES[client.pipeline_stage]?.color}`}>
-                  {STAGES[client.pipeline_stage]?.label}
-                </span>
-              </div>
-              <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />
-            </button>
-          ))}
+          {filtered.map(client => {
+            const stage = STAGES[client.pipeline_stage] || STAGES.lead
+            return (
+              <button key={client.id} onClick={() => setSelected(client)}
+                className="w-full rounded-2xl p-4 flex items-center justify-between transition-all active:scale-98 text-left"
+                style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.15)' }}>
+                    <span className="font-bold text-sm" style={{ color: '#C9A84C' }}>
+                      {client.company_name?.[0]?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm mb-1" style={{ color: '#F0EAD6' }}>{client.company_name}</p>
+                    <p className="text-xs mb-1.5" style={{ color: '#7A7570' }}>{client.contact_name}</p>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ background: stage.bg, color: stage.color }}>
+                      {stage.label}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={16} style={{ color: '#3A3530' }} />
+              </button>
+            )
+          })}
         </div>
       )}
 
       {showForm && (
-        <ClienteForm
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); fetchClients() }}
-        />
+        <ClienteForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); fetchClients() }} />
       )}
     </div>
   )

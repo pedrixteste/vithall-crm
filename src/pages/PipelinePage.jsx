@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ChevronRight } from 'lucide-react'
 
 const STAGES = [
-  { key: 'lead', label: 'Lead', color: 'border-gray-300 bg-gray-50', badge: 'bg-gray-100 text-gray-600' },
-  { key: 'negociacao', label: 'Em negociação', color: 'border-blue-300 bg-blue-50', badge: 'bg-blue-100 text-blue-700' },
-  { key: 'proposta', label: 'Proposta enviada', color: 'border-yellow-300 bg-yellow-50', badge: 'bg-yellow-100 text-yellow-700' },
-  { key: 'fechado', label: 'Fechado', color: 'border-green-300 bg-green-50', badge: 'bg-green-100 text-green-700' },
+  { key: 'lead', label: 'Lead', color: '#7A7570', bg: 'rgba(122,117,112,0.08)', border: 'rgba(122,117,112,0.2)' },
+  { key: 'negociacao', label: 'Em negociação', color: '#C9A84C', bg: 'rgba(201,168,76,0.08)', border: 'rgba(201,168,76,0.2)' },
+  { key: 'proposta', label: 'Proposta enviada', color: '#9B5DE5', bg: 'rgba(155,93,229,0.08)', border: 'rgba(155,93,229,0.2)' },
+  { key: 'fechado', label: 'Fechado ✓', color: '#4ADE80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.2)' },
 ]
 
 export default function PipelinePage() {
@@ -29,48 +28,83 @@ export default function PipelinePage() {
   const byStage = (stage) => clients.filter(c => c.pipeline_stage === stage)
 
   if (loading) return (
-    <div className="flex justify-center py-12">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    <div className="flex justify-center py-16">
+      <div className="w-8 h-8 rounded-full border-2 animate-spin"
+        style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
     </div>
   )
 
   return (
-    <div className="pb-20 sm:pb-4">
-      <h1 className="text-xl font-bold text-gray-800 mb-4">Pipeline de vendas</h1>
+    <div>
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>Funil</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#F0EAD6' }}>Pipeline</h1>
+      </div>
+
+      {/* Resumo */}
+      <div className="grid grid-cols-4 gap-2 mb-6">
+        {STAGES.map(s => (
+          <div key={s.key} className="rounded-xl p-3 text-center"
+            style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+            <p className="text-xl font-bold" style={{ color: s.color }}>{byStage(s.key).length}</p>
+            <p className="text-xs mt-0.5" style={{ color: s.color, opacity: 0.7 }}>
+              {s.label.split(' ')[0]}
+            </p>
+          </div>
+        ))}
+      </div>
 
       <div className="space-y-4">
-        {STAGES.map((stage, idx) => (
-          <div key={stage.key} className={`rounded-xl border-2 ${stage.color} p-3`}>
-            <div className="flex items-center justify-between mb-3">
+        {STAGES.map(stage => (
+          <div key={stage.key} className="rounded-2xl overflow-hidden"
+            style={{ border: `1px solid ${stage.border}`, background: '#161616' }}>
+
+            {/* Header da coluna */}
+            <div className="flex items-center justify-between px-4 py-3 border-b"
+              style={{ borderColor: stage.border, background: stage.bg }}>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${stage.badge}`}>
-                  {stage.label}
-                </span>
-                <span className="text-xs text-gray-400">{byStage(stage.key).length} cliente(s)</span>
+                <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
+                <span className="text-sm font-bold" style={{ color: stage.color }}>{stage.label}</span>
               </div>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: `${stage.color}20`, color: stage.color }}>
+                {byStage(stage.key).length}
+              </span>
             </div>
 
             {byStage(stage.key).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-3">Nenhum cliente</p>
+              <p className="text-xs text-center py-5" style={{ color: '#3A3530' }}>Nenhum cliente</p>
             ) : (
-              <div className="space-y-2">
+              <div className="p-3 space-y-2">
                 {byStage(stage.key).map(client => (
-                  <div key={client.id} className="bg-white rounded-lg p-3 shadow-sm border border-white">
-                    <div className="flex items-center justify-between">
+                  <div key={client.id} className="rounded-xl p-3.5"
+                    style={{ background: '#1E1E1E', border: '1px solid #2A2A2A' }}>
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: `${stage.color}15` }}>
+                        <span className="text-xs font-bold" style={{ color: stage.color }}>
+                          {client.company_name?.[0]?.toUpperCase()}
+                        </span>
+                      </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">{client.company_name}</p>
-                        <p className="text-xs text-gray-400">{client.contact_name}</p>
+                        <p className="text-sm font-semibold" style={{ color: '#F0EAD6' }}>{client.company_name}</p>
+                        {client.contact_name && (
+                          <p className="text-xs" style={{ color: '#7A7570' }}>{client.contact_name}</p>
+                        )}
                       </div>
                     </div>
+
                     {/* Botões para mover */}
-                    <div className="flex gap-1 mt-2 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap">
                       {STAGES.filter(s => s.key !== stage.key).map(s => (
-                        <button
-                          key={s.key}
-                          onClick={() => moveStage(client.id, s.key)}
-                          className={`text-xs px-2 py-1 rounded-full border transition hover:opacity-80 ${s.badge} border-current`}
-                        >
-                          → {s.label}
+                        <button key={s.key} onClick={() => moveStage(client.id, s.key)}
+                          className="text-xs px-2.5 py-1 rounded-lg transition-all"
+                          style={{
+                            background: `${s.color}10`,
+                            color: s.color,
+                            border: `1px solid ${s.color}25`,
+                          }}>
+                          → {s.label.replace(' ✓', '')}
                         </button>
                       ))}
                     </div>
