@@ -29,14 +29,13 @@ export default function PerfilPage() {
     } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
-      // Recarrega a página para atualizar o contexto
       window.location.reload()
     }
     setSaving(false)
   }
 
   return (
-    <div className="animate-in space-y-5">
+    <div className="animate-in space-y-7">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
           Configurações
@@ -45,21 +44,21 @@ export default function PerfilPage() {
       </div>
 
       {/* Avatar */}
-      <div className="flex justify-center py-4">
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
+      <div className="flex justify-center py-6">
+        <div className="w-24 h-24 rounded-2xl flex items-center justify-center"
           style={{
             background: 'linear-gradient(135deg, rgba(123,28,58,0.4), rgba(201,168,76,0.3))',
             border: '1px solid rgba(201,168,76,0.2)',
           }}>
-          <span className="text-3xl font-bold" style={{ color: '#C9A84C' }}>
-            {name?.[0]?.toUpperCase() || <User size={32} />}
+          <span className="text-4xl font-bold" style={{ color: '#C9A84C' }}>
+            {name?.[0]?.toUpperCase() || <User size={36} />}
           </span>
         </div>
       </div>
 
       {/* Formulário */}
       <Card>
-        <form onSubmit={handleSave} className="p-4 space-y-4">
+        <form onSubmit={handleSave} className="p-6 space-y-5">
           <Input
             label="Nome de exibição"
             value={name}
@@ -68,18 +67,18 @@ export default function PerfilPage() {
           />
 
           <div>
-            <label className="block mb-1.5 text-[11px] font-semibold uppercase tracking-widest"
+            <label className="block mb-2 text-[11px] font-semibold uppercase tracking-widest"
               style={{ color: '#6B6560' }}>
               E-mail
             </label>
-            <p className="text-sm px-3.5 py-2.5 rounded-xl"
-              style={{ background: '#111111', border: '1px solid #1C1C1C', color: '#6B6560' }}>
+            <p className="text-sm px-4 py-3 rounded-xl"
+              style={{ background: '#111', border: '1px solid #1C1C1C', color: '#6B6560' }}>
               {user?.email}
             </p>
           </div>
 
           {error && (
-            <p className="text-xs px-3 py-2 rounded-xl"
+            <p className="text-xs px-4 py-3 rounded-xl"
               style={{ color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.15)' }}>
               {error}
             </p>
@@ -95,8 +94,8 @@ export default function PerfilPage() {
 
       {/* Sair */}
       <Card>
-        <div className="p-4">
-          <p className="text-xs mb-3" style={{ color: '#6B6560' }}>
+        <div className="p-6">
+          <p className="text-xs mb-4" style={{ color: '#6B6560' }}>
             Sessão atual logada como <span style={{ color: '#EFEFEF' }}>{user?.email}</span>
           </p>
           <Button variant="danger" className="w-full" size="lg" onClick={signOut}>

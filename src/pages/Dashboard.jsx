@@ -6,6 +6,19 @@ import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function getDateLabel() {
+  return new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  })
+}
+
 export default function Dashboard() {
   const { profile } = useAuth()
   const [stats, setStats] = useState({ clients: 0, visits: 0, tasks: 0, closed: 0 })
@@ -30,6 +43,8 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
+
   const statCards = [
     { label: 'Clientes', value: stats.clients, icon: Users, accent: '#C9A84C', to: '/clientes' },
     { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
@@ -45,29 +60,31 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="animate-in space-y-8">
+    <div className="animate-in space-y-10">
+
       {/* Saudação */}
       <div className="pt-2">
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#C9A84C' }}>
-          Olá, {profile?.name?.split(' ')[0]?.split('@')[0]}
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 capitalize" style={{ color: '#C9A84C' }}>
+          {getDateLabel()}
         </p>
-        <h1 style={{ color: '#EFEFEF' }}>Resumo do dia</h1>
+        <h1 style={{ color: '#EFEFEF' }}>{getGreeting()}{firstName ? `, ${firstName}` : ''} 👋</h1>
+        <p className="text-sm mt-2" style={{ color: '#6B6560' }}>Veja o resumo de hoje</p>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-5">
         {statCards.map(({ label, value, icon: Icon, accent, to }) => (
           <Link key={label} to={to} className="block min-w-0">
-            <div className="rounded-2xl border p-6 transition-all active:scale-[0.98] cursor-pointer"
-              style={{ background: '#161616', borderColor: `${accent}22` }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-6"
+            <div className="rounded-2xl border p-7 transition-all active:scale-[0.98] cursor-pointer"
+              style={{ background: '#161616', borderColor: `${accent}28` }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-7"
                 style={{ background: `${accent}18` }}>
-                <Icon size={18} style={{ color: accent }} />
+                <Icon size={19} style={{ color: accent }} />
               </div>
-              <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
+              <p className="text-4xl font-bold tabular-nums mb-1" style={{ color: '#EFEFEF', letterSpacing: '-2px' }}>
                 {value}
               </p>
-              <p className="text-xs mt-2 font-medium" style={{ color: '#6B6560' }}>{label}</p>
+              <p className="text-xs font-medium" style={{ color: '#6B6560' }}>{label}</p>
             </div>
           </Link>
         ))}
@@ -76,18 +93,21 @@ export default function Dashboard() {
       {/* Visitas recentes */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <MapPin size={13} style={{ color: '#C9A84C' }} />
+          <div className="flex items-center gap-2.5">
+            <MapPin size={14} style={{ color: '#C9A84C' }} />
             <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas recentes</span>
           </div>
           <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {recentVisits.length === 0 ? (
-          <div className="py-10 text-center text-xs" style={{ color: '#333030' }}>Nenhuma visita registrada</div>
+          <div className="py-12 text-center">
+            <p className="text-2xl mb-3">🗺️</p>
+            <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
+          </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {recentVisits.map(v => (
-              <li key={v.id} className="flex items-center justify-between px-6 py-4">
+              <li key={v.id} className="flex items-center justify-between px-7 py-5">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                   <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
@@ -104,18 +124,21 @@ export default function Dashboard() {
       {/* Tarefas pendentes */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <CheckSquare size={13} style={{ color: '#E8834A' }} />
+          <div className="flex items-center gap-2.5">
+            <CheckSquare size={14} style={{ color: '#E8834A' }} />
             <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
           </div>
           <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
         </CardHeader>
         {pendingTasks.length === 0 ? (
-          <div className="py-10 text-center text-xs" style={{ color: '#333030' }}>Nenhuma tarefa pendente 🎉</div>
+          <div className="py-12 text-center">
+            <p className="text-2xl mb-3">🎉</p>
+            <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
+          </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
             {pendingTasks.map(t => (
-              <li key={t.id} className="flex items-center justify-between px-6 py-4">
+              <li key={t.id} className="flex items-center justify-between px-7 py-5">
                 <div>
                   <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
                   <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
@@ -130,6 +153,7 @@ export default function Dashboard() {
           </ul>
         )}
       </Card>
+
     </div>
   )
 }

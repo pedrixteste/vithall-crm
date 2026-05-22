@@ -37,7 +37,7 @@ export default function PipelinePage() {
   )
 
   return (
-    <div className="animate-in space-y-4">
+    <div className="animate-in space-y-7">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Funil de Vendas</p>
         <h1 style={{ color: '#EFEFEF' }}>Pipeline</h1>
@@ -55,12 +55,12 @@ export default function PipelinePage() {
       </div>
 
       {/* Colunas */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {STAGES.map(stage => (
-          <div key={stage.key} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #1C1C1C', background: '#111111' }}>
+          <div key={stage.key} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #303030', background: '#161616' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#1C1C1C' }}>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#222' }}>
+              <div className="flex items-center gap-2.5">
                 <div className="w-2 h-2 rounded-full" style={{ background: stage.dot }} />
                 <Badge variant={stage.badge}>{stage.label}</Badge>
               </div>
@@ -70,21 +70,21 @@ export default function PipelinePage() {
             </div>
 
             {byStage(stage.key).length === 0 ? (
-              <p className="text-xs text-center py-4" style={{ color: '#252525' }}>Sem clientes</p>
+              <p className="text-xs text-center py-5" style={{ color: '#252525' }}>Sem clientes</p>
             ) : (
-              <div className="p-2.5 space-y-2">
+              <div className="p-3 space-y-2.5">
                 {byStage(stage.key).map(client => (
-                  <div key={client.id} className="rounded-xl p-3.5"
-                    style={{ background: '#1A1A1A', border: '1px solid #252525' }}>
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  <div key={client.id} className="rounded-xl p-5"
+                    style={{ background: '#1A1A1A', border: '1px solid #2A2A2A' }}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
                         style={{ background: `${stage.dot}12`, color: stage.dot }}>
                         {client.company_name?.[0]?.toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{client.company_name}</p>
                         {client.contact_name && (
-                          <p className="text-xs truncate" style={{ color: '#6B6560' }}>{client.contact_name}</p>
+                          <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>{client.contact_name}</p>
                         )}
                       </div>
                     </div>
@@ -93,7 +93,7 @@ export default function PipelinePage() {
                     <div className="flex gap-1.5 flex-wrap">
                       {STAGES.filter(s => s.key !== stage.key).map(s => (
                         <button key={s.key} onClick={() => moveStage(client.id, s.key)}
-                          className="text-[11px] px-2 py-1 rounded-lg font-medium transition-all"
+                          className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
                           style={{ background: `${s.dot}10`, color: s.dot, border: `1px solid ${s.dot}20` }}>
                           → {s.label}
                         </button>

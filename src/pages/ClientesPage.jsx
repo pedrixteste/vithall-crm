@@ -32,7 +32,7 @@ export default function ClientesPage() {
   )
 
   return (
-    <div className="animate-in space-y-6">
+    <div className="animate-in space-y-7">
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestão</p>
@@ -50,10 +50,10 @@ export default function ClientesPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar empresa ou contato..."
-          className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
-          style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#EFEFEF' }}
+          className="w-full pl-11 pr-10 py-3.5 rounded-xl text-sm outline-none transition-all"
+          style={{ background: '#161616', border: '1px solid #303030', color: '#EFEFEF' }}
           onFocus={e => e.target.style.borderColor = '#C9A84C'}
-          onBlur={e => e.target.style.borderColor = '#252525'}
+          onBlur={e => e.target.style.borderColor = '#303030'}
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -76,7 +76,7 @@ export default function ClientesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-3xl mb-3">🏢</p>
+          <p className="text-3xl mb-4">🏢</p>
           <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum cliente encontrado</p>
           <p className="text-xs" style={{ color: '#333030' }}>Toque em "Novo" para adicionar</p>
         </div>
@@ -84,10 +84,10 @@ export default function ClientesPage() {
         <div className="space-y-3">
           {filtered.map(client => (
             <Card key={client.id} hover onClick={() => setSelected(client)}>
-              <div className="flex items-center gap-4 px-6 py-5">
+              <div className="flex items-center gap-5 px-7 py-6">
                 {/* Avatar */}
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
-                  style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.12)' }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-base"
+                  style={{ background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.15)' }}>
                   {client.company_name?.[0]?.toUpperCase()}
                 </div>
 
@@ -98,13 +98,13 @@ export default function ClientesPage() {
                   </p>
                   {client.contact_name && (
                     <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
-                      {client.contact_name} · {client.contact_role}
+                      {client.contact_name}{client.contact_role ? ` · ${client.contact_role}` : ''}
                     </p>
                   )}
-                  <div className="mt-2.5">{STAGE_BADGES[client.pipeline_stage]}</div>
+                  <div className="mt-3">{STAGE_BADGES[client.pipeline_stage]}</div>
                 </div>
 
-                <ChevronRight size={15} style={{ color: '#2A2A2A', flexShrink: 0 }} />
+                <ChevronRight size={15} style={{ color: '#333030', flexShrink: 0 }} />
               </div>
             </Card>
           ))}
