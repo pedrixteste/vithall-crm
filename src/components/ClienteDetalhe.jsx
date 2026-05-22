@@ -28,6 +28,7 @@ export default function ClienteDetalhe({ client, onBack }) {
   const [currentClient, setCurrentClient] = useState(client)
   const [addingVisit, setAddingVisit] = useState(false)
   const [editingVisitId, setEditingVisitId] = useState(null)
+  const [editingStage, setEditingStage] = useState(false)
 
   useEffect(() => { fetchVisits(); fetchTasks() }, [])
 
@@ -71,6 +72,12 @@ export default function ClienteDetalhe({ client, onBack }) {
     if (!confirm('Excluir esta visita?')) return
     await supabase.from('visits').delete().eq('id', id)
     fetchVisits()
+  }
+
+  async function updateStage(newStage) {
+    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', client.id)
+    setCurrentClient(c => ({ ...c, matricula_stage: newStage }))
+    setEditingStage(false)
   }
 
   async function updateVisitDate(visitId, newDate) {
@@ -160,13 +167,32 @@ export default function ClienteDetalhe({ client, onBack }) {
                 </span>
               </div>
             )}
-            <div className="flex items-center gap-2.5 text-sm">
-              <Flag size={14} style={{ color: '#C9A84C' }} />
-              <span style={{ color: '#6B6560' }}>Estagio: </span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                style={{ background: stage.bg, color: stage.color, border: `1px solid ${stage.color}30` }}>
-                {stage.label}
-              </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="flex items-center gap-2.5 text-sm">
+                <Flag size={14} style={{ color: '#C9A84C' }} />
+                <span style={{ color: '#6B6560' }}>Estagio: </span>
+                <button onClick={() => setEditingStage(e => !e)}
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full transition-all"
+                  style={{ background: stage.bg, color: stage.color, border: `1px solid ${stage.color}40`, cursor: 'pointer' }}>
+                  {stage.label} ▾
+                </button>
+              </div>
+              {editingStage && (
+                <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
+                  {Object.entries(STAGES).map(([key, s]) => (
+                    <button key={key} onClick={() => updateStage(key)}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
+                      style={{
+                        background: currentClient.matricula_stage === key ? s.bg : 'transparent',
+                        color: s.color,
+                        border: `1px solid ${s.color}${currentClient.matricula_stage === key ? '50' : '25'}`,
+                        cursor: 'pointer',
+                      }}>
+                      {currentClient.matricula_stage === key ? '✓ ' : ''}{s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
