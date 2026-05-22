@@ -101,7 +101,7 @@ export default function ClientesPage() {
                       {client.contact_name}{client.contact_role ? ` · ${client.contact_role}` : ''}
                     </p>
                   )}
-                  <div className="mt-3">{STAGE_BADGES[client.pipeline_stage]}</div>
+                  <div className="mt-3">{STAGE_BADGES[client.matricula_stage]}</div>
                 </div>
 
                 <ChevronRight size={15} style={{ color: '#333030', flexShrink: 0 }} />

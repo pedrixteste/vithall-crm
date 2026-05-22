@@ -5,17 +5,18 @@ import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
 const STAGES = {
-  lead: { label: 'Lead', color: '#7A7570', bg: 'rgba(122,117,112,0.12)' },
-  negociacao: { label: 'Em negociacao', color: '#C9A84C', bg: 'rgba(201,168,76,0.12)' },
-  proposta: { label: 'Proposta', color: '#9B5DE5', bg: 'rgba(155,93,229,0.12)' },
-  fechado: { label: 'Fechado', color: '#4ADE80', bg: 'rgba(74,222,128,0.12)' },
+  nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },
+  nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
+  nao_apareceu:   { label: 'Nao apareceu',     color: '#E8834A', bg: 'rgba(232,131,74,0.12)' },
+  recebeu_visita: { label: 'Recebeu visita',   color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
+  matriculado:    { label: 'Matriculado!!',    color: '#4ADE80', bg: 'rgba(74,222,128,0.12)' },
 }
 
 const ORIGIN_LABELS = {
-  'ligação fria': { label: 'Ligacao fria', color: '#60A5FA' },
-  'lead': { label: 'Lead', color: '#C9A84C' },
-  'feiras': { label: 'Feira', color: '#A78BFA' },
-  'indicação': { label: 'Indicacao', color: '#4ADE80' },
+  'ligacao fria': { label: 'Ligacao fria', color: '#60A5FA' },
+  'lead':         { label: 'Lead',         color: '#C9A84C' },
+  'feiras':       { label: 'Feira',        color: '#A78BFA' },
+  'indicacao':    { label: 'Indicacao',    color: '#4ADE80' },
 }
 
 export default function ClienteDetalhe({ client, onBack }) {
@@ -71,7 +72,7 @@ export default function ClienteDetalhe({ client, onBack }) {
     fetchVisits()
   }
 
-  const stage = STAGES[currentClient.pipeline_stage] || STAGES.lead
+  const stage = STAGES[currentClient.matricula_stage] || STAGES.nao_marcou
   const origin = ORIGIN_LABELS[currentClient.origin]
 
   return (

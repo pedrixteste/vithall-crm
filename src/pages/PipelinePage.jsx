@@ -4,10 +4,11 @@ import { Badge } from '../components/ui/Badge'
 import { Card } from '../components/ui/Card'
 
 const STAGES = [
-  { key: 'lead', label: 'Lead', badge: 'muted', dot: '#6B6560' },
-  { key: 'negociacao', label: 'Em negociação', badge: 'gold', dot: '#C9A84C' },
-  { key: 'proposta', label: 'Proposta enviada', badge: 'purple', dot: '#A78BFA' },
-  { key: 'fechado', label: 'Fechado', badge: 'green', dot: '#4ADE80' },
+  { key: 'nao_marcou',     label: 'Nao marcou ainda',   badge: 'muted',  dot: '#6B6560' },
+  { key: 'nao_visitado',   label: 'Nao foi visitado',   badge: 'blue',   dot: '#60A5FA' },
+  { key: 'nao_apareceu',   label: 'Nao apareceu',       badge: 'orange', dot: '#E8834A' },
+  { key: 'recebeu_visita', label: 'Recebeu visita',     badge: 'purple', dot: '#A78BFA' },
+  { key: 'matriculado',    label: 'Matriculado!!',      badge: 'green',  dot: '#4ADE80' },
 ]
 
 export default function PipelinePage() {
@@ -23,11 +24,11 @@ export default function PipelinePage() {
   }
 
   async function moveStage(clientId, newStage) {
-    await supabase.from('clients').update({ pipeline_stage: newStage }).eq('id', clientId)
+    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', clientId)
     fetchClients()
   }
 
-  const byStage = (key) => clients.filter(c => c.pipeline_stage === key)
+  const byStage = (key) => clients.filter(c => c.matricula_stage === key)
 
   if (loading) return (
     <div className="flex justify-center py-16">

@@ -5,22 +5,34 @@ import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
 
-const ORIGINS = ['ligação fria', 'lead', 'feiras', 'indicação']
-const STAGES = ['lead', 'negociacao', 'proposta', 'fechado']
-const STAGE_LABELS = { lead: 'Lead', negociacao: 'Em negociação', proposta: 'Proposta enviada', fechado: 'Fechado' }
+const ORIGINS = ['ligacao fria', 'lead', 'feiras', 'indicacao']
+const ORIGIN_LABELS = {
+  'ligacao fria': 'Ligacao fria',
+  'lead': 'Lead',
+  'feiras': 'Feiras',
+  'indicacao': 'Indicacao',
+}
+
+const MATRICULA_STAGES = [
+  { key: 'nao_marcou',     label: 'Nao marcou ainda' },
+  { key: 'nao_visitado',   label: 'Nao foi visitado' },
+  { key: 'nao_apareceu',   label: 'Nao apareceu na visita' },
+  { key: 'recebeu_visita', label: 'Recebeu visita' },
+  { key: 'matriculado',    label: 'Matriculado!!' },
+]
 
 export default function ClienteForm({ onClose, onSaved, initialData }) {
   const { user } = useAuth()
   const [form, setForm] = useState({
-    contact_name: initialData?.contact_name || '',
-    company_name: initialData?.company_name || '',
-    contact_role: initialData?.contact_role || '',
-    city: initialData?.city || '',
-    instagram: initialData?.instagram || '',
-    phone: initialData?.phone || '',
-    origin: initialData?.origin || '',
-    pipeline_stage: initialData?.pipeline_stage || 'lead',
-    notes: initialData?.notes || '',
+    contact_name:    initialData?.contact_name    || '',
+    company_name:    initialData?.company_name    || '',
+    contact_role:    initialData?.contact_role    || '',
+    city:            initialData?.city            || '',
+    instagram:       initialData?.instagram       || '',
+    phone:           initialData?.phone           || '',
+    origin:          initialData?.origin          || '',
+    matricula_stage: initialData?.matricula_stage || 'nao_marcou',
+    notes:           initialData?.notes           || '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -29,7 +41,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.contact_name.trim()) { setError('Nome é obrigatório.'); return }
+    if (!form.contact_name.trim()) { setError('Nome e obrigatorio.'); return }
     setSaving(true)
     setError('')
     const payload = { ...form, created_by: user.id }
@@ -72,7 +84,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           label="Cidade"
           value={form.city}
           onChange={e => set('city', e.target.value)}
-          placeholder="Ex: São Paulo, SP"
+          placeholder="Ex: Sao Paulo, SP"
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -97,19 +109,17 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         >
           <option value="" style={{ background: '#1A1A1A' }}>Selecionar...</option>
           {ORIGINS.map(o => (
-            <option key={o} value={o} style={{ background: '#1A1A1A' }}>
-              {o.charAt(0).toUpperCase() + o.slice(1)}
-            </option>
+            <option key={o} value={o} style={{ background: '#1A1A1A' }}>{ORIGIN_LABELS[o]}</option>
           ))}
         </Select>
 
         <Select
-          label="Estagio no pipeline"
-          value={form.pipeline_stage}
-          onChange={e => set('pipeline_stage', e.target.value)}
+          label="Estagio da matricula"
+          value={form.matricula_stage}
+          onChange={e => set('matricula_stage', e.target.value)}
         >
-          {STAGES.map(s => (
-            <option key={s} value={s} style={{ background: '#1A1A1A' }}>{STAGE_LABELS[s]}</option>
+          {MATRICULA_STAGES.map(s => (
+            <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
 
