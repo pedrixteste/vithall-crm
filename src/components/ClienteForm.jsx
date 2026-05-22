@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
-import { Clock, Plus, X } from 'lucide-react'
+import { Clock, Plus, X, Mic, MicOff } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 
 const ORIGINS = ['ligacao fria', 'lead', 'feiras', 'indicacao']
@@ -76,8 +76,39 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
 
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const notesBaseRef   = useRef('')
+
+  function toggleListening() {
+    if (listening) {
+      recognitionRef.current?.stop()
+      setListening(false)
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Seu navegador nao suporta reconhecimento de voz. Use Chrome ou Safari.'); return }
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.continuous = true
+    rec.interimResults = false
+    notesBaseRef.current = form.notes
+    let appended = ''
+    rec.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += e.results[i][0].transcript + ' '
+      }
+      const base = notesBaseRef.current
+      set('notes', base ? base + ' ' + appended.trim() : appended.trim())
+    }
+    rec.onerror = () => setListening(false)
+    rec.onend   = () => setListening(false)
+    rec.start()
+    recognitionRef.current = rec
+    setListening(true)
+  }
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
@@ -198,6 +229,53 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
+
+        {/* ---- OBSERVACOES ---- */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+            Observacoes
+          </label>
+          <div className="relative">
+            <textarea
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              placeholder="Anote informacoes sobre o cliente, visita, interesses..."
+              rows={4}
+              className="w-full text-sm outline-none resize-none rounded-xl transition-all"
+              style={{
+                padding: '12px 48px 12px 14px',
+                background: '#111111',
+                border: `1px solid ${listening ? '#E85555' : '#252525'}`,
+                color: '#EFEFEF',
+                lineHeight: '1.6',
+                boxShadow: listening ? '0 0 0 3px rgba(232,85,85,0.08)' : 'none',
+              }}
+              onFocus={e => { if (!listening) e.target.style.borderColor = '#C9A84C' }}
+              onBlur={e => { if (!listening) e.target.style.borderColor = '#252525' }}
+            />
+            <button
+              type="button"
+              onClick={toggleListening}
+              title={listening ? 'Parar gravacao' : 'Gravar com voz'}
+              className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              style={{
+                background: listening ? 'rgba(232,85,85,0.15)' : 'rgba(201,168,76,0.08)',
+                border: `1px solid ${listening ? 'rgba(232,85,85,0.4)' : 'rgba(201,168,76,0.2)'}`,
+                animation: listening ? 'pulse 1.5s infinite' : 'none',
+              }}>
+              {listening
+                ? <MicOff size={14} style={{ color: '#E85555' }} />
+                : <Mic size={14} style={{ color: '#C9A84C' }} />
+              }
+            </button>
+          </div>
+          {listening && (
+            <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: '#E85555' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E85555', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+              Ouvindo... toque em parar quando terminar
+            </p>
+          )}
+        </div>
 
         {/* ---- ATRIBUICAO ---- */}
         {vendedores.length > 0 && (
