@@ -79,35 +79,80 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [listening, setListening] = useState(false)
-  const recognitionRef = useRef(null)
-  const notesBaseRef   = useRef('')
+  const recognitionRef    = useRef(null)
+  const notesBaseRef      = useRef('')
+  const finalTranscriptRef = useRef('')
+  const listeningRef      = useRef(false)
+
+  function buildRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.continuous = false      // melhor compatibilidade mobile
+    rec.interimResults = true   // mostra texto enquanto fala
+
+    rec.onresult = e => {
+      let interim = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalTranscriptRef.current += e.results[i][0].transcript + ' '
+        } else {
+          interim += e.results[i][0].transcript
+        }
+      }
+      const base = notesBaseRef.current
+      const combined = (finalTranscriptRef.current + interim).trim()
+      set('notes', base ? base.trimEnd() + ' ' + combined : combined)
+    }
+
+    rec.onerror = e => {
+      if (e.error === 'not-allowed') {
+        alert('Microfone bloqueado. Toque no cadeado da URL e permita o acesso ao microfone.')
+        listeningRef.current = false
+        setListening(false)
+      }
+      // outros erros (no-speech, aborted): ignora, onend vai reiniciar
+    }
+
+    rec.onend = () => {
+      if (listeningRef.current) {
+        // auto-restart para simular gravacao continua
+        setTimeout(() => {
+          if (listeningRef.current) {
+            try {
+              const next = buildRecognition()
+              recognitionRef.current = next
+              next.start()
+            } catch (_) {}
+          }
+        }, 150)
+      } else {
+        setListening(false)
+      }
+    }
+
+    return rec
+  }
 
   function toggleListening() {
-    if (listening) {
+    if (listeningRef.current) {
+      listeningRef.current = false
       recognitionRef.current?.stop()
       setListening(false)
       return
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert('Seu navegador nao suporta reconhecimento de voz. Use Chrome ou Safari.'); return }
-    const rec = new SR()
-    rec.lang = 'pt-BR'
-    rec.continuous = true
-    rec.interimResults = false
-    notesBaseRef.current = form.notes
-    let appended = ''
-    rec.onresult = e => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) appended += e.results[i][0].transcript + ' '
-      }
-      const base = notesBaseRef.current
-      set('notes', base ? base + ' ' + appended.trim() : appended.trim())
+    if (!SR) {
+      alert('Seu navegador nao suporta reconhecimento de voz. Use Chrome ou Safari.')
+      return
     }
-    rec.onerror = () => setListening(false)
-    rec.onend   = () => setListening(false)
-    rec.start()
-    recognitionRef.current = rec
+    notesBaseRef.current      = form.notes
+    finalTranscriptRef.current = ''
+    listeningRef.current      = true
     setListening(true)
+    const rec = buildRecognition()
+    recognitionRef.current = rec
+    rec.start()
   }
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
