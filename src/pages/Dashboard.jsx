@@ -183,10 +183,14 @@ export default function Dashboard() {
                   style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
                   −
                 </button>
-                <span className="text-2xl font-bold tabular-nums w-8 text-center"
-                  style={{ color: '#60A5FA', letterSpacing: '-1px' }}>
-                  {logCalls}
-                </span>
+                <input
+                  type="number" min="0" inputMode="numeric"
+                  value={logCalls}
+                  onChange={e => setLogCalls(Math.max(0, parseInt(e.target.value) || 0))}
+                  onFocus={e => e.target.select()}
+                  className="text-2xl font-bold tabular-nums text-center outline-none bg-transparent"
+                  style={{ color: '#60A5FA', letterSpacing: '-1px', width: '48px', border: 'none', MozAppearance: 'textfield' }}
+                />
                 <button onClick={() => setLogCalls(n => n + 1)}
                   className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
                   style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.25)', color: '#60A5FA', fontSize: '18px' }}>
@@ -207,10 +211,14 @@ export default function Dashboard() {
                   style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
                   −
                 </button>
-                <span className="text-2xl font-bold tabular-nums w-8 text-center"
-                  style={{ color: '#A78BFA', letterSpacing: '-1px' }}>
-                  {logAppointments}
-                </span>
+                <input
+                  type="number" min="0" inputMode="numeric"
+                  value={logAppointments}
+                  onChange={e => setLogAppointments(Math.max(0, parseInt(e.target.value) || 0))}
+                  onFocus={e => e.target.select()}
+                  className="text-2xl font-bold tabular-nums text-center outline-none bg-transparent"
+                  style={{ color: '#A78BFA', letterSpacing: '-1px', width: '48px', border: 'none', MozAppearance: 'textfield' }}
+                />
                 <button onClick={() => setLogAppointments(n => n + 1)}
                   className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
                   style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', color: '#A78BFA', fontSize: '18px' }}>
