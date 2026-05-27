@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
+import TarefaForm from '../components/TarefaForm'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
 
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm] = useState(false)
+  const [showTarefaForm, setShowTarefaForm]   = useState(false)
   const [period, setPeriod]           = useState('max')
   const [customFrom, setCustomFrom]   = useState('')
   const [customTo, setCustomTo]       = useState('')
@@ -353,7 +355,14 @@ export default function Dashboard() {
               <CheckSquare size={14} style={{ color: '#E8834A' }} />
               <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
             </div>
-            <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowTarefaForm(true)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                style={{ background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.2)', color: '#E8834A' }}>
+                <Plus size={13} />
+              </button>
+              <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
+            </div>
           </CardHeader>
           {pendingTasks.length === 0 ? (
             <div className="text-center" style={{ padding: '48px 0' }}>
@@ -362,19 +371,28 @@ export default function Dashboard() {
             </div>
           ) : (
             <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
-              {pendingTasks.map(t => (
-                <li key={t.id} style={{ padding: '20px 28px' }} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{t.title}</p>
-                    <p className="text-xs mt-1" style={{ color: '#6B6560' }}>{t.clients?.company_name}</p>
-                  </div>
-                  {t.due_date && (
-                    <Badge variant="orange">
-                      {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    </Badge>
-                  )}
-                </li>
-              ))}
+              {pendingTasks.map(t => {
+                const prioColors = { alta: '#E85555', media: '#E8834A', baixa: '#4ADE80' }
+                const prioColor  = prioColors[t.priority] || '#E8834A'
+                return (
+                  <li key={t.id} style={{ padding: '16px 20px' }} className="flex items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: prioColor }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                        {t.clients?.company_name && (
+                          <p className="text-xs mt-0.5 truncate" style={{ color: '#6B6560' }}>{t.clients.company_name}</p>
+                        )}
+                      </div>
+                    </div>
+                    {t.due_date && (
+                      <Badge variant="orange">
+                        {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      </Badge>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </Card>
@@ -410,6 +428,13 @@ export default function Dashboard() {
         <ClienteForm
           onClose={() => setShowClienteForm(false)}
           onSaved={() => { setShowClienteForm(false); fetchData() }}
+        />
+      )}
+
+      {showTarefaForm && (
+        <TarefaForm
+          onClose={() => setShowTarefaForm(false)}
+          onSaved={() => { setShowTarefaForm(false); fetchData() }}
         />
       )}
     </>
