@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp, Plus, Phone, Calendar, CalendarCheck, ExternalLink } from 'lucide-react'
+import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -41,19 +41,10 @@ export default function Dashboard() {
   const [customFrom, setCustomFrom]   = useState('')
   const [customTo, setCustomTo]       = useState('')
   const [showPeriodDrop, setShowPeriodDrop] = useState(false)
-  const [logCalls, setLogCalls]               = useState(0)
-  const [logAppointments, setLogAppointments] = useState(0)
-  const [savingLog, setSavingLog]             = useState(false)
-  const [logSaved, setLogSaved]               = useState(false)
   const [scheduledVisits, setScheduledVisits] = useState([])
-
-  const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => { setupReminders() }, [])
 
-  useEffect(() => {
-    if (profile?.role === 'pre_vendas' && user) fetchTodayLog()
-  }, [profile])
 
   useEffect(() => {
     if (!profile) return
@@ -72,32 +63,6 @@ export default function Dashboard() {
     scheduleTodayReminders(data || [])
   }
 
-  async function fetchTodayLog() {
-    const { data } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('log_date', today)
-      .single()
-    if (data) {
-      setLogCalls(data.calls)
-      setLogAppointments(data.appointments)
-      setLogSaved(true)
-    }
-  }
-
-  async function saveDailyLog() {
-    setSavingLog(true)
-    await supabase.from('daily_logs').upsert({
-      user_id:      user.id,
-      log_date:     today,
-      calls:        logCalls,
-      appointments: logAppointments,
-    }, { onConflict: 'user_id,log_date' })
-    setSavingLog(false)
-    setLogSaved(true)
-    setTimeout(() => setLogSaved(false), 2000)
-  }
 
   function getPeriodStart() {
     if (period === 'max') return null
@@ -205,85 +170,6 @@ export default function Dashboard() {
           <p className="text-sm mt-2" style={{ color: '#6B6560' }}>Veja o resumo de hoje</p>
         </div>
 
-        {/* Registro diario — pre-vendas only */}
-        {profile?.role === 'pre_vendas' && (
-          <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '20px' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                <Calendar size={14} style={{ color: '#C9A84C' }} />
-              </div>
-              <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Registro do dia</p>
-            </div>
-
-            {/* Ligacoes */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Phone size={14} style={{ color: '#60A5FA' }} />
-                <p className="text-sm" style={{ color: '#6B6560' }}>Ligacoes feitas</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setLogCalls(n => Math.max(0, n - 1))}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
-                  −
-                </button>
-                <input
-                  type="number" min="0" inputMode="numeric"
-                  value={logCalls}
-                  onChange={e => setLogCalls(Math.max(0, parseInt(e.target.value) || 0))}
-                  onFocus={e => e.target.select()}
-                  className="text-2xl font-bold tabular-nums text-center outline-none bg-transparent"
-                  style={{ color: '#60A5FA', letterSpacing: '-1px', width: '48px', border: 'none', MozAppearance: 'textfield' }}
-                />
-                <button onClick={() => setLogCalls(n => n + 1)}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.25)', color: '#60A5FA', fontSize: '18px' }}>
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Marcacoes */}
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <MapPin size={14} style={{ color: '#A78BFA' }} />
-                <p className="text-sm" style={{ color: '#6B6560' }}>Marcacoes de visita</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setLogAppointments(n => Math.max(0, n - 1))}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
-                  −
-                </button>
-                <input
-                  type="number" min="0" inputMode="numeric"
-                  value={logAppointments}
-                  onChange={e => setLogAppointments(Math.max(0, parseInt(e.target.value) || 0))}
-                  onFocus={e => e.target.select()}
-                  className="text-2xl font-bold tabular-nums text-center outline-none bg-transparent"
-                  style={{ color: '#A78BFA', letterSpacing: '-1px', width: '48px', border: 'none', MozAppearance: 'textfield' }}
-                />
-                <button onClick={() => setLogAppointments(n => n + 1)}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', color: '#A78BFA', fontSize: '18px' }}>
-                  +
-                </button>
-              </div>
-            </div>
-
-            <button onClick={saveDailyLog} disabled={savingLog}
-              className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
-              style={{
-                background: logSaved ? 'rgba(74,222,128,0.12)' : 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
-                color: logSaved ? '#4ADE80' : '#F0EAD6',
-                border: logSaved ? '1px solid rgba(74,222,128,0.3)' : 'none',
-                boxShadow: logSaved ? 'none' : '0 2px 12px rgba(201,168,76,0.2)',
-              }}>
-              {logSaved ? '✓ Salvo' : savingLog ? 'Salvando...' : 'Salvar registro'}
-            </button>
-          </div>
-        )}
 
         {/* Seletor de periodo — dropdown */}
         <div style={{ position: 'relative' }}>

@@ -1,14 +1,15 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2, Phone } from 'lucide-react'
 
 const BASE_NAV = [
   { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
   { to: '/clientes',   label: 'Clientes',   icon: Users },
   { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
-  { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare },
-  { to: '/perfil',     label: 'Perfil',     icon: UserCircle, mobileHide: true },
+  { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone },
+  { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare, mobileHide: true },
+  { to: '/perfil',     label: 'Perfil',     icon: UserCircle,  mobileHide: true },
 ]
 
 export default function Layout({ children }) {
