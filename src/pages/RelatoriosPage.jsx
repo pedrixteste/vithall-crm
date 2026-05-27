@@ -41,10 +41,11 @@ function ProportionalBar({ count, max, color }) {
 
 export default function RelatoriosPage() {
   const { profile, user } = useAuth()
-  const [clients, setClients] = useState([])
-  const [profiles, setProfiles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState(30)
+  const [clients, setClients]     = useState([])
+  const [profiles, setProfiles]   = useState([])
+  const [dailyLogs, setDailyLogs] = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [period, setPeriod]       = useState(30)
 
   useEffect(() => { fetchData() }, [profile])
 
@@ -62,6 +63,13 @@ export default function RelatoriosPage() {
       const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
       setProfiles(profilesData || [])
     }
+    if (profile?.role === 'pre_vendas') {
+      const { data: logsData } = await supabase
+        .from('daily_logs')
+        .select('calls, log_date')
+        .eq('user_id', user.id)
+      setDailyLogs(logsData || [])
+    }
     setLoading(false)
   }
 
@@ -76,6 +84,9 @@ export default function RelatoriosPage() {
   )
   const noShows  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const enrolled = clientsInPeriod.filter(c => c.matricula_stage === 'matriculado')
+  const totalCalls = dailyLogs
+    .filter(l => new Date(l.log_date + 'T12:00:00') >= periodStart)
+    .reduce((sum, l) => sum + (l.calls || 0), 0)
 
   // Taxa de conversao
   const convRate = visitsInPeriod.length > 0
@@ -151,7 +162,10 @@ export default function RelatoriosPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <StatCard label="Marcacoes" value={clientsInPeriod.length} color="#60A5FA" />
           <StatCard label="Visitas" value={visitsInPeriod.length} color="#A78BFA" />
-          <StatCard label="Nao apareceu" value={noShows.length} color="#E8834A" />
+          {profile?.role === 'pre_vendas'
+            ? <StatCard label="Ligacoes" value={totalCalls} color="#E8834A" />
+            : <StatCard label="Nao apareceu" value={noShows.length} color="#E8834A" />
+          }
           <StatCard
             label="Matriculas"
             value={enrolled.length}
