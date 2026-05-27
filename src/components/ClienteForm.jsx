@@ -7,6 +7,8 @@ import { Button } from './ui/Button'
 import { Clock, Plus, X, Mic, MicOff } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 
+const TRAININGS_INTERESSE = ['LORAP', 'Impacto', 'Vendas', 'Perfil', 'Workshop', 'Palestra']
+
 const ORIGINS = ['ligacao fria', 'lead', 'feiras', 'indicacao']
 const ORIGIN_LABELS = {
   'ligacao fria': 'Ligacao fria',
@@ -82,6 +84,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [reminderInDays, setReminderInDays] = useState(rc?.in_days?.toString() || '')
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
+
+  const [treinamentosInteresse, setTreinamentosInteresse] = useState(
+    initialData?.treinamentos_interesse || []
+  )
 
   const [visitScheduledAt, setVisitScheduledAt] = useState(
     initialData?.visit_scheduled_at ? initialData.visit_scheduled_at.slice(0, 16) : ''
@@ -168,6 +174,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
+  const toggleTreinamento = (t) =>
+    setTreinamentosInteresse(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+
   const toggleDay = (day) =>
     setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
 
@@ -205,6 +214,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       created_by: user.id,
       reminder_config,
       visit_scheduled_at: visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null,
+      treinamentos_interesse: treinamentosInteresse,
     }
     const res = initialData?.id
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
@@ -298,6 +308,27 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <option key={o} value={o} style={{ background: '#1A1A1A' }}>{ORIGIN_LABELS[o]}</option>
           ))}
         </Select>
+
+        {/* Treinamento de interesse */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+            Treinamento de interesse
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+            {TRAININGS_INTERESSE.map(t => (
+              <button key={t} type="button" onClick={() => toggleTreinamento(t)}
+                className="text-xs font-semibold rounded-xl transition-all"
+                style={{
+                  padding: '10px 6px',
+                  background: treinamentosInteresse.includes(t) ? 'rgba(201,168,76,0.12)' : '#111',
+                  border: `1px solid ${treinamentosInteresse.includes(t) ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                  color: treinamentosInteresse.includes(t) ? '#C9A84C' : '#6B6560',
+                }}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <Select
           label="Estagio da matricula"

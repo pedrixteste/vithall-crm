@@ -5,6 +5,7 @@ import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
 const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall']
+const TRAININGS_INTERESSE = ['LORAP', 'Impacto', 'Vendas', 'Perfil', 'Workshop', 'Palestra']
 
 const STAGES = {
   nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },
@@ -121,6 +122,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     await supabase.from('visits').update({ visit_date: newDate }).eq('id', visitId)
     setEditingVisitId(null)
     fetchVisits()
+  }
+
+  async function toggleTreinamentoInteresse(training) {
+    const current = currentClient.treinamentos_interesse || []
+    const updated = current.includes(training)
+      ? current.filter(t => t !== training)
+      : [...current, training]
+    await supabase.from('clients').update({ treinamentos_interesse: updated }).eq('id', client.id)
+    setCurrentClient(c => ({ ...c, treinamentos_interesse: updated }))
   }
 
   async function toggleMatricula(training) {
@@ -278,6 +288,31 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   ⚠️ Nao atribuido
                 </span>
               )}
+            </div>
+
+            {/* Treinamento de interesse */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>
+                Treinamento de interesse
+              </p>
+              <div className="flex flex-wrap" style={{ gap: '6px' }}>
+                {TRAININGS_INTERESSE.map(t => {
+                  const selected = (currentClient.treinamentos_interesse || []).includes(t)
+                  return (
+                    <button key={t} onClick={() => toggleTreinamentoInteresse(t)}
+                      className="text-xs font-semibold rounded-full transition-all"
+                      style={{
+                        padding: '5px 12px',
+                        background: selected ? 'rgba(201,168,76,0.12)' : 'transparent',
+                        color: selected ? '#C9A84C' : '#444040',
+                        border: `1px solid ${selected ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}`,
+                        cursor: 'pointer',
+                      }}>
+                      {selected ? '✓ ' : ''}{t}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>
