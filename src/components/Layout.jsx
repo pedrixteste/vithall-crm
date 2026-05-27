@@ -33,6 +33,21 @@ export default function Layout({ children }) {
             <img src="/logo.png" alt="Vithall" className="h-5 object-contain" />
           </div>
           <span className="text-xs font-bold tracking-[0.1em] uppercase" style={{ color: '#C9A84C' }}>CRM</span>
+          {profile?.role && (() => {
+            const roles = {
+              gerente:    { label: 'Gerente',    color: '#C9A84C', bg: 'rgba(201,168,76,0.1)',  border: 'rgba(201,168,76,0.25)'  },
+              vendedor:   { label: 'Vendedor',   color: '#A78BFA', bg: 'rgba(167,139,250,0.1)', border: 'rgba(167,139,250,0.25)' },
+              pre_vendas: { label: 'Pré-vendas', color: '#60A5FA', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)'  },
+            }
+            const r = roles[profile.role]
+            if (!r) return null
+            return (
+              <span className="text-[10px] font-bold rounded-full"
+                style={{ padding: '3px 8px', background: r.bg, border: `1px solid ${r.border}`, color: r.color }}>
+                {r.label}
+              </span>
+            )
+          })()}
         </div>
 
         <div className="flex items-center gap-2">
