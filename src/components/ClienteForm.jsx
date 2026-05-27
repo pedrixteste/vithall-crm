@@ -308,11 +308,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ADE80' }}>Detalhes da marcacao</p>
 
             <Select
-              label="Vendedor responsavel *"
+              label="Responsavel pela visita *"
               value={form.assigned_to}
               onChange={e => set('assigned_to', e.target.value)}
             >
-              <option value="" style={{ background: '#1A1A1A' }}>Selecionar vendedor...</option>
+              <option value="" style={{ background: '#1A1A1A' }}>Selecionar...</option>
               {vendedores.map(v => (
                 <option key={v.id} value={v.id} style={{ background: '#1A1A1A' }}>{v.name || v.id}</option>
               ))}
