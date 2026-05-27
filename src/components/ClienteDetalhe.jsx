@@ -157,30 +157,26 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #303030' }}>
 
         {/* Topo do card */}
-        <div style={{ padding: '24px 20px 20px' }}>
+        <div style={{ padding: '20px 20px 18px' }}>
 
-          {/* Badge de estágio no topo */}
-          <div className="flex justify-end" style={{ marginBottom: '16px' }}>
-            <span className="text-xs font-semibold rounded-xl"
-              style={{ padding: '5px 12px', background: stage.bg, color: stage.color, whiteSpace: 'nowrap' }}>
-              {stage.label}
-            </span>
-          </div>
-
-          {/* Avatar + nome */}
-          <div className="flex items-center gap-4" style={{ marginBottom: '24px' }}>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+          {/* Avatar + nome + badge na mesma linha */}
+          <div className="flex items-center gap-3" style={{ marginBottom: '20px' }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: 'linear-gradient(135deg, rgba(123,28,58,0.3), rgba(201,168,76,0.3))', border: '1px solid rgba(201,168,76,0.2)' }}>
-              <span className="text-xl font-bold" style={{ color: '#C9A84C' }}>
+              <span className="text-lg font-bold" style={{ color: '#C9A84C' }}>
                 {(currentClient.contact_name || currentClient.company_name)?.[0]?.toUpperCase()}
               </span>
             </div>
-            <div>
-              <p className="font-bold text-base" style={{ color: '#EFEFEF' }}>{currentClient.contact_name || '—'}</p>
-              <p className="text-xs mt-1" style={{ color: '#6B6560' }}>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold" style={{ color: '#EFEFEF' }}>{currentClient.contact_name || '—'}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B6560' }}>
                 {[currentClient.contact_role, currentClient.company_name].filter(Boolean).join(' · ')}
               </p>
             </div>
+            <span className="text-xs font-semibold rounded-lg flex-shrink-0"
+              style={{ padding: '4px 10px', background: stage.bg, color: stage.color, whiteSpace: 'nowrap' }}>
+              {stage.label}
+            </span>
           </div>
 
           {/* Infos de contato */}
