@@ -21,7 +21,21 @@ const ORIGIN_LABELS = {
   'indicacao':    { label: 'Indicacao',    color: '#4ADE80' },
 }
 
-export default function ClienteDetalhe({ client, onBack }) {
+const DAYS_PT = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb' }
+
+function formatReminder(rc) {
+  if (!rc) return null
+  let typeStr = ''
+  if (rc.type === 'daily')   typeStr = 'Todo dia'
+  if (rc.type === 'weekly')  typeStr = `Toda semana (${(rc.days || []).map(d => DAYS_PT[d]).join(', ')})`
+  if (rc.type === 'in_days') typeStr = `Daqui ${rc.in_days} dia${rc.in_days !== 1 ? 's' : ''}`
+  const times = (rc.times || []).join(' · ')
+  return times ? `${typeStr} às ${times}` : typeStr
+}
+
+export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
+  const goBack = onBack || onClose || (() => {})
+
   const [visits, setVisits] = useState([])
   const [tasks, setTasks] = useState([])
   const [tab, setTab] = useState('visitas')
@@ -32,8 +46,21 @@ export default function ClienteDetalhe({ client, onBack }) {
   const [editingVisitId, setEditingVisitId] = useState(null)
   const [editingStage, setEditingStage] = useState(false)
   const [assignedName, setAssignedName] = useState(null)
+  const [notesValue, setNotesValue]     = useState(client.notes || '')
+  const [savingNotes, setSavingNotes]   = useState(false)
+  const [notesSaved, setNotesSaved]     = useState(false)
 
   useEffect(() => { fetchVisits(); fetchTasks(); fetchAssigned() }, [])
+
+  async function saveNotes() {
+    if (notesValue === currentClient.notes) return
+    setSavingNotes(true)
+    await supabase.from('clients').update({ notes: notesValue }).eq('id', client.id)
+    setCurrentClient(c => ({ ...c, notes: notesValue }))
+    setSavingNotes(false)
+    setNotesSaved(true)
+    setTimeout(() => setNotesSaved(false), 2000)
+  }
 
   async function fetchAssigned() {
     if (!client.assigned_to) return
@@ -113,7 +140,7 @@ export default function ClienteDetalhe({ client, onBack }) {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-xl transition-all"
+        <button onClick={goBack} className="p-2 rounded-xl transition-all"
           style={{ background: '#161616', border: '1px solid #303030', color: '#6B6560' }}>
           <ArrowLeft size={18} />
         </button>
@@ -254,6 +281,57 @@ export default function ClienteDetalhe({ client, onBack }) {
             </div>
           </div>
         </div>
+
+        {/* Observacoes — editavel inline */}
+        <div style={{ padding: '0 20px 16px', borderTop: '1px solid #1C1C1C', paddingTop: '16px' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>Observações</p>
+            {savingNotes && <p className="text-[10px]" style={{ color: '#6B6560' }}>Salvando...</p>}
+            {notesSaved && <p className="text-[10px]" style={{ color: '#4ADE80' }}>✓ Salvo</p>}
+          </div>
+          <textarea
+            value={notesValue}
+            onChange={e => setNotesValue(e.target.value)}
+            onBlur={saveNotes}
+            placeholder="Nenhuma observação. Toque para adicionar..."
+            rows={3}
+            className="w-full text-sm outline-none resize-none rounded-xl transition-all"
+            style={{
+              padding: '12px 14px',
+              background: '#111',
+              border: '1px solid #252525',
+              color: '#EFEFEF',
+              lineHeight: '1.6',
+            }}
+            onFocus={e => e.target.style.borderColor = '#C9A84C'}
+            onBlur={e => { e.target.style.borderColor = '#252525'; saveNotes() }}
+          />
+        </div>
+
+        {/* Visita agendada */}
+        {currentClient.visit_scheduled_at && (
+          <div style={{ padding: '0 20px 16px', borderTop: '1px solid #1C1C1C', paddingTop: '16px' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Visita agendada</p>
+            <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>
+              {new Date(currentClient.visit_scheduled_at).toLocaleDateString('pt-BR', {
+                weekday: 'long', day: '2-digit', month: 'long'
+              })} às {new Date(currentClient.visit_scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        )}
+
+        {/* Lembrete configurado */}
+        {currentClient.reminder_config && (
+          <div style={{ padding: '0 20px 16px', borderTop: '1px solid #1C1C1C', paddingTop: '16px' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Lembrete</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: '#C9A84C' }}>🔔</span>
+              <p className="text-xs font-medium" style={{ color: '#6B6560' }}>
+                {formatReminder(currentClient.reminder_config)}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Contador de visitas */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid #222' }}>
@@ -412,7 +490,9 @@ export default function ClienteDetalhe({ client, onBack }) {
           onSaved={async () => {
             const { data } = await supabase.from('clients').select('*').eq('id', client.id).single()
             setCurrentClient(data)
+            setNotesValue(data?.notes || '')
             setShowEdit(false)
+            onUpdated?.()
           }} />
       )}
       {showTarefaForm && (
