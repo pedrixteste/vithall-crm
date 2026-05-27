@@ -7,6 +7,7 @@ import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
 import TarefaForm from '../components/TarefaForm'
+import ClienteDetalhe from '../components/ClienteDetalhe'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
 
@@ -37,8 +38,9 @@ export default function Dashboard() {
   const [recentVisits, setRecentVisits] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showClienteForm, setShowClienteForm] = useState(false)
-  const [showTarefaForm, setShowTarefaForm]   = useState(false)
+  const [showClienteForm, setShowClienteForm]     = useState(false)
+  const [showTarefaForm, setShowTarefaForm]       = useState(false)
+  const [selectedCliente, setSelectedCliente]     = useState(null)
   const [period, setPeriod]           = useState('max')
   const [customFrom, setCustomFrom]   = useState('')
   const [customTo, setCustomTo]       = useState('')
@@ -119,7 +121,7 @@ export default function Dashboard() {
     if (profile?.role !== 'pre_vendas') {
       let svq = supabase
         .from('clients')
-        .select('id, contact_name, company_name, city, notes, visit_scheduled_at')
+        .select('*, visits(*)')
         .eq('matricula_stage', 'nao_visitado')
         .not('visit_scheduled_at', 'is', null)
         .order('visit_scheduled_at', { ascending: true })
@@ -282,7 +284,11 @@ export default function Dashboard() {
                   return (
                     <li key={v.id} style={{ padding: '16px 20px' }}>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        {/* Lado esquerdo — clicável para ver o cliente */}
+                        <button
+                          onClick={() => setSelectedCliente(v)}
+                          className="flex-1 min-w-0 text-left transition-all active:opacity-70"
+                        >
                           <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
                             {v.contact_name}
                           </p>
@@ -292,7 +298,9 @@ export default function Dashboard() {
                           <p className="text-xs font-medium mt-1" style={{ color: '#4ADE80' }}>
                             {dateLabel} às {timeLabel}
                           </p>
-                        </div>
+                          <p className="text-[10px] mt-1" style={{ color: '#333030' }}>Toque para ver detalhes →</p>
+                        </button>
+                        {/* Botão Google Agenda */}
                         <a
                           href={buildCalendarUrl(v)}
                           target="_blank"
@@ -435,6 +443,14 @@ export default function Dashboard() {
         <TarefaForm
           onClose={() => setShowTarefaForm(false)}
           onSaved={() => { setShowTarefaForm(false); fetchData() }}
+        />
+      )}
+
+      {selectedCliente && (
+        <ClienteDetalhe
+          client={selectedCliente}
+          onClose={() => setSelectedCliente(null)}
+          onUpdated={() => { setSelectedCliente(null); fetchData() }}
         />
       )}
     </>
