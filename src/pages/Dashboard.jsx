@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp, Plus, Phone, Calendar } from 'lucide-react'
+import { Users, MapPin, CheckSquare, TrendingUp, Plus, Phone, Calendar, CalendarCheck, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [logAppointments, setLogAppointments] = useState(0)
   const [savingLog, setSavingLog]             = useState(false)
   const [logSaved, setLogSaved]               = useState(false)
+  const [scheduledVisits, setScheduledVisits] = useState([])
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -146,7 +147,33 @@ export default function Dashboard() {
     setStats({ clients: c.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
     setRecentVisits(rv.data || [])
     setPendingTasks(pt.data || [])
+
+    // Visitas agendadas — apenas para vendedor/gerente
+    if (profile?.role !== 'pre_vendas') {
+      let svq = supabase
+        .from('clients')
+        .select('id, contact_name, company_name, city, notes, visit_scheduled_at')
+        .eq('matricula_stage', 'nao_visitado')
+        .not('visit_scheduled_at', 'is', null)
+        .order('visit_scheduled_at', { ascending: true })
+      if (profile?.role === 'vendedor') svq = svq.eq('assigned_to', user.id)
+      const { data: sv } = await svq
+      setScheduledVisits(sv || [])
+    }
+
     setLoading(false)
+  }
+
+  function buildCalendarUrl(c) {
+    const dt    = new Date(c.visit_scheduled_at)
+    const dtEnd = new Date(dt.getTime() + 60 * 60 * 1000)
+    const fmt   = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+    const title = c.company_name ? `Visita - ${c.contact_name} (${c.company_name})` : `Visita - ${c.contact_name}`
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+      `&text=${encodeURIComponent(title)}` +
+      `&dates=${fmt(dt)}/${fmt(dtEnd)}` +
+      (c.city  ? `&location=${encodeURIComponent(c.city)}`  : '') +
+      (c.notes ? `&details=${encodeURIComponent(c.notes)}` : '')
   }
 
   const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
@@ -337,6 +364,70 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+
+        {/* Visitas agendadas — vendedor/gerente */}
+        {profile?.role !== 'pre_vendas' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2.5">
+                <CalendarCheck size={14} style={{ color: '#4ADE80' }} />
+                <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas agendadas</span>
+                {scheduledVisits.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(74,222,128,0.12)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.25)' }}>
+                    {scheduledVisits.length}
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+            {scheduledVisits.length === 0 ? (
+              <div className="text-center" style={{ padding: '48px 0' }}>
+                <p style={{ fontSize: '2rem', marginBottom: '12px' }}>📅</p>
+                <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita agendada</p>
+              </div>
+            ) : (
+              <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+                {scheduledVisits.map(v => {
+                  const dt = new Date(v.visit_scheduled_at)
+                  const dateLabel = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+                  const timeLabel = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  return (
+                    <li key={v.id} style={{ padding: '16px 20px' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
+                            {v.contact_name}
+                          </p>
+                          {v.company_name && (
+                            <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>
+                          )}
+                          <p className="text-xs font-medium mt-1" style={{ color: '#4ADE80' }}>
+                            {dateLabel} às {timeLabel}
+                          </p>
+                        </div>
+                        <a
+                          href={buildCalendarUrl(v)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl transition-all"
+                          style={{
+                            padding: '8px 12px',
+                            background: 'rgba(74,222,128,0.08)',
+                            border: '1px solid rgba(74,222,128,0.2)',
+                            color: '#4ADE80',
+                            textDecoration: 'none',
+                          }}>
+                          <ExternalLink size={11} />
+                          Agenda
+                        </a>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Card>
+        )}
 
         {/* Visitas recentes */}
         <Card>

@@ -221,6 +221,19 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           reminderConfig: reminder_config,
         })
       }
+      // Notifica o responsavel quando pre_vendas cria uma marcacao feita
+      if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && form.assigned_to && visitScheduledAt) {
+        supabase.functions.invoke('notify-visit', {
+          body: {
+            assignedToId:  form.assigned_to,
+            clientName:    form.contact_name,
+            companyName:   form.company_name,
+            visitDateTime: new Date(visitScheduledAt).toISOString(),
+            city:          form.city,
+            notes:         form.notes,
+          },
+        })
+      }
       onSaved()
     }
     setSaving(false)
