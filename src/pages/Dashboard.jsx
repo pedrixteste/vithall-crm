@@ -55,9 +55,10 @@ export default function Dashboard() {
   }, [profile])
 
   useEffect(() => {
+    if (!profile) return
     if (period === 'custom' && !customFrom) return
     fetchData()
-  }, [period, customFrom, customTo])
+  }, [period, customFrom, customTo, profile])
 
   async function setupReminders() {
     initOneSignal()
@@ -117,13 +118,30 @@ export default function Dashboard() {
       return q
     }
 
+    const applyRole = (q) => {
+      if (profile?.role === 'pre_vendas') return q.eq('created_by', user.id)
+      if (profile?.role === 'vendedor')   return q.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      return q
+    }
+
+    // busca IDs dos clientes do usuário para filtrar visitas e tarefas
+    const { data: myClients } = await applyRole(supabase.from('clients').select('id'))
+    const ids = (myClients || []).map(c => c.id)
+    const noClients = ids.length === 0 && profile?.role !== 'gerente'
+
+    const applyClientFilter = (q) => {
+      if (profile?.role === 'gerente') return q
+      if (noClients) return q.in('client_id', ['00000000-0000-0000-0000-000000000000'])
+      return q.in('client_id', ids)
+    }
+
     const [c, v, t, cl, rv, pt] = await Promise.all([
-      applyDate(supabase.from('clients').select('id', { count: 'exact' }), 'created_at'),
-      applyDate(supabase.from('visits').select('id', { count: 'exact' }), 'visit_date'),
-      supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false),
-      applyDate(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado'), 'created_at'),
-      applyDate(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4), 'visit_date'),
-      supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4),
+      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' })), 'created_at'),
+      applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
+      applyClientFilter(supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false)),
+      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado')), 'created_at'),
+      applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
+      applyClientFilter(supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4)),
     ])
     setStats({ clients: c.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
     setRecentVisits(rv.data || [])
