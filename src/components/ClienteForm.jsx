@@ -17,10 +17,17 @@ const ORIGIN_LABELS = {
 
 const MATRICULA_STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda' },
+  { key: 'pediu_ligar',    label: 'Pediu para ligar depois' },
   { key: 'nao_visitado',   label: 'Nao foi visitado' },
   { key: 'nao_apareceu',   label: 'Nao apareceu na visita' },
   { key: 'recebeu_visita', label: 'Recebeu visita' },
   { key: 'matriculado',    label: 'Matriculado!!' },
+]
+
+const MATRICULA_STAGES_PRE_VENDAS = [
+  { key: 'nao_marcou',   label: 'Nao marcado' },
+  { key: 'pediu_ligar',  label: 'Pediu para ligar depois' },
+  { key: 'nao_visitado', label: 'Marcacao feita' },
 ]
 
 const REMINDER_TYPES = [
@@ -75,6 +82,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [reminderInDays, setReminderInDays] = useState(rc?.in_days?.toString() || '')
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
+
+  const [visitScheduledAt, setVisitScheduledAt] = useState(
+    initialData?.visit_scheduled_at ? initialData.visit_scheduled_at.slice(0, 16) : ''
+  )
 
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
@@ -174,6 +185,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.contact_name.trim()) { setError('Nome e obrigatorio.'); return }
+    if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado') {
+      if (!form.assigned_to)   { setError('Selecione o vendedor responsavel.'); return }
+      if (!visitScheduledAt)   { setError('Informe a data e hora da visita.'); return }
+    }
     setSaving(true)
     setError('')
 
@@ -184,7 +199,13 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       times: reminderTimes,
     } : null
 
-    const payload = { ...form, assigned_to: form.assigned_to || null, created_by: user.id, reminder_config }
+    const payload = {
+      ...form,
+      assigned_to: form.assigned_to || null,
+      created_by: user.id,
+      reminder_config,
+      visit_scheduled_at: visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null,
+    }
     const res = initialData?.id
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
       : await supabase.from('clients').insert(payload)
@@ -268,12 +289,51 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Select
           label="Estagio da matricula"
           value={form.matricula_stage}
-          onChange={e => set('matricula_stage', e.target.value)}
+          onChange={e => {
+            set('matricula_stage', e.target.value)
+            if (e.target.value !== 'nao_visitado') {
+              set('assigned_to', '')
+              setVisitScheduledAt('')
+            }
+          }}
         >
-          {MATRICULA_STAGES.map(s => (
+          {(profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES).map(s => (
             <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
+
+        {/* Marcacao feita — pre_vendas: atribuir vendedor + data/hora */}
+        {profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && (
+          <div className="rounded-2xl" style={{ background: '#0F1A0F', border: '1px solid rgba(74,222,128,0.15)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ADE80' }}>Detalhes da marcacao</p>
+
+            <Select
+              label="Vendedor responsavel *"
+              value={form.assigned_to}
+              onChange={e => set('assigned_to', e.target.value)}
+            >
+              <option value="" style={{ background: '#1A1A1A' }}>Selecionar vendedor...</option>
+              {vendedores.map(v => (
+                <option key={v.id} value={v.id} style={{ background: '#1A1A1A' }}>{v.name || v.id}</option>
+              ))}
+            </Select>
+
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+                Data e hora da visita *
+              </label>
+              <input
+                type="datetime-local"
+                value={visitScheduledAt}
+                onChange={e => setVisitScheduledAt(e.target.value)}
+                className="w-full text-sm outline-none rounded-xl"
+                style={{ padding: '12px 14px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }}
+                onFocus={e => e.target.style.borderColor = '#4ADE80'}
+                onBlur={e => e.target.style.borderColor = '#252525'}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ---- OBSERVACOES ---- */}
         <div>
@@ -322,8 +382,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           )}
         </div>
 
-        {/* ---- ATRIBUICAO ---- */}
-        {vendedores.length > 0 && (
+        {/* ---- ATRIBUICAO (vendedor/gerente only — pre_vendas tem campo proprio no bloco "Marcacao feita") ---- */}
+        {profile?.role !== 'pre_vendas' && vendedores.length > 0 && (
           <Select
             label="Atribuir para vendedor"
             value={form.assigned_to}
