@@ -154,6 +154,14 @@ export default function Dashboard() {
     { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
   ]
 
+  if (selectedCliente) return (
+    <ClienteDetalhe
+      client={selectedCliente}
+      onBack={() => setSelectedCliente(null)}
+      onUpdated={() => { setSelectedCliente(null); fetchData() }}
+    />
+  )
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-7 h-7 rounded-full border-2 animate-spin"
@@ -446,13 +454,6 @@ export default function Dashboard() {
         />
       )}
 
-      {selectedCliente && (
-        <ClienteDetalhe
-          client={selectedCliente}
-          onClose={() => setSelectedCliente(null)}
-          onUpdated={() => { setSelectedCliente(null); fetchData() }}
-        />
-      )}
     </>
   )
 }
