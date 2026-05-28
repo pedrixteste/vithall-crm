@@ -283,7 +283,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Input
           label="Cidade"
           value={form.city}
-          onChange={e => set('city', e.target.value)}
+          onChange={e => set('city', titleCase(e.target.value))}
           placeholder="Ex: Sao Paulo, SP"
         />
 
