@@ -380,7 +380,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
     // Se cancelou → remove evento do Google Agenda automaticamente
     if (newStage === 'cancelado' && currentClient.google_calendar_event_id) {
-      const token = await getValidToken(profile)
+      // Busca perfil fresco para garantir que os tokens do Google estão atualizados
+      const { data: freshProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const token = await getValidToken(freshProfile)
       if (token) {
         await deleteCalendarEvent(token, currentClient.google_calendar_event_id)
         await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', client.id)
@@ -393,7 +395,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!currentClient.visit_scheduled_at) return
     setSyncingCalendar(true)
     try {
-      const token = await getValidToken(profile)
+      // Busca perfil fresco para garantir tokens atualizados
+      const { data: freshProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const token = await getValidToken(freshProfile)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, {
         clientName:    currentClient.contact_name || currentClient.company_name || 'Cliente',
