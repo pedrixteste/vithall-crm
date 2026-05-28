@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X } from 'lucide-react'
+import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 
@@ -277,6 +278,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [editingVisitId, setEditingVisitId] = useState(null)
   const [editingStage, setEditingStage]   = useState(false)
   const [pendingStage, setPendingStage]   = useState(null)
+  const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
@@ -375,6 +377,35 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setCurrentClient(c => ({ ...c, matricula_stage: newStage }))
     setEditingStage(false)
     fetchHistory()
+
+    // Se cancelou → remove evento do Google Agenda automaticamente
+    if (newStage === 'cancelado' && currentClient.google_calendar_event_id) {
+      const token = await getValidToken(profile)
+      if (token) {
+        await deleteCalendarEvent(token, currentClient.google_calendar_event_id)
+        await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', client.id)
+        setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+      }
+    }
+  }
+
+  async function syncCalendarEvent() {
+    if (!currentClient.visit_scheduled_at) return
+    setSyncingCalendar(true)
+    try {
+      const token = await getValidToken(profile)
+      if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      const eventId = await createCalendarEvent(token, {
+        clientName:    currentClient.contact_name || currentClient.company_name || 'Cliente',
+        visitDateTime: currentClient.visit_scheduled_at,
+      })
+      await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', client.id)
+      setCurrentClient(c => ({ ...c, google_calendar_event_id: eventId }))
+    } catch (e) {
+      alert(`Erro ao sincronizar: ${e.message}`)
+    } finally {
+      setSyncingCalendar(false)
+    }
   }
 
   async function updateVisitDate(visitId, newDate) {
@@ -708,6 +739,32 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               {' às '}
               {new Date(currentClient.visit_scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
+
+            {/* Botão de sincronização com Google Agenda */}
+            {profile?.google_refresh_token && (
+              <div style={{ marginTop: '10px' }}>
+                {currentClient.google_calendar_event_id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={12} style={{ color: '#4ADE80' }} />
+                    <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: 600 }}>
+                      Salvo no Google Agenda
+                    </span>
+                  </div>
+                ) : (
+                  <button onClick={syncCalendarEvent} disabled={syncingCalendar}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '7px 12px', borderRadius: '10px', cursor: 'pointer',
+                      background: 'rgba(201,168,76,0.08)', color: '#C9A84C',
+                      border: '1px solid rgba(201,168,76,0.2)',
+                      fontSize: '12px', fontWeight: 600,
+                    }}>
+                    <Calendar size={12} />
+                    {syncingCalendar ? 'Adicionando...' : 'Adicionar ao Google Agenda'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -9,6 +9,7 @@ import PerfilPage from './pages/PerfilPage'
 import EquipePage from './pages/EquipePage'
 import RelatoriosPage from './pages/RelatoriosPage'
 import LigacoesPage from './pages/LigacoesPage'
+import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -67,6 +68,8 @@ function AppRoutes() {
           <Layout><EquipePage /></Layout>
         </PrivateRoute>
       } />
+      {/* Callback OAuth do Google — sem Layout, sem autenticação obrigatória */}
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
