@@ -58,6 +58,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     company_name:    initialData?.company_name    || '',
     contact_role:    initialData?.contact_role    || '',
     city:            initialData?.city            || '',
+    address_street:  initialData?.address_street  || '',
+    address_number:  initialData?.address_number  || '',
+    address_neighborhood: initialData?.address_neighborhood || '',
     instagram:       initialData?.instagram       || '',
     phone:           initialData?.phone           || '',
     origin:          initialData?.origin          || '',
@@ -286,6 +289,30 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           onChange={e => set('city', titleCase(e.target.value))}
           placeholder="Ex: Sao Paulo, SP"
         />
+
+        {/* Endereço */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.2fr', gap: '10px' }}>
+            <Input
+              label="Rua"
+              value={form.address_street}
+              onChange={e => set('address_street', titleCase(e.target.value))}
+              placeholder="Ex: Av. Paulista"
+            />
+            <Input
+              label="Numero"
+              value={form.address_number}
+              onChange={e => set('address_number', e.target.value)}
+              placeholder="123"
+            />
+          </div>
+          <Input
+            label="Bairro"
+            value={form.address_neighborhood}
+            onChange={e => set('address_neighborhood', titleCase(e.target.value))}
+            placeholder="Ex: Centro"
+          />
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <Input

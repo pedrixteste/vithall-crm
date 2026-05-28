@@ -199,12 +199,25 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 {currentClient.phone}
               </a>
             )}
-            {currentClient.city && (
-              <div className="flex items-center gap-2.5 text-sm" style={{ color: '#6B6560' }}>
-                <MapPin size={14} style={{ color: '#C9A84C' }} />
-                {currentClient.city}
-              </div>
-            )}
+            {(currentClient.city || currentClient.address_street) && (() => {
+              const parts = [
+                currentClient.address_street,
+                currentClient.address_number,
+                currentClient.address_neighborhood,
+                currentClient.city,
+              ].filter(Boolean)
+              const addressText = parts.join(', ')
+              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
+              return (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-start gap-2.5 text-sm" style={{ color: '#6B6560' }}>
+                  <MapPin size={14} style={{ color: '#C9A84C', flexShrink: 0, marginTop: '2px' }} />
+                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#C9A84C44' }}>
+                    {addressText}
+                  </span>
+                </a>
+              )
+            })()}
             {currentClient.instagram && (
               <a href={`https://instagram.com/${currentClient.instagram.replace('@', '')}`}
                 target="_blank" rel="noopener noreferrer"
