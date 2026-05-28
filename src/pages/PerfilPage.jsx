@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { User, LogOut, Check, Calendar, Unlink } from 'lucide-react'
@@ -8,14 +8,22 @@ import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl } from '../lib/googleCalendar'
 
 export default function PerfilPage() {
-  const { profile, signOut, user } = useAuth()
-  const [name, setName] = useState(profile?.name || '')
+  const { profile: authProfile, signOut, user } = useAuth()
+  const [freshProfile, setFreshProfile] = useState(authProfile)
+  const [name, setName] = useState(authProfile?.name || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [disconnecting, setDisconnecting] = useState(false)
 
-  const isGoogleConnected = !!profile?.google_refresh_token
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('profiles').select('*').eq('id', user.id).single()
+      .then(({ data }) => { if (data) setFreshProfile(data) })
+  }, [user?.id])
+
+  const profile = freshProfile
+  const isGoogleConnected = !!freshProfile?.google_refresh_token
 
   async function handleDisconnectGoogle() {
     if (!confirm('Desconectar o Google Agenda? Os eventos já criados não serão afetados.')) return
