@@ -30,25 +30,30 @@ export default function GoogleCallbackPage() {
           },
         })
 
-        if (fnError || !data?.access_token) {
-          throw new Error(fnError?.message || 'Token inválido')
-        }
+        if (fnError) throw new Error(`Função: ${fnError.message}`)
+        if (data?.error) throw new Error(`Google: ${data.error} — ${data.error_description || ''}`)
+        if (!data?.access_token) throw new Error(`Sem token. Resposta: ${JSON.stringify(data)}`)
 
         // Salva tokens no perfil do usuário
-        const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('profiles').update({
+        const { data: authData } = await supabase.auth.getUser()
+        const uid = authData?.user?.id
+        if (!uid) throw new Error('Usuário não autenticado')
+
+        const { error: updateError } = await supabase.from('profiles').update({
           google_access_token:  data.access_token,
-          google_refresh_token: data.refresh_token,
-          google_token_expiry:  Date.now() + data.expires_in * 1000,
-        }).eq('id', user.id)
+          google_refresh_token: data.refresh_token || null,
+          google_token_expiry:  Date.now() + (data.expires_in || 3600) * 1000,
+        }).eq('id', uid)
+
+        if (updateError) throw new Error(`Salvar perfil: ${updateError.message}`)
 
         setStatus('Google Agenda conectado! ✅')
         setTimeout(() => navigate('/perfil'), 1800)
       } catch (e) {
         console.error('Google OAuth error:', e)
-        setStatus('Erro ao conectar. Tente novamente.')
+        setStatus(e.message || 'Erro ao conectar.')
         setIsError(true)
-        setTimeout(() => navigate('/perfil'), 2500)
+        setTimeout(() => navigate('/perfil'), 5000)
       }
     }
 
