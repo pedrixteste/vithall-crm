@@ -175,6 +175,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
+  // Capitaliza a primeira letra de cada palavra automaticamente
+  const titleCase = str => str.replace(/(^|\s)\S/g, l => l.toUpperCase())
+
   const toggleTreinamento = (t) =>
     setTreinamentosInteresse(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
 
@@ -257,7 +260,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Input
           label="Nome *"
           value={form.contact_name}
-          onChange={e => set('contact_name', e.target.value)}
+          onChange={e => set('contact_name', titleCase(e.target.value))}
           placeholder="Nome do cliente"
           required
         />
@@ -266,13 +269,13 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           <Input
             label="Empresa"
             value={form.company_name}
-            onChange={e => set('company_name', e.target.value)}
+            onChange={e => set('company_name', titleCase(e.target.value))}
             placeholder="Nome da empresa"
           />
           <Input
             label="Cargo"
             value={form.contact_role}
-            onChange={e => set('contact_role', e.target.value)}
+            onChange={e => set('contact_role', titleCase(e.target.value))}
             placeholder="Ex: Dono, Gerente"
           />
         </div>
