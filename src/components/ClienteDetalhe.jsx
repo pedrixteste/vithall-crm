@@ -100,12 +100,35 @@ function formatReminder(rc) {
 
 // ── Componente de evento na timeline ──────────────────────────────
 
-function TimelineEvent({ event, isLast }) {
-  const color     = getEventColor(event.event_type, event.event_data)
-  const icon      = getEventIcon(event.event_type, event.event_data)
-  const isAlert   = event.event_type === 'stage_change' && event.event_data?.to === 'nao_apareceu'
-  const isCelebr  = event.event_type === 'stage_change' && event.event_data?.to === 'matriculado'
+function TimelineEvent({ event, isLast, onDelete, onEdit }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(null)
+
+  const isDerived   = !!event._derived
+  const color       = getEventColor(event.event_type, event.event_data)
+  const icon        = getEventIcon(event.event_type, event.event_data)
+  const isAlert     = event.event_type === 'stage_change' && event.event_data?.to === 'nao_apareceu'
+  const isCelebr    = event.event_type === 'stage_change' && event.event_data?.to === 'matriculado'
   const isHighlight = isAlert || isCelebr
+
+  function startEdit() {
+    if (event.event_type === 'visit') setEditValue(event.event_data?.date || '')
+    else if (event.event_type === 'stage_change') setEditValue(event.event_data?.to || '')
+    else if (event.event_type === 'matricula_added' || event.event_type === 'matricula_removed') setEditValue(event.event_data?.training || '')
+    setIsEditing(true)
+  }
+
+  function cancelEdit() { setIsEditing(false); setEditValue(null) }
+
+  function submitEdit() {
+    if (!editValue) { cancelEdit(); return }
+    const newData = { ...event.event_data }
+    if (event.event_type === 'visit') newData.date = editValue
+    else if (event.event_type === 'stage_change') newData.to = editValue
+    else if (event.event_type === 'matricula_added' || event.event_type === 'matricula_removed') newData.training = editValue
+    onEdit(event.id, newData)
+    setIsEditing(false)
+  }
 
   return (
     <div style={{ display: 'flex', gap: '14px' }}>
@@ -131,18 +154,95 @@ function TimelineEvent({ event, isLast }) {
           background: isHighlight ? `${color}0D` : '#111',
           border: `1px solid ${isHighlight ? color + '30' : '#1C1C1C'}`,
         }}>
-          <p style={{ fontSize: '13px', fontWeight: 600, color: isHighlight ? color : '#EFEFEF', lineHeight: 1.3 }}>
-            {describeEvent(event.event_type, event.event_data)}
-          </p>
-          {event.event_type === 'stage_change' && event.event_data?.from && (
-            <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
-              anterior: {STAGES[event.event_data.from]?.label || event.event_data.from}
-            </p>
-          )}
-          {event.user_name && (
-            <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
-              por {event.user_name}
-            </p>
+          {/* Linha principal: texto + botões */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: isHighlight ? color : '#EFEFEF', lineHeight: 1.3 }}>
+                {describeEvent(event.event_type, event.event_data)}
+              </p>
+              {event.event_type === 'stage_change' && event.event_data?.from && (
+                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
+                  anterior: {STAGES[event.event_data.from]?.label || event.event_data.from}
+                </p>
+              )}
+              {event.user_name && (
+                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
+                  por {event.user_name}
+                </p>
+              )}
+            </div>
+            {/* Botões editar/apagar — apenas para eventos reais (não derivados) */}
+            {!isDerived && !isEditing && (
+              <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                <button onClick={startEdit} style={{
+                  width: '26px', height: '26px', borderRadius: '7px',
+                  background: '#1A1A1A', border: '1px solid #2A2A2A',
+                  color: '#4A4A4A', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer',
+                }}>
+                  <Edit2 size={11} />
+                </button>
+                <button onClick={() => onDelete(event.id)} style={{
+                  width: '26px', height: '26px', borderRadius: '7px',
+                  background: '#1A1A1A', border: '1px solid #2A2A2A',
+                  color: '#4A4A4A', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer',
+                }}>
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Editor inline */}
+          {isEditing && (
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #1C1C1C' }}>
+              {event.event_type === 'visit' && (
+                <input type="date" value={editValue} onChange={e => setEditValue(e.target.value)}
+                  style={{ width: '100%', background: '#0E0E0E', border: '1px solid #C9A84C40', color: '#EFEFEF', borderRadius: '8px', padding: '7px 10px', fontSize: '13px', outline: 'none' }}
+                />
+              )}
+              {event.event_type === 'stage_change' && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {Object.entries(STAGES).map(([key, s]) => (
+                    <button key={key} onClick={() => setEditValue(key)} style={{
+                      padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                      background: editValue === key ? s.bg : 'transparent',
+                      color: s.color,
+                      border: `1px solid ${s.color}${editValue === key ? '50' : '20'}`,
+                    }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(event.event_type === 'matricula_added' || event.event_type === 'matricula_removed') && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {TRAININGS.map(t => (
+                    <button key={t} onClick={() => setEditValue(t)} style={{
+                      padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                      background: editValue === t ? 'rgba(74,222,128,0.12)' : 'transparent',
+                      color: editValue === t ? '#4ADE80' : '#6B6560',
+                      border: `1px solid ${editValue === t ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
+                    }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                <button onClick={submitEdit} style={{
+                  flex: 1, padding: '6px 0', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                  background: 'rgba(74,222,128,0.12)', color: '#4ADE80',
+                  border: '1px solid rgba(74,222,128,0.3)', cursor: 'pointer',
+                }}>Salvar</button>
+                <button onClick={cancelEdit} style={{
+                  flex: 1, padding: '6px 0', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                  background: '#1A1A1A', color: '#6B6560',
+                  border: '1px solid #2A2A2A', cursor: 'pointer',
+                }}>Cancelar</button>
+              </div>
+            </div>
           )}
         </div>
         <p style={{ fontSize: '10px', color: '#2A2A2A', marginTop: '5px', marginLeft: '2px' }}>
@@ -300,6 +400,17 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     fetchHistory()
   }
 
+  async function handleDeleteEvent(id) {
+    if (!confirm('Remover este evento do histórico?')) return
+    await supabase.from('client_history').delete().eq('id', id)
+    fetchHistory()
+  }
+
+  async function handleEditEvent(id, newData) {
+    await supabase.from('client_history').update({ event_data: newData }).eq('id', id)
+    fetchHistory()
+  }
+
   // ── Timeline montada (histórico + visitas derivadas + criação) ──
 
   const timelineItems = (() => {
@@ -314,6 +425,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       if (!alreadyLogged) {
         items.push({
           id: `visit-${v.id}`,
+          _derived: true,
           event_type: 'visit',
           event_data: { date: v.visit_date },
           created_at: v.visit_date + 'T12:00:00',
@@ -327,6 +439,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!hasCreated) {
       items.push({
         id: 'created',
+        _derived: true,
         event_type: 'created',
         event_data: {},
         created_at: currentClient.created_at,
@@ -777,6 +890,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                     key={event.id}
                     event={event}
                     isLast={i === timelineItems.length - 1}
+                    onDelete={handleDeleteEvent}
+                    onEdit={handleEditEvent}
                   />
                 ))
               )}
