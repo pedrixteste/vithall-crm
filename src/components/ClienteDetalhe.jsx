@@ -488,33 +488,6 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               )}
             </div>
 
-            {/* Treinamentos matriculados */}
-            {currentClient.matricula_stage === 'matriculado' && (
-              <div style={{ paddingLeft: '22px' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
-                  Treinamentos matriculados
-                </p>
-                <div className="flex flex-wrap" style={{ gap: '6px' }}>
-                  {TRAININGS.map(t => {
-                    const selected = (currentClient.matriculas || []).includes(t)
-                    return (
-                      <button key={t} onClick={() => toggleMatricula(t)}
-                        className="text-xs font-semibold rounded-full transition-all"
-                        style={{
-                          padding: '5px 12px',
-                          background: selected ? 'rgba(74,222,128,0.12)' : 'transparent',
-                          color: selected ? '#4ADE80' : '#6B6560',
-                          border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
-                          cursor: 'pointer',
-                        }}>
-                        {selected ? '✓ ' : ''}{t}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Vendedor */}
             <div className="flex items-center gap-2.5 text-sm">
               <UserCheck size={14} style={{ color: '#C9A84C' }} />
@@ -545,6 +518,31 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         background: selected ? 'rgba(201,168,76,0.12)' : 'transparent',
                         color: selected ? '#C9A84C' : '#444040',
                         border: `1px solid ${selected ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}`,
+                        cursor: 'pointer',
+                      }}>
+                      {selected ? '✓ ' : ''}{t}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Treinamentos matriculados — sempre visível */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>
+                Treinamentos matriculados
+              </p>
+              <div className="flex flex-wrap" style={{ gap: '6px' }}>
+                {TRAININGS.map(t => {
+                  const selected = (currentClient.matriculas || []).includes(t)
+                  return (
+                    <button key={t} onClick={() => toggleMatricula(t)}
+                      className="text-xs font-semibold rounded-full transition-all"
+                      style={{
+                        padding: '5px 12px',
+                        background: selected ? 'rgba(74,222,128,0.12)' : 'transparent',
+                        color: selected ? '#4ADE80' : '#444040',
+                        border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
                         cursor: 'pointer',
                       }}>
                       {selected ? '✓ ' : ''}{t}
