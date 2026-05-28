@@ -16,10 +16,11 @@ const STAGES = {
 }
 
 const ORIGIN_LABELS = {
-  'ligacao fria': { label: 'Ligacao fria', color: '#60A5FA' },
-  'lead':         { label: 'Lead',         color: '#C9A84C' },
-  'feiras':       { label: 'Feira',        color: '#A78BFA' },
-  'indicacao':    { label: 'Indicacao',    color: '#4ADE80' },
+  'frias contatinhos': { label: 'Frias contatinhos', color: '#60A5FA' },
+  'frias listas':      { label: 'Frias listas',      color: '#38BDF8' },
+  'lead':              { label: 'Lead',               color: '#C9A84C' },
+  'feiras':            { label: 'Feira',              color: '#A78BFA' },
+  'indicacao':         { label: 'Indicacao',          color: '#4ADE80' },
 }
 
 const DAYS_PT = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb' }

@@ -13,10 +13,11 @@ const TRAINING_COLORS = {
   'Academia Vithall': '#60A5FA',
 }
 const ORIGINS = [
-  { key: 'ligacao fria', label: 'Ligacao fria' },
-  { key: 'lead',         label: 'Lead' },
-  { key: 'feiras',       label: 'Feiras' },
-  { key: 'indicacao',    label: 'Indicacao' },
+  { key: 'frias contatinhos', label: 'Frias contatinhos' },
+  { key: 'frias listas',      label: 'Frias listas' },
+  { key: 'lead',              label: 'Lead' },
+  { key: 'feiras',            label: 'Feiras' },
+  { key: 'indicacao',         label: 'Indicacao' },
 ]
 const PERIODS = [
   { key: 7,   label: 'Semana' },
