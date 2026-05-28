@@ -263,8 +263,12 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
 // ── Componente principal ───────────────────────────────────────────
 
 export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
-  const { user, profile } = useAuth()
+  const { user, profile: authProfile } = useAuth()
   const goBack = onBack || onClose || (() => {})
+
+  // Perfil fresco do banco (inclui tokens do Google mesmo conectados depois do login)
+  const [freshProfile, setFreshProfile] = useState(authProfile)
+  const profile = freshProfile  // usa perfil fresco em todo o componente
 
   const [visits, setVisits]               = useState([])
   const [tasks, setTasks]                 = useState([])
@@ -284,7 +288,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
 
-  useEffect(() => { fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory() }, [])
+  useEffect(() => {
+    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory()
+    // Busca perfil fresco para garantir tokens do Google atualizados
+    supabase.from('profiles').select('*').eq('id', user.id).single()
+      .then(({ data }) => { if (data) setFreshProfile(data) })
+  }, [])
 
   // ── Fetches ────────────────────────────────────────────────────
 
