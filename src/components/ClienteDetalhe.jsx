@@ -390,21 +390,30 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Se cancelou → remove evento do Google Agenda automaticamente
     if (newStage === 'cancelado') {
       try {
-        // Busca cliente e perfil frescos do banco para garantir dados atualizados
         const [{ data: freshClient }, { data: freshProfile }] = await Promise.all([
           supabase.from('clients').select('google_calendar_event_id').eq('id', client.id).single(),
           supabase.from('profiles').select('*').eq('id', user.id).single(),
         ])
         const eventId = freshClient?.google_calendar_event_id
-        if (eventId) {
-          const token = await getValidToken(freshProfile)
-          if (token) {
-            const deleted = await deleteCalendarEvent(token, eventId)
-            if (deleted) {
-              await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', client.id)
-              setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
-            }
-          }
+        if (!eventId) {
+          // Nenhum evento registrado — nada a deletar
+          return
+        }
+        const token = await getValidToken(freshProfile)
+        if (!token) {
+          alert('Visita cancelada! Mas não foi possível remover do Google Agenda (token inválido). Remova manualmente.')
+          return
+        }
+        const res = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (res.status === 204 || res.status === 404) {
+          await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', client.id)
+          setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+        } else {
+          const err = await res.json().catch(() => ({}))
+          alert(`Visita cancelada! Mas não foi possível remover do Google Agenda (${res.status}: ${err?.error?.message || 'erro desconhecido'}). Remova manualmente.`)
         }
       } catch (e) {
         console.error('Erro ao remover evento do Google Agenda:', e)
