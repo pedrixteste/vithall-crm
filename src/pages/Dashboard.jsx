@@ -10,6 +10,7 @@ import TarefaForm from '../components/TarefaForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
+import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -33,7 +34,9 @@ const PERIOD_OPTIONS = [
 ]
 
 export default function Dashboard() {
-  const { profile, user } = useAuth()
+  const { profile: authProfile, user } = useAuth()
+  const [freshProfile, setFreshProfile] = useState(authProfile)
+  const profile = freshProfile
   const [stats, setStats] = useState({ clients: 0, visits: 0, tasks: 0, closed: 0 })
   const [recentVisits, setRecentVisits] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
@@ -46,8 +49,16 @@ export default function Dashboard() {
   const [customTo, setCustomTo]       = useState('')
   const [showPeriodDrop, setShowPeriodDrop] = useState(false)
   const [scheduledVisits, setScheduledVisits] = useState([])
+  const [syncingId, setSyncingId] = useState(null) // id do cliente sendo sincronizado
 
-  useEffect(() => { setupReminders() }, [])
+  useEffect(() => {
+    setupReminders()
+    // Busca perfil fresco para tokens do Google
+    if (user?.id) {
+      supabase.from('profiles').select('*').eq('id', user.id).single()
+        .then(({ data }) => { if (data) setFreshProfile(data) })
+    }
+  }, [])
 
 
   useEffect(() => {
@@ -309,21 +320,41 @@ export default function Dashboard() {
                           <p className="text-[10px] mt-1" style={{ color: '#333030' }}>Toque para ver detalhes →</p>
                         </button>
                         {/* Botão Google Agenda */}
-                        <a
-                          href={buildCalendarUrl(v)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl transition-all"
-                          style={{
-                            padding: '8px 12px',
-                            background: 'rgba(74,222,128,0.08)',
-                            border: '1px solid rgba(74,222,128,0.2)',
-                            color: '#4ADE80',
-                            textDecoration: 'none',
-                          }}>
-                          <ExternalLink size={11} />
-                          Agenda
-                        </a>
+                        {v.google_calendar_event_id ? (
+                          <span className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl"
+                            style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ADE80' }}>
+                            <CalendarCheck size={11} /> Agendado
+                          </span>
+                        ) : profile?.google_refresh_token ? (
+                          <button
+                            disabled={syncingId === v.id}
+                            onClick={async () => {
+                              setSyncingId(v.id)
+                              try {
+                                const { data: fp } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+                                const token = await getValidToken(fp)
+                                if (!token) { alert('Conecte o Google Agenda no Perfil primeiro.'); return }
+                                const eventId = await createCalendarEvent(token, {
+                                  clientName: v.contact_name || v.company_name || 'Cliente',
+                                  visitDateTime: v.visit_scheduled_at,
+                                })
+                                await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', v.id)
+                                setScheduledVisits(sv => sv.map(s => s.id === v.id ? { ...s, google_calendar_event_id: eventId } : s))
+                              } catch (e) { alert(`Erro: ${e.message}`) }
+                              finally { setSyncingId(null) }
+                            }}
+                            className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl transition-all"
+                            style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ADE80', cursor: 'pointer' }}>
+                            <Calendar size={11} />
+                            {syncingId === v.id ? '...' : 'Agenda'}
+                          </button>
+                        ) : (
+                          <a href={buildCalendarUrl(v)} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl transition-all"
+                            style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ADE80', textDecoration: 'none' }}>
+                            <ExternalLink size={11} /> Agenda
+                          </a>
+                        )}
                       </div>
                     </li>
                   )
