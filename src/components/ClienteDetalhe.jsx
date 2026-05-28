@@ -13,6 +13,7 @@ const STAGES = {
   pediu_ligar:    { label: 'Pediu para ligar', color: '#E8834A', bg: 'rgba(232,131,74,0.12)'  },
   nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)'  },
   nao_apareceu:   { label: 'Nao apareceu',     color: '#E85555', bg: 'rgba(232,85,85,0.12)'   },
+  cancelado:      { label: 'Cancelou visita',  color: '#F97316', bg: 'rgba(249,115,22,0.12)'  },
   recebeu_visita: { label: 'Recebeu visita',   color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
   matriculado:    { label: 'Matriculado!!',    color: '#4ADE80', bg: 'rgba(74,222,128,0.12)'  },
 }
@@ -59,7 +60,7 @@ function describeEvent(type, data) {
 function getEventColor(type, data) {
   if (type === 'stage_change') {
     const map = {
-      matriculado: '#4ADE80', nao_apareceu: '#E85555',
+      matriculado: '#4ADE80', nao_apareceu: '#E85555', cancelado: '#F97316',
       recebeu_visita: '#A78BFA', nao_visitado: '#60A5FA',
       pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
     }
@@ -79,6 +80,7 @@ function getEventIcon(type, data) {
   if (type === 'matricula_removed') return '❌'
   if (type === 'stage_change') {
     if (data?.to === 'nao_apareceu')   return '🚫'
+    if (data?.to === 'cancelado')      return '📵'
     if (data?.to === 'matriculado')    return '🎉'
     if (data?.to === 'recebeu_visita') return '🤝'
     if (data?.to === 'nao_visitado')   return '📅'
@@ -274,6 +276,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [addingVisit, setAddingVisit]     = useState(false)
   const [editingVisitId, setEditingVisitId] = useState(null)
   const [editingStage, setEditingStage]   = useState(false)
+  const [pendingStage, setPendingStage]   = useState(null)
   const [assignedName, setAssignedName]   = useState(null)
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
@@ -450,8 +453,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     return items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   })()
 
-  const noShowCount = history.filter(
+  const noShowCount  = history.filter(
     h => h.event_type === 'stage_change' && h.event_data?.to === 'nao_apareceu'
+  ).length
+
+  const cancelCount  = history.filter(
+    h => h.event_type === 'stage_change' && h.event_data?.to === 'cancelado'
   ).length
 
   const stage  = STAGES[currentClient.matricula_stage] || STAGES.nao_marcou
@@ -521,6 +528,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   🚫 {noShowCount}x nao apareceu
                 </span>
               )}
+              {cancelCount > 0 && (
+                <span style={{ fontSize: '10px', fontWeight: 600, color: '#F97316' }}>
+                  📵 {cancelCount}x cancelou
+                </span>
+              )}
             </div>
           </div>
 
@@ -585,7 +597,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               {editingStage && (
                 <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
                   {Object.entries(STAGES).map(([key, s]) => (
-                    <button key={key} onClick={() => updateStage(key)}
+                    <button key={key}
+                      onClick={() => key === 'cancelado' ? setPendingStage('cancelado') : updateStage(key)}
                       className="text-xs font-semibold rounded-full transition-all"
                       style={{
                         padding: '5px 12px',
@@ -870,6 +883,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   {noShowCount > 0 && (
                     <span style={{ color: '#E85555', fontWeight: 600 }}> · 🚫 {noShowCount}x nao apareceu</span>
                   )}
+                  {cancelCount > 0 && (
+                    <span style={{ color: '#F97316', fontWeight: 600 }}> · 📵 {cancelCount}x cancelou</span>
+                  )}
                 </p>
               </div>
               <button onClick={() => setShowHistory(false)}
@@ -895,6 +911,67 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   />
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: confirmar cancelamento ── */}
+      {pendingStage === 'cancelado' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) setPendingStage(null) }}>
+          <div style={{
+            background: '#111', borderRadius: '24px',
+            border: '1px solid #303030',
+            width: '100%', maxWidth: '360px',
+            padding: '28px 24px 24px',
+          }}>
+            {/* Ícone */}
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '16px',
+              background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '24px', marginBottom: '18px',
+            }}>
+              📵
+            </div>
+            {/* Título */}
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '8px' }}>
+              Confirmar cancelamento
+            </p>
+            {/* Subtítulo */}
+            <p style={{ fontSize: '13px', color: '#6B6560', lineHeight: 1.5, marginBottom: '24px' }}>
+              Registrar que <span style={{ color: '#EFEFEF', fontWeight: 600 }}>
+                {currentClient.contact_name || currentClient.company_name}
+              </span> cancelou a visita? Isso ficará salvo no histórico.
+            </p>
+            {/* Botões */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPendingStage(null)}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: '14px',
+                  fontSize: '14px', fontWeight: 600,
+                  background: '#1A1A1A', color: '#6B6560',
+                  border: '1px solid #2A2A2A', cursor: 'pointer',
+                }}>
+                Voltar
+              </button>
+              <button
+                onClick={() => { updateStage('cancelado'); setPendingStage(null) }}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: '14px',
+                  fontSize: '14px', fontWeight: 600,
+                  background: 'rgba(249,115,22,0.12)', color: '#F97316',
+                  border: '1px solid rgba(249,115,22,0.3)', cursor: 'pointer',
+                }}>
+                Confirmar
+              </button>
             </div>
           </div>
         </div>
