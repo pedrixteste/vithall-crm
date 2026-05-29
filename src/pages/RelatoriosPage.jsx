@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { generateReportHTML } from '../lib/reportExport'
 
 // ── Constantes ─────────────────────────────────────────────────────
 
@@ -311,6 +312,12 @@ export default function RelatoriosPage() {
   const [loading, setLoading]     = useState(true)
   const [period, setPeriod]       = useState(30)
   const [selectedPerson, setSelectedPerson] = useState('all')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportScope, setExportScope]         = useState('all')
+  const [exportPersonId, setExportPersonId]   = useState(null)
+  const [showCustomInput, setShowCustomInput] = useState(false)
+  const [customDaysInput, setCustomDaysInput] = useState('')
+  const [visibleSeries, setVisibleSeries]     = useState({ calls: true, marcacoes: true, visitas: true, matriculas: false })
 
   useEffect(() => { fetchData() }, [profile])
 
@@ -400,14 +407,18 @@ export default function RelatoriosPage() {
   // ── Dados de tendência (gráfico de linha) ─────────────────────────
 
   const trendData = (() => {
-    if (period === 365) {
-      return Array.from({ length: 12 }, (_, i) => {
+    if (period > 90) {
+      const nMonths = Math.min(Math.ceil(period / 30), 24)
+      return Array.from({ length: nMonths }, (_, i) => {
         const d = new Date()
         d.setDate(1)
-        d.setMonth(d.getMonth() - (11 - i))
+        d.setMonth(d.getMonth() - (nMonths - 1 - i))
         const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        const yr = d.getFullYear() !== new Date().getFullYear()
+          ? d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+          : d.toLocaleDateString('pt-BR', { month: 'short' })
         return {
-          label: d.toLocaleDateString('pt-BR', { month: 'short' }),
+          label: yr,
           marcacoes: filteredClients.filter(c => c.created_at?.startsWith(m)).length,
           visitas:   filteredClients.flatMap(c => c.visits || []).filter(v => v.visit_date?.startsWith(m)).length,
           calls:     filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
@@ -418,11 +429,11 @@ export default function RelatoriosPage() {
       const d = new Date()
       d.setDate(d.getDate() - (period - 1 - i))
       const ds = d.toISOString().split('T')[0]
-      const monthLabel = period === 7
+      const label = period <= 7
         ? d.toLocaleDateString('pt-BR', { weekday: 'short' })
         : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
       return {
-        label:     monthLabel,
+        label,
         marcacoes: filteredClients.filter(c => c.created_at?.startsWith(ds)).length,
         visitas:   filteredClients.flatMap(c => c.visits || []).filter(v => v.visit_date === ds).length,
         calls:     filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
@@ -432,13 +443,33 @@ export default function RelatoriosPage() {
 
   const trendHasData = trendData.some(d => d.marcacoes > 0 || d.visitas > 0 || d.calls > 0)
 
-  const trendSeries = [
-    ...(trendData.some(d => d.calls > 0)
-      ? [{ key: 'calls', label: 'Ligacoes', color: '#E8834A', data: trendData.map(d => d.calls) }]
-      : []),
-    { key: 'marcacoes', label: 'Marcacoes', color: '#60A5FA', data: trendData.map(d => d.marcacoes) },
+  const ALL_SERIES = [
+    { key: 'calls',     label: 'Ligações',  color: '#E8834A', data: trendData.map(d => d.calls) },
+    { key: 'marcacoes', label: 'Marcações', color: '#60A5FA', data: trendData.map(d => d.marcacoes) },
     { key: 'visitas',   label: 'Visitas',   color: '#A78BFA', data: trendData.map(d => d.visitas) },
+    { key: 'matriculas',label: 'Matrículas',color: '#4ADE80',
+      data: (() => {
+        if (period > 90) {
+          const nMonths = Math.min(Math.ceil(period / 30), 24)
+          return Array.from({ length: nMonths }, (_, i) => {
+            const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (nMonths - 1 - i))
+            const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+            return filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.updated_at?.startsWith(m)).length
+          })
+        }
+        return Array.from({ length: period }, (_, i) => {
+          const d = new Date(); d.setDate(d.getDate() - (period - 1 - i))
+          const ds = d.toISOString().split('T')[0]
+          return filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(ds)).length
+        })
+      })()
+    },
   ]
+  const trendSeries = ALL_SERIES.filter(s => {
+    if (!visibleSeries[s.key]) return false
+    if (s.key === 'calls' && !trendData.some(d => d.calls > 0)) return false
+    return true
+  })
   const trendLabels = trendData.map(d => d.label)
 
   // ── Heatmaps por dia da semana ─────────────────────────────────────
@@ -512,6 +543,50 @@ export default function RelatoriosPage() {
       }
     })
 
+  // ── Exportar relatório ─────────────────────────────────────────────
+
+  function handleExport() {
+    let exportProfiles = []
+    if (exportScope === 'all') {
+      exportProfiles = profiles.filter(p => p.role !== 'gerente')
+    } else if (exportScope === 'pre_vendas') {
+      exportProfiles = profiles.filter(p => p.role === 'pre_vendas')
+    } else if (exportScope === 'vendedores') {
+      exportProfiles = profiles.filter(p => p.role === 'vendedor')
+    } else if (exportScope === 'individual') {
+      const person = exportPersonId ? profiles.find(p => p.id === exportPersonId) : null
+      exportProfiles = person ? [person] : []
+    }
+    if (!exportProfiles.length) return
+
+    const members = exportProfiles.map(p => {
+      const memberClients = p.role === 'pre_vendas'
+        ? clients.filter(c => c.created_by === p.id)
+        : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
+      const logs = dailyLogs.filter(l => l.user_id === p.id)
+      return { ...p, memberClients, logs }
+    })
+
+    const pLabel = period === 7
+      ? 'Últimos 7 dias'
+      : period === 30
+        ? 'Últimos 30 dias'
+        : 'Últimos 12 meses'
+
+    const html = generateReportHTML({
+      scope:       exportScope,
+      members,
+      periodDays:  period,
+      periodStart,
+      periodLabel: pLabel,
+      exportedBy:  profile?.name || 'Gerente',
+    })
+
+    const win = window.open('', '_blank')
+    if (win) { win.document.write(html); win.document.close() }
+    setShowExportModal(false)
+  }
+
   // ── Render ─────────────────────────────────────────────────────────
 
   if (loading) return (
@@ -527,31 +602,109 @@ export default function RelatoriosPage() {
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
       {/* ── Header ── */}
-      <div>
-        <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#C9A84C', marginBottom: '4px' }}>
-          Analise
-        </p>
-        <h1 style={{ color: '#EFEFEF' }}>Relatorios</h1>
-        {selectedProfile && (
-          <p style={{ fontSize: '13px', fontWeight: 500, color: '#C9A84C', marginTop: '4px' }}>
-            {selectedProfile.name} · {ROLE_LABELS[selectedProfile.role]}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#C9A84C', marginBottom: '4px' }}>
+            Analise
           </p>
+          <h1 style={{ color: '#EFEFEF' }}>Relatorios</h1>
+          {selectedProfile && (
+            <p style={{ fontSize: '13px', fontWeight: 500, color: '#C9A84C', marginTop: '4px' }}>
+              {selectedProfile.name} · {ROLE_LABELS[selectedProfile.role]}
+            </p>
+          )}
+        </div>
+        {profile?.role === 'gerente' && (
+          <button
+            onClick={() => setShowExportModal(true)}
+            style={{
+              marginTop: '4px', padding: '10px 16px', borderRadius: '12px', cursor: 'pointer',
+              background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.25)',
+              color: '#C9A84C', fontSize: '13px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
+            }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Exportar
+          </button>
         )}
       </div>
 
       {/* ── Filtro de período ── */}
-      <div style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px', background: '#161616', border: '1px solid #252525' }}>
-        {PERIODS.map(p => (
-          <button key={p.key} onClick={() => setPeriod(p.key)}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {/* Pills predefinidos */}
+        <div style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px', background: '#161616', border: '1px solid #252525' }}>
+          {PERIODS.map(p => {
+            const active = period === p.key && !showCustomInput
+            return (
+              <button key={p.key}
+                onClick={() => { setPeriod(p.key); setShowCustomInput(false) }}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+                  background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
+                  color:      active ? '#C9A84C' : '#6B6560',
+                  border:     active ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+                }}>
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Link "Personalizado" abaixo */}
+        {!showCustomInput && (
+          <button
+            onClick={() => { setShowCustomInput(true); setCustomDaysInput('') }}
             style={{
-              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
-              background: period === p.key ? 'rgba(201,168,76,0.12)' : 'transparent',
-              color:      period === p.key ? '#C9A84C' : '#6B6560',
-              border:     period === p.key ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0',
+              fontSize: '11px', fontWeight: 600, color: '#444040', textAlign: 'center',
+              letterSpacing: '0.04em',
             }}>
-            {p.label}
+            {!PERIODS.some(p => p.key === period)
+              ? `✦ Período personalizado: ${period} dias — alterar`
+              : '+ Período personalizado'}
           </button>
-        ))}
+        )}
+
+        {/* Input de dias personalizados */}
+        {showCustomInput && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="number"
+              min="1"
+              max="3650"
+              placeholder="Quantos dias? (ex: 60)"
+              value={customDaysInput}
+              onChange={e => setCustomDaysInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const d = parseInt(customDaysInput)
+                  if (d > 0 && d <= 3650) { setPeriod(d); setShowCustomInput(false) }
+                }
+              }}
+              autoFocus
+              style={{
+                flex: 1, background: '#161616', border: '1px solid rgba(201,168,76,0.3)',
+                borderRadius: '12px', padding: '11px 16px', color: '#EFEFEF',
+                fontSize: '14px', outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => {
+                const d = parseInt(customDaysInput)
+                if (d > 0 && d <= 3650) { setPeriod(d); setShowCustomInput(false) }
+                else setShowCustomInput(false)
+              }}
+              style={{
+                padding: '11px 20px', borderRadius: '12px', fontSize: '14px', fontWeight: 700,
+                background: 'rgba(201,168,76,0.12)', color: '#C9A84C',
+                border: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', flexShrink: 0,
+              }}>
+              OK
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Filtro por pessoa (gerente) ── */}
@@ -577,30 +730,45 @@ export default function RelatoriosPage() {
       )}
 
       {/* ── Gráfico de tendência ── */}
-      {trendHasData && (
-        <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <div>
-              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '4px' }}>
-                Tendencia
-              </p>
-              <p style={{ fontSize: '11px', color: '#2A2A2A' }}>
-                {period === 365 ? 'ultimos 12 meses' : period === 7 ? 'ultimos 7 dias' : 'ultimos 30 dias'}
-              </p>
-            </div>
-            {/* Legend */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
-              {trendSeries.map(s => (
-                <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <div style={{ width: '20px', height: '2px', background: s.color, borderRadius: '1px' }} />
-                  <span style={{ fontSize: '9px', fontWeight: 600, color: '#3A3A3A' }}>{s.label}</span>
-                </div>
-              ))}
-            </div>
+      <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+          <div>
+            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '4px' }}>
+              Tendencia
+            </p>
+            <p style={{ fontSize: '11px', color: '#2A2A2A' }}>
+              {period > 90
+                ? `ultimos ${Math.min(Math.ceil(period / 30), 24)} meses`
+                : period === 7 ? 'ultimos 7 dias'
+                : `ultimos ${period} dias`}
+            </p>
           </div>
-          <TrendChart series={trendSeries} labels={trendLabels} />
+          {/* Toggle chips */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
+            {ALL_SERIES.filter(s => s.key !== 'calls' || trendData.some(d => d.calls > 0)).map(s => {
+              const on = visibleSeries[s.key]
+              return (
+                <button key={s.key}
+                  onClick={() => setVisibleSeries(v => ({ ...v, [s.key]: !v[s.key] }))}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0',
+                    opacity: on ? 1 : 0.3,
+                  }}>
+                  <div style={{ width: '20px', height: '2.5px', background: s.color, borderRadius: '1px' }} />
+                  <span style={{ fontSize: '9px', fontWeight: 700, color: on ? s.color : '#3A3A3A', letterSpacing: '0.04em' }}>
+                    {s.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
-      )}
+        {trendSeries.length > 0 && trendHasData
+          ? <TrendChart series={trendSeries} labels={trendLabels} />
+          : <p style={{ fontSize: '12px', color: '#2A2A2A', textAlign: 'center', padding: '24px 0' }}>Nenhuma série selecionada</p>
+        }
+      </div>
 
       {/* ── Funil de conversão ── */}
       <div>
@@ -726,6 +894,127 @@ export default function RelatoriosPage() {
           </div>
         )}
       </div>
+
+      {/* ── Modal de exportação ── */}
+      {showExportModal && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false) }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.88)',
+            display: 'flex', alignItems: 'flex-end', padding: '12px',
+          }}>
+          <div style={{
+            width: '100%', background: '#0E0E0E', borderRadius: '20px',
+            border: '1px solid #252525', overflow: 'hidden',
+            maxHeight: '92vh', overflowY: 'auto',
+          }}>
+            {/* Modal header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '20px 20px 0',
+            }}>
+              <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Exportar Relatório</p>
+              <button onClick={() => setShowExportModal(false)}
+                style={{ background: 'none', border: 'none', color: '#6B6560', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '16px 20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+              {/* Período atual */}
+              <div style={{
+                background: '#161616', borderRadius: '12px', padding: '12px 16px',
+                border: '1px solid #252525',
+              }}>
+                <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#3A3A3A', marginBottom: '4px' }}>
+                  Período do relatório
+                </p>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: '#C9A84C' }}>
+                  {period === 7 ? 'Últimos 7 dias' : period === 30 ? 'Últimos 30 dias' : 'Últimos 12 meses'}
+                </p>
+                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '2px' }}>
+                  Ajuste o filtro de período antes de exportar
+                </p>
+              </div>
+
+              {/* Escopo */}
+              <div>
+                <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#3A3A3A', marginBottom: '10px' }}>
+                  Exportar dados de
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { key: 'all',        label: 'Equipe completa',   sub: 'Todos os vendedores e pré-vendas' },
+                    { key: 'vendedores', label: 'Vendedores',         sub: 'Apenas a equipe de vendas' },
+                    { key: 'pre_vendas', label: 'Pré-vendas',         sub: 'Apenas a equipe de pré-vendas' },
+                    { key: 'individual', label: 'Pessoa individual',  sub: 'Selecionar uma pessoa específica' },
+                  ].map(opt => (
+                    <button key={opt.key} onClick={() => setExportScope(opt.key)}
+                      style={{
+                        padding: '12px 16px', borderRadius: '12px', textAlign: 'left', cursor: 'pointer',
+                        background: exportScope === opt.key ? 'rgba(201,168,76,0.08)' : '#161616',
+                        border: `1px solid ${exportScope === opt.key ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                      }}>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: exportScope === opt.key ? '#C9A84C' : '#EFEFEF' }}>
+                        {opt.label}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>{opt.sub}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Seletor de pessoa */}
+              {exportScope === 'individual' && (
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#3A3A3A', marginBottom: '10px' }}>
+                    Pessoa
+                  </p>
+                  <select
+                    value={exportPersonId || ''}
+                    onChange={e => setExportPersonId(e.target.value || null)}
+                    style={{
+                      width: '100%', background: '#161616', border: '1px solid #252525',
+                      borderRadius: '12px', padding: '13px 16px', color: exportPersonId ? '#EFEFEF' : '#6B6560',
+                      fontSize: '14px', outline: 'none', appearance: 'none',
+                    }}>
+                    <option value="">Selecionar pessoa...</option>
+                    {profiles.filter(p => p.role !== 'gerente').map(p => (
+                      <option key={p.id} value={p.id}>{p.name} — {ROLE_LABELS[p.role]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Botão gerar */}
+              <button
+                onClick={handleExport}
+                disabled={exportScope === 'individual' && !exportPersonId}
+                style={{
+                  width: '100%', padding: '15px', borderRadius: '14px', cursor: exportScope === 'individual' && !exportPersonId ? 'not-allowed' : 'pointer',
+                  background: exportScope === 'individual' && !exportPersonId
+                    ? 'rgba(201,168,76,0.03)'
+                    : 'linear-gradient(135deg, rgba(123,28,58,0.35), rgba(201,168,76,0.22))',
+                  border: `1px solid ${exportScope === 'individual' && !exportPersonId ? '#252525' : 'rgba(201,168,76,0.35)'}`,
+                  color: exportScope === 'individual' && !exportPersonId ? '#3A3A3A' : '#C9A84C',
+                  fontSize: '15px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Gerar relatório
+              </button>
+
+              <p style={{ fontSize: '11px', color: '#2A2A2A', textAlign: 'center', lineHeight: 1.5 }}>
+                Abre em nova aba · imprima ou salve como PDF
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Ranking da equipe (gerente, visão geral) ── */}
       {profile?.role === 'gerente' && selectedPerson === 'all' && teamStats.length > 0 && (

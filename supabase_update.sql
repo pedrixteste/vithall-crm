@@ -19,6 +19,7 @@ UPDATE clients
 SET matriculas = array_replace(matriculas, 'LORAPE', 'LORAP')
 WHERE 'LORAPE' = ANY(matriculas);
 
+
 -- Registro diario do pre-vendas
 CREATE TABLE IF NOT EXISTS daily_logs (
   id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
