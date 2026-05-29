@@ -465,11 +465,7 @@ export default function RelatoriosPage() {
       })()
     },
   ]
-  const trendSeries = ALL_SERIES.filter(s => {
-    if (!visibleSeries[s.key]) return false
-    if (s.key === 'calls' && !trendData.some(d => d.calls > 0)) return false
-    return true
-  })
+  const trendSeries = ALL_SERIES.filter(s => visibleSeries[s.key])
   const trendLabels = trendData.map(d => d.label)
 
   // ── Heatmaps por dia da semana ─────────────────────────────────────
@@ -745,7 +741,7 @@ export default function RelatoriosPage() {
           </div>
           {/* Toggle chips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
-            {ALL_SERIES.filter(s => s.key !== 'calls' || trendData.some(d => d.calls > 0)).map(s => {
+            {ALL_SERIES.map(s => {
               const on = visibleSeries[s.key]
               return (
                 <button key={s.key}
