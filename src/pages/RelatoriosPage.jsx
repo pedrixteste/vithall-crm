@@ -21,9 +21,9 @@ const ORIGINS = [
   { key: 'indicacao',         label: 'Indicacao' },
 ]
 const PERIODS = [
-  { key: 7,   label: 'Semana' },
-  { key: 30,  label: 'Mes' },
-  { key: 365, label: 'Ano' },
+  { key: 'week',  label: 'Semana' },
+  { key: 'month', label: 'Mês'   },
+  { key: 'year',  label: 'Ano'   },
 ]
 const ROLE_LABELS = {
   pre_vendas: 'Pre-vendas',
@@ -310,13 +310,13 @@ export default function RelatoriosPage() {
   const [profiles, setProfiles]   = useState([])
   const [dailyLogs, setDailyLogs] = useState([])
   const [loading, setLoading]     = useState(true)
-  const [period, setPeriod]       = useState(30)
+  const [period, setPeriod]           = useState('month')
+  const [customFrom, setCustomFrom]   = useState('')
+  const [customTo, setCustomTo]       = useState('')
   const [selectedPerson, setSelectedPerson] = useState('all')
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportScope, setExportScope]         = useState('all')
   const [exportPersonId, setExportPersonId]   = useState(null)
-  const [showCustomInput, setShowCustomInput] = useState(false)
-  const [customDaysInput, setCustomDaysInput] = useState('')
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, marcacoes: true, visitas: true, matriculas: false })
 
   useEffect(() => { fetchData() }, [profile])
@@ -345,9 +345,22 @@ export default function RelatoriosPage() {
 
   // ── Período ─────────────────────────────────────────────────────
 
-  const periodStart = new Date()
-  periodStart.setDate(periodStart.getDate() - period)
-  periodStart.setHours(0, 0, 0, 0)
+  const periodEnd = (() => {
+    if (period === 'custom' && customTo) return new Date(customTo + 'T23:59:59')
+    const d = new Date(); d.setHours(23, 59, 59, 999); return d
+  })()
+
+  const periodStart = (() => {
+    if (period === 'custom') return customFrom ? new Date(customFrom + 'T00:00:00') : null
+    const d = new Date(); d.setHours(0, 0, 0, 0)
+    if (period === 'week')  d.setDate(d.getDate() - 7)
+    if (period === 'month') d.setDate(d.getDate() - 30)
+    if (period === 'year')  d.setFullYear(d.getFullYear() - 1)
+    return d
+  })()
+
+  const periodDays = !periodStart ? 30
+    : Math.max(1, Math.ceil((periodEnd - periodStart) / (1000 * 60 * 60 * 24)))
 
   // ── Filtro por pessoa ────────────────────────────────────────────
 
@@ -368,14 +381,20 @@ export default function RelatoriosPage() {
 
   // ── Cálculos do período ──────────────────────────────────────────
 
-  const clientsInPeriod  = filteredClients.filter(c => new Date(c.created_at) >= periodStart)
+  const inRange = (d) => {
+    if (periodStart && d < periodStart) return false
+    if (d > periodEnd) return false
+    return true
+  }
+
+  const clientsInPeriod  = filteredClients.filter(c => inRange(new Date(c.created_at)))
   const visitsInPeriod   = filteredClients.flatMap(c =>
-    (c.visits || []).filter(v => new Date(v.visit_date + 'T12:00:00') >= periodStart)
+    (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
   )
   const enrolledInPeriod = clientsInPeriod.filter(c => c.matricula_stage === 'matriculado')
   const noShowsInPeriod  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const totalCallsPeriod = filteredLogs
-    .filter(l => new Date(l.log_date + 'T12:00:00') >= periodStart)
+    .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
     .reduce((s, l) => s + (l.calls || 0), 0)
   const hasCalls = totalCallsPeriod > 0
 
@@ -407,36 +426,46 @@ export default function RelatoriosPage() {
   // ── Dados de tendência (gráfico de linha) ─────────────────────────
 
   const trendData = (() => {
-    if (period > 90) {
-      const nMonths = Math.min(Math.ceil(period / 30), 24)
-      return Array.from({ length: nMonths }, (_, i) => {
-        const d = new Date()
-        d.setDate(1)
-        d.setMonth(d.getMonth() - (nMonths - 1 - i))
-        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!periodStart) return []
+    const allVisits = filteredClients.flatMap(c => c.visits || [])
+
+    if (periodDays > 90) {
+      // Vista mensal
+      const months = []
+      const cur = new Date(periodStart.getFullYear(), periodStart.getMonth(), 1)
+      const endM = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), 1)
+      while (cur <= endM) { months.push(new Date(cur)); cur.setMonth(cur.getMonth() + 1) }
+      return months.map(d => {
+        const m  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
         const yr = d.getFullYear() !== new Date().getFullYear()
           ? d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
           : d.toLocaleDateString('pt-BR', { month: 'short' })
         return {
-          label: yr,
-          marcacoes: filteredClients.filter(c => c.created_at?.startsWith(m)).length,
-          visitas:   filteredClients.flatMap(c => c.visits || []).filter(v => v.visit_date?.startsWith(m)).length,
-          calls:     filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
+          label:      yr,
+          marcacoes:  filteredClients.filter(c => c.created_at?.startsWith(m)).length,
+          visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
+          calls:      filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
+          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(m)).length,
         }
       })
     }
-    return Array.from({ length: period }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (period - 1 - i))
-      const ds = d.toISOString().split('T')[0]
-      const label = period <= 7
+
+    // Vista diária
+    const days = []
+    const cur = new Date(periodStart); cur.setHours(0, 0, 0, 0)
+    const endD = new Date(periodEnd);  endD.setHours(23, 59, 59, 999)
+    while (cur <= endD) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1) }
+    return days.map(d => {
+      const ds    = d.toISOString().split('T')[0]
+      const label = periodDays <= 7
         ? d.toLocaleDateString('pt-BR', { weekday: 'short' })
         : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
       return {
         label,
-        marcacoes: filteredClients.filter(c => c.created_at?.startsWith(ds)).length,
-        visitas:   filteredClients.flatMap(c => c.visits || []).filter(v => v.visit_date === ds).length,
-        calls:     filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
+        marcacoes:  filteredClients.filter(c => c.created_at?.startsWith(ds)).length,
+        visitas:    allVisits.filter(v => v.visit_date === ds).length,
+        calls:      filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
+        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(ds)).length,
       }
     })
   })()
@@ -444,26 +473,10 @@ export default function RelatoriosPage() {
   const trendHasData = trendData.some(d => d.marcacoes > 0 || d.visitas > 0 || d.calls > 0)
 
   const ALL_SERIES = [
-    { key: 'calls',     label: 'Ligações',  color: '#E8834A', data: trendData.map(d => d.calls) },
-    { key: 'marcacoes', label: 'Marcações', color: '#60A5FA', data: trendData.map(d => d.marcacoes) },
-    { key: 'visitas',   label: 'Visitas',   color: '#A78BFA', data: trendData.map(d => d.visitas) },
-    { key: 'matriculas',label: 'Matrículas',color: '#4ADE80',
-      data: (() => {
-        if (period > 90) {
-          const nMonths = Math.min(Math.ceil(period / 30), 24)
-          return Array.from({ length: nMonths }, (_, i) => {
-            const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (nMonths - 1 - i))
-            const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-            return filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.updated_at?.startsWith(m)).length
-          })
-        }
-        return Array.from({ length: period }, (_, i) => {
-          const d = new Date(); d.setDate(d.getDate() - (period - 1 - i))
-          const ds = d.toISOString().split('T')[0]
-          return filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(ds)).length
-        })
-      })()
-    },
+    { key: 'calls',      label: 'Ligações',   color: '#E8834A', data: trendData.map(d => d.calls) },
+    { key: 'marcacoes',  label: 'Marcações',  color: '#60A5FA', data: trendData.map(d => d.marcacoes) },
+    { key: 'visitas',    label: 'Visitas',    color: '#A78BFA', data: trendData.map(d => d.visitas) },
+    { key: 'matriculas', label: 'Matrículas', color: '#4ADE80', data: trendData.map(d => d.matriculas) },
   ]
   const trendSeries = ALL_SERIES.filter(s => visibleSeries[s.key])
   const trendLabels = trendData.map(d => d.label)
@@ -518,11 +531,11 @@ export default function RelatoriosPage() {
       const mc = p.role === 'pre_vendas'
         ? clients.filter(c => c.created_by === p.id)
         : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
-      const inPeriod   = mc.filter(c => new Date(c.created_at) >= periodStart)
-      const visits     = mc.flatMap(c => (c.visits || []).filter(v => new Date(v.visit_date + 'T12:00:00') >= periodStart))
+      const inPeriod   = mc.filter(c => inRange(new Date(c.created_at)))
+      const visits     = mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
       const matriculas = mc.filter(c => c.matricula_stage === 'matriculado')
       const calls      = dailyLogs
-        .filter(l => l.user_id === p.id && new Date(l.log_date + 'T12:00:00') >= periodStart)
+        .filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
         .reduce((s, l) => s + (l.calls || 0), 0)
       const withV = matriculas.filter(c => (c.visits || []).length > 0)
       const avgV  = withV.length > 0
@@ -563,16 +576,18 @@ export default function RelatoriosPage() {
       return { ...p, memberClients, logs }
     })
 
-    const pLabel = period === 7
-      ? 'Últimos 7 dias'
-      : period === 30
-        ? 'Últimos 30 dias'
-        : 'Últimos 12 meses'
+    const fmtDate = (s) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+    const pLabel = period === 'week'  ? 'Últimos 7 dias'
+      : period === 'month' ? 'Últimos 30 dias'
+      : period === 'year'  ? 'Últimos 12 meses'
+      : customFrom && customTo ? `${fmtDate(customFrom)} a ${fmtDate(customTo)}`
+      : customFrom ? `A partir de ${fmtDate(customFrom)}`
+      : 'Período personalizado'
 
     const html = generateReportHTML({
       scope:       exportScope,
       members,
-      periodDays:  period,
+      periodDays:  periodDays,
       periodStart,
       periodLabel: pLabel,
       exportedBy:  profile?.name || 'Gerente',
@@ -629,13 +644,12 @@ export default function RelatoriosPage() {
 
       {/* ── Filtro de período ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {/* Pills predefinidos */}
         <div style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px', background: '#161616', border: '1px solid #252525' }}>
           {PERIODS.map(p => {
-            const active = period === p.key && !showCustomInput
+            const active = period === p.key
             return (
               <button key={p.key}
-                onClick={() => { setPeriod(p.key); setShowCustomInput(false) }}
+                onClick={() => setPeriod(p.key)}
                 style={{
                   flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
                   background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
@@ -646,59 +660,44 @@ export default function RelatoriosPage() {
               </button>
             )
           })}
+          <button
+            onClick={() => setPeriod('custom')}
+            style={{
+              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+              background: period === 'custom' ? 'rgba(201,168,76,0.12)' : 'transparent',
+              color:      period === 'custom' ? '#C9A84C' : '#6B6560',
+              border:     period === 'custom' ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+            }}>
+            Datas
+          </button>
         </div>
 
-        {/* Link "Personalizado" abaixo */}
-        {!showCustomInput && (
-          <button
-            onClick={() => { setShowCustomInput(true); setCustomDaysInput('') }}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0',
-              fontSize: '11px', fontWeight: 600, color: '#444040', textAlign: 'center',
-              letterSpacing: '0.04em',
-            }}>
-            {!PERIODS.some(p => p.key === period)
-              ? `✦ Período personalizado: ${period} dias — alterar`
-              : '+ Período personalizado'}
-          </button>
-        )}
-
-        {/* Input de dias personalizados */}
-        {showCustomInput && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="number"
-              min="1"
-              max="3650"
-              placeholder="Quantos dias? (ex: 60)"
-              value={customDaysInput}
-              onChange={e => setCustomDaysInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  const d = parseInt(customDaysInput)
-                  if (d > 0 && d <= 3650) { setPeriod(d); setShowCustomInput(false) }
-                }
-              }}
-              autoFocus
-              style={{
-                flex: 1, background: '#161616', border: '1px solid rgba(201,168,76,0.3)',
-                borderRadius: '12px', padding: '11px 16px', color: '#EFEFEF',
-                fontSize: '14px', outline: 'none',
-              }}
-            />
-            <button
-              onClick={() => {
-                const d = parseInt(customDaysInput)
-                if (d > 0 && d <= 3650) { setPeriod(d); setShowCustomInput(false) }
-                else setShowCustomInput(false)
-              }}
-              style={{
-                padding: '11px 20px', borderRadius: '12px', fontSize: '14px', fontWeight: 700,
-                background: 'rgba(201,168,76,0.12)', color: '#C9A84C',
-                border: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', flexShrink: 0,
-              }}>
-              OK
-            </button>
+        {period === 'custom' && (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#444040', marginBottom: '6px' }}>De</p>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                style={{
+                  width: '100%', background: '#161616', border: '1px solid #252525',
+                  borderRadius: '12px', padding: '10px 12px', color: customFrom ? '#EFEFEF' : '#6B6560',
+                  fontSize: '13px', outline: 'none',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.4)'}
+                onBlur={e  => e.target.style.borderColor = '#252525'}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#444040', marginBottom: '6px' }}>Até</p>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                style={{
+                  width: '100%', background: '#161616', border: '1px solid #252525',
+                  borderRadius: '12px', padding: '10px 12px', color: customTo ? '#EFEFEF' : '#6B6560',
+                  fontSize: '13px', outline: 'none',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.4)'}
+                onBlur={e  => e.target.style.borderColor = '#252525'}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -733,10 +732,12 @@ export default function RelatoriosPage() {
               Tendencia
             </p>
             <p style={{ fontSize: '11px', color: '#2A2A2A' }}>
-              {period > 90
-                ? `ultimos ${Math.min(Math.ceil(period / 30), 24)} meses`
-                : period === 7 ? 'ultimos 7 dias'
-                : `ultimos ${period} dias`}
+              {period === 'week'  ? 'últimos 7 dias'
+               : period === 'month' ? 'últimos 30 dias'
+               : period === 'year'  ? 'últimos 12 meses'
+               : customFrom && customTo
+                 ? `${new Date(customFrom+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} – ${new Date(customTo+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}`
+                 : customFrom ? `a partir de ${new Date(customFrom+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}` : 'personalizado'}
             </p>
           </div>
           {/* Toggle chips */}
@@ -928,7 +929,12 @@ export default function RelatoriosPage() {
                   Período do relatório
                 </p>
                 <p style={{ fontSize: '14px', fontWeight: 600, color: '#C9A84C' }}>
-                  {period === 7 ? 'Últimos 7 dias' : period === 30 ? 'Últimos 30 dias' : 'Últimos 12 meses'}
+                  {period === 'week'  ? 'Últimos 7 dias'
+                   : period === 'month' ? 'Últimos 30 dias'
+                   : period === 'year'  ? 'Últimos 12 meses'
+                   : customFrom || customTo
+                     ? `${customFrom || '...'} a ${customTo || 'hoje'}`
+                     : 'Personalizado'}
                 </p>
                 <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '2px' }}>
                   Ajuste o filtro de período antes de exportar
