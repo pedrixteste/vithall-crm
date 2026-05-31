@@ -892,6 +892,51 @@ export default function RelatoriosPage() {
         )}
       </div>
 
+      {/* ── Avaliação de visitas ── */}
+      {(() => {
+        const allVisits = filteredClients.flatMap(c => c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
+        const ratingDefs = [
+          { key: 'pessima',  label: 'Péssima',  color: '#E85555' },
+          { key: 'razoavel', label: 'Razoável', color: '#E8834A' },
+          { key: 'boa',      label: 'Boa',      color: '#60A5FA' },
+          { key: 'otima',    label: 'Ótima',    color: '#4ADE80' },
+        ]
+        const counts = ratingDefs.map(r => ({ ...r, count: allVisits.filter(v => v.rating === r.key).length }))
+        const rated  = allVisits.filter(v => v.rating).length
+        const maxCount = Math.max(...counts.map(r => r.count), 1)
+        if (allVisits.length === 0) return null
+        return (
+          <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030' }}>
+                Avaliação de visitas
+              </p>
+              <p style={{ fontSize: '10px', color: '#2A2A2A' }}>{rated} de {allVisits.length} avaliadas</p>
+            </div>
+            {rated === 0 ? (
+              <p style={{ fontSize: '12px', textAlign: 'center', color: '#2A2A2A', padding: '8px 0' }}>Nenhuma visita avaliada ainda</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {counts.map(r => {
+                  const pct = maxCount > 0 ? Math.max((r.count / maxCount) * 100, r.count > 0 ? 4 : 0) : 0
+                  return (
+                    <div key={r.key}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: r.count > 0 ? '#EFEFEF' : '#3A3530' }}>{r.label}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: r.count > 0 ? r.color : '#2A2A2A' }}>{r.count}</span>
+                      </div>
+                      <div style={{ height: '5px', borderRadius: '99px', background: '#1A1A1A', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: r.color, borderRadius: '99px', transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Modal de exportação ── */}
       {showExportModal && (
         <div

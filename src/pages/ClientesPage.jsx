@@ -44,11 +44,12 @@ export default function ClientesPage() {
   const [filterCity, setFilterCity] = useState('')
   const [filterHasDone, setFilterHasDone]   = useState([])
   const [filterNotDone, setFilterNotDone]   = useState([])
+  const [filterRating, setFilterRating]     = useState('')
 
   useEffect(() => { fetchClients() }, [profile])
 
   async function fetchClients() {
-    let query = supabase.from('clients').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('clients').select('*, visits(id, rating)').order('created_at', { ascending: false })
     if (profile?.role === 'pre_vendas') {
       query = query.eq('created_by', user.id)
     } else if (profile?.role === 'vendedor') {
@@ -68,10 +69,11 @@ export default function ClientesPage() {
     setFilterCity('')
     setFilterHasDone([])
     setFilterNotDone([])
+    setFilterRating('')
   }
 
   const activeFilters = [
-    filterStage, filterPeriod, filterCity,
+    filterStage, filterPeriod, filterCity, filterRating,
     filterHasDone.length > 0 ? 'hasDone' : '',
     filterNotDone.length > 0 ? 'notDone' : '',
   ].filter(Boolean).length
@@ -119,7 +121,10 @@ export default function ClientesPage() {
       }
     }
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone
+    const matchesRating = !filterRating ||
+      (c.visits || []).some(v => v.rating === filterRating)
+
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating
   })
 
   if (selected) return (
@@ -316,6 +321,31 @@ export default function ClientesPage() {
                 </div>
               </div>
             )}
+
+            {/* Nota da visita */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040', marginTop: '16px' }}>
+              Nota da visita
+            </p>
+            <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '4px' }}>
+              {[
+                { key: 'pessima',  label: 'Péssima',  color: '#E85555' },
+                { key: 'razoavel', label: 'Razoável', color: '#E8834A' },
+                { key: 'boa',      label: 'Boa',      color: '#60A5FA' },
+                { key: 'otima',    label: 'Ótima',    color: '#4ADE80' },
+              ].map(r => (
+                <button key={r.key} type="button"
+                  onClick={() => setFilterRating(f => f === r.key ? '' : r.key)}
+                  className="text-xs font-semibold rounded-full transition-all"
+                  style={{
+                    padding: '5px 12px',
+                    background: filterRating === r.key ? r.color + '18' : 'transparent',
+                    border: `1px solid ${filterRating === r.key ? r.color + '60' : '#2A2A2A'}`,
+                    color: filterRating === r.key ? r.color : '#6B6560',
+                  }}>
+                  {filterRating === r.key ? '✓ ' : ''}{r.label}
+                </button>
+              ))}
+            </div>
 
             {/* Limpar filtros */}
             {activeFilters > 0 && (

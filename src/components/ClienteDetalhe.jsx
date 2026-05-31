@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
@@ -28,6 +28,13 @@ const ORIGIN_LABELS = {
 }
 
 const DAYS_PT = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb' }
+
+const RATINGS = [
+  { key: 'pessima',  label: 'Péssima',  color: '#E85555', bg: 'rgba(232,85,85,0.13)'   },
+  { key: 'razoavel', label: 'Razoável', color: '#E8834A', bg: 'rgba(232,131,74,0.13)'  },
+  { key: 'boa',      label: 'Boa',      color: '#60A5FA', bg: 'rgba(96,165,250,0.13)'  },
+  { key: 'otima',    label: 'Ótima',    color: '#4ADE80', bg: 'rgba(74,222,128,0.13)'  },
+]
 
 // ── Helpers de histórico ───────────────────────────────────────────
 
@@ -287,6 +294,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
+  const [showRating, setShowRating]       = useState(false)
+  const [ratingEdits, setRatingEdits]     = useState({}) // { [visitId]: { rating, visit_notes } }
+  const [savingRatingId, setSavingRatingId] = useState(null)
 
   useEffect(() => {
     fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory()
@@ -479,6 +489,31 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     fetchHistory()
   }
 
+  // ── Avaliação de visitas ───────────────────────────────────────────
+
+  function openRatingPanel() {
+    const initial = {}
+    visits.forEach(v => {
+      initial[v.id] = { rating: v.rating || null, visit_notes: v.visit_notes || '' }
+    })
+    setRatingEdits(initial)
+    setShowRating(true)
+  }
+
+  async function saveVisitRating(visitId) {
+    const edit = ratingEdits[visitId]
+    if (!edit) return
+    setSavingRatingId(visitId)
+    await supabase.from('visits').update({
+      rating:      edit.rating,
+      visit_notes: edit.visit_notes,
+    }).eq('id', visitId)
+    setSavingRatingId(null)
+    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
+  }
+
+  const canRate = user.id === currentClient.assigned_to || user.id === currentClient.created_by
+
   // ── Timeline montada (histórico + visitas derivadas + criação) ──
 
   const timelineItems = (() => {
@@ -541,6 +576,18 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <h1 className="text-lg font-bold flex-1 truncate" style={{ color: '#EFEFEF' }}>
           {currentClient.contact_name || currentClient.company_name}
         </h1>
+        {/* Botão avaliação de visitas */}
+        {visits.length > 0 && (
+          <button onClick={openRatingPanel}
+            className="p-2 rounded-xl relative"
+            style={{
+              background: visits.some(v => v.rating) ? 'rgba(201,168,76,0.08)' : '#161616',
+              border: `1px solid ${visits.some(v => v.rating) ? 'rgba(201,168,76,0.3)' : '#303030'}`,
+              color: visits.some(v => v.rating) ? '#C9A84C' : '#6B6560',
+            }}>
+            <Star size={16} fill={visits.some(v => v.rating) ? '#C9A84C' : 'none'} />
+          </button>
+        )}
         {/* Botão histórico */}
         <button onClick={() => { setShowHistory(true); fetchHistory() }}
           className="p-2 rounded-xl relative"
@@ -892,10 +939,25 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       )}
                     </div>
                   </div>
-                  <button onClick={() => deleteVisit(v.id)}>
-                    <Trash2 size={14} style={{ color: '#2A2A2A' }} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {v.rating && (() => {
+                      const r = RATINGS.find(r => r.key === v.rating)
+                      return r ? (
+                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: r.bg, color: r.color }}>
+                          {r.label}
+                        </span>
+                      ) : null
+                    })()}
+                    <button onClick={() => deleteVisit(v.id)}>
+                      <Trash2 size={14} style={{ color: '#2A2A2A' }} />
+                    </button>
+                  </div>
                 </div>
+                {v.visit_notes && (
+                  <div style={{ marginTop: '8px', padding: '8px 12px', background: '#111', borderRadius: '10px', border: '1px solid #1E1E1E' }}>
+                    <p style={{ fontSize: '11px', color: '#6B6560', fontStyle: 'italic' }}>"{v.visit_notes}"</p>
+                  </div>
+                )}
                 {(v.outcome || v.next_step || v.notes) && (
                   <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #222' }}>
                     {v.outcome   && <p className="text-xs" style={{ color: '#6B6560' }}><span style={{ color: '#EFEFEF' }}>Resultado:</span> {v.outcome}</p>}
@@ -1063,6 +1125,100 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 }}>
                 Confirmar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Painel de avaliação de visitas ── */}
+      {showRating && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setShowRating(false) }}
+          style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+
+            {/* Header do painel */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0' }}>
+              <div>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação de Visitas</p>
+                <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
+                  {canRate ? 'Preencha sua avaliação de cada visita' : 'Somente o responsável pode avaliar'}
+                </p>
+              </div>
+              <button onClick={() => setShowRating(false)}
+                style={{ background: 'none', border: 'none', color: '#6B6560', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Lista de visitas */}
+            <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {visits.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#2A2A2A', fontSize: '13px', padding: '24px 0' }}>Nenhuma visita registrada</p>
+              )}
+              {visits.map((v, i) => {
+                const edit = ratingEdits[v.id] || { rating: v.rating || null, visit_notes: v.visit_notes || '' }
+                const isSaving = savingRatingId === v.id
+                return (
+                  <div key={v.id} style={{ background: '#161616', borderRadius: '16px', border: '1px solid #252525', padding: '16px' }}>
+                    {/* Data da visita */}
+                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A', marginBottom: '12px' }}>
+                      {i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`} · {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+
+                    {/* Pills de nota */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '14px' }}>
+                      {RATINGS.map(r => {
+                        const active = edit.rating === r.key
+                        return (
+                          <button key={r.key}
+                            disabled={!canRate}
+                            onClick={() => setRatingEdits(prev => ({ ...prev, [v.id]: { ...edit, rating: active ? null : r.key } }))}
+                            style={{
+                              padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
+                              cursor: canRate ? 'pointer' : 'default',
+                              background: active ? r.bg : '#111',
+                              color: active ? r.color : '#3A3A3A',
+                              border: `1px solid ${active ? r.color + '55' : '#252525'}`,
+                              transition: 'all 0.15s',
+                            }}>
+                            {r.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Campo de anotações */}
+                    <textarea
+                      value={edit.visit_notes}
+                      readOnly={!canRate}
+                      onChange={e => setRatingEdits(prev => ({ ...prev, [v.id]: { ...edit, visit_notes: e.target.value } }))}
+                      placeholder={canRate ? 'Anotações pessoais sobre essa visita...' : 'Sem anotações'}
+                      rows={3}
+                      style={{
+                        width: '100%', background: '#111', border: '1px solid #252525', borderRadius: '12px',
+                        padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', resize: 'none',
+                        outline: 'none', lineHeight: 1.5, marginBottom: '12px',
+                        color: canRate ? '#EFEFEF' : '#6B6560',
+                      }}
+                    />
+
+                    {/* Botão salvar */}
+                    {canRate && (
+                      <button
+                        onClick={() => saveVisitRating(v.id)}
+                        disabled={isSaving}
+                        style={{
+                          width: '100%', padding: '11px', borderRadius: '12px', fontSize: '13px', fontWeight: 700,
+                          cursor: 'pointer',
+                          background: 'rgba(201,168,76,0.08)', color: '#C9A84C',
+                          border: '1px solid rgba(201,168,76,0.2)',
+                          opacity: isSaving ? 0.6 : 1,
+                        }}>
+                        {isSaving ? 'Salvando...' : 'Salvar avaliação'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
