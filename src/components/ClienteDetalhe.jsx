@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
@@ -328,22 +329,17 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [])
 
-  // Trava scroll do body quando painel de avaliação está aberto
+  // Trava o scroll do <main> quando painel de avaliação está aberto
+  // (o scroll da página fica no <main>, não no body)
   useEffect(() => {
+    const main = document.querySelector('main')
+    if (!main) return
     if (showRating) {
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.width = '100%'
+      main.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
+      main.style.overflow = ''
     }
-    return () => {
-      document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
-    }
+    return () => { main.style.overflow = '' }
   }, [showRating])
 
   // ── Fetches ────────────────────────────────────────────────────
@@ -1326,7 +1322,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       )}
 
       {/* ── Painel de avaliação de visitas ── */}
-      {showRating && (
+      {showRating && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
 
           {/* Backdrop separado — não interfere no scroll do painel */}
@@ -1632,7 +1628,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Modais ── */}
