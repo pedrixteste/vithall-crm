@@ -328,6 +328,24 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [])
 
+  // Trava scroll do body quando painel de avaliação está aberto
+  useEffect(() => {
+    if (showRating) {
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
+    } else {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
+  }, [showRating])
+
   // ── Fetches ────────────────────────────────────────────────────
 
   async function fetchAssigned() {
@@ -1338,7 +1356,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
 
             {/* Lista de visitas — área de scroll */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
