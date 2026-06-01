@@ -1358,7 +1358,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
 
             {/* Lista de visitas — área de scroll */}
-            <div ref={ratingScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div ref={ratingScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '8px 20px 36px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
@@ -1409,7 +1409,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const ratingObj  = RATINGS.find(r => r.key === edit.rating)
 
                 return (
-                  <div key={v.id} style={{ background: '#161616', borderRadius: '18px', border: `1px solid ${isCollapsed ? '#252525' : '#303030'}`, overflow: 'hidden' }}>
+                  <div key={v.id} style={{ background: '#161616', borderRadius: '18px', border: `1px solid ${isCollapsed ? '#252525' : '#303030'}`, overflow: 'hidden', marginBottom: '12px' }}>
 
                     {/* ── Cabeçalho da visita (sempre visível) ── */}
                     <button onClick={toggleCollapse} style={{
