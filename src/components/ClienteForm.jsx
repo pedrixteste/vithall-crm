@@ -7,7 +7,7 @@ import { Button } from './ui/Button'
 import { Clock, Plus, X, Mic, MicOff } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 
-const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra']
+const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
 const ORIGINS = ['frias contatinhos', 'frias listas', 'lead', 'feiras', 'indicacao']
 const ORIGIN_LABELS = {
