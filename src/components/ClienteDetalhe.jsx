@@ -642,7 +642,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         rating:                  v.rating           || null,
         visit_notes:             v.visit_notes      || '',
         visit_outcome:           v.visit_outcome    || null,
-        outcome_training:        v.outcome_training || null,
+        outcome_training:        Array.isArray(v.outcome_training) ? v.outcome_training : (v.outcome_training ? [v.outcome_training] : []),
         outcome_return_datetime: '',
         visit_possibilities:     customPoss ? [...stdPoss, 'outros_eventos'] : stdPoss,
         outros_eventos_text:     customPoss || '',
@@ -668,24 +668,28 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     }
 
     // Salva campos na tabela visits
+    const trainingsArr = (edit.outcome_training || []).filter(Boolean)
     await supabase.from('visits').update({
       rating:              edit.rating,
       visit_notes:         edit.visit_notes,
-      visit_outcome:       edit.visit_outcome    || null,
-      outcome_training:    edit.outcome_training || null,
+      visit_outcome:       edit.visit_outcome || null,
+      outcome_training:    trainingsArr.length > 0 ? trainingsArr : null,
       visit_possibilities: poss,
     }).eq('id', visitId)
 
-    // Matriculada → adiciona treinamento + atualiza estágio
-    if (edit.visit_outcome === 'matriculada' && edit.outcome_training) {
+    // Matriculada → adiciona treinamentos + atualiza estágio
+    if (edit.visit_outcome === 'matriculada' && trainingsArr.length > 0) {
       const current = currentClient.matriculas || []
-      if (!current.includes(edit.outcome_training)) {
-        const updated = [...current, edit.outcome_training]
+      const toAdd = trainingsArr.filter(t => !current.includes(t))
+      if (toAdd.length > 0) {
+        const updated = [...current, ...toAdd]
         await supabase.from('clients').update({
           matriculas:      updated,
           matricula_stage: 'matriculado',
         }).eq('id', client.id)
-        await logEvent('matricula_added', { training: edit.outcome_training })
+        for (const t of toAdd) {
+          await logEvent('matricula_added', { training: t })
+        }
         await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'matriculado' })
         setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado' }))
       }
@@ -1385,7 +1389,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
                 // Validação: resultado + nota + pelo menos 1 possibilidade são obrigatórios
                 const isComplete = !!edit.visit_outcome && !!edit.rating && poss.length > 0 &&
-                  (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim())
+                  (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
+                  (edit.visit_outcome !== 'matriculada' || (edit.outcome_training || []).length > 0)
 
                 function setEdit(fields) {
                   setRatingEdits(prev => ({ ...prev, [v.id]: { ...(prev[v.id] || edit), ...fields } }))
@@ -1462,7 +1467,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               const active = edit.visit_outcome === o.key
                               return (
                                 <button key={o.key} disabled={!canRate}
-                                  onClick={() => setEdit({ visit_outcome: active ? null : o.key, outcome_training: null, outcome_return_datetime: '' })}
+                                  onClick={() => setEdit({ visit_outcome: active ? null : o.key, outcome_training: [], outcome_return_datetime: '' })}
                                   style={{
                                     padding: '10px 11px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
                                     textAlign: 'left', cursor: canRate ? 'pointer' : 'default',
@@ -1478,17 +1483,21 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           </div>
                         </div>
 
-                        {/* Treinamento (matriculada) */}
+                        {/* Treinamento (matriculada) — multi-select */}
                         {edit.visit_outcome === 'matriculada' && (
                           <div style={{ padding: '12px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px' }}>
-                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>Qual treinamento?</p>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>Qual treinamento? <span style={{ color: '#4ADE8080' }}>(pode marcar mais de 1)</span></p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                               {TRAININGS.map(t => {
-                                const active = edit.outcome_training === t
+                                const selected = (edit.outcome_training || []).includes(t)
                                 return (
-                                  <button key={t} disabled={!canRate} onClick={() => setEdit({ outcome_training: active ? null : t })}
-                                    style={{ padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(74,222,128,0.15)' : 'transparent', color: active ? '#4ADE80' : '#6B6560', border: `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}` }}>
-                                    {active ? '✓ ' : ''}{t}
+                                  <button key={t} disabled={!canRate}
+                                    onClick={() => {
+                                      const curr = edit.outcome_training || []
+                                      setEdit({ outcome_training: selected ? curr.filter(x => x !== t) : [...curr, t] })
+                                    }}
+                                    style={{ padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: selected ? 'rgba(74,222,128,0.15)' : 'transparent', color: selected ? '#4ADE80' : '#6B6560', border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}` }}>
+                                    {selected ? '✓ ' : ''}{t}
                                   </button>
                                 )
                               })}
