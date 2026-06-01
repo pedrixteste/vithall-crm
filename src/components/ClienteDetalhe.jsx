@@ -1332,7 +1332,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
 
             {/* Lista de visitas */}
-            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
