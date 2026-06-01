@@ -576,8 +576,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <h1 className="text-lg font-bold flex-1 truncate" style={{ color: '#EFEFEF' }}>
           {currentClient.contact_name || currentClient.company_name}
         </h1>
-        {/* Botão avaliação de visitas */}
-        {visits.length > 0 && (
+        {/* Botão avaliação de visitas — aparece após a data agendada passar */}
+        {currentClient.visit_scheduled_at && new Date(currentClient.visit_scheduled_at) < new Date() && (
           <button onClick={openRatingPanel}
             className="p-2 rounded-xl relative"
             style={{
@@ -1152,7 +1152,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             {/* Lista de visitas */}
             <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {visits.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#2A2A2A', fontSize: '13px', padding: '24px 0' }}>Nenhuma visita registrada</p>
+                <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                  <p style={{ color: '#3A3A3A', fontSize: '13px', fontWeight: 600 }}>Nenhuma visita registrada ainda</p>
+                  <p style={{ color: '#2A2A2A', fontSize: '11px', marginTop: '6px' }}>Use o botão + na tela do cliente para registrar a visita e poder avaliar</p>
+                </div>
               )}
               {visits.map((v, i) => {
                 const edit = ratingEdits[v.id] || { rating: v.rating || null, visit_notes: v.visit_notes || '' }
