@@ -36,6 +36,15 @@ const RATINGS = [
   { key: 'otima',    label: 'Ótima',    color: '#4ADE80', bg: 'rgba(74,222,128,0.13)'  },
 ]
 
+const OUTCOMES = [
+  { key: 'matriculada',          label: 'Matriculada',          icon: '✅', color: '#4ADE80' },
+  { key: 'grandes_chances',      label: 'Grandes chances',      icon: '🔥', color: '#C9A84C' },
+  { key: 'chance_futura',        label: 'Chance futura',        icon: '🔮', color: '#60A5FA' },
+  { key: 'sem_chance',           label: 'Sem chance',           icon: '🚫', color: '#E85555' },
+  { key: 'retorno_pessoalmente', label: 'Retorno presencial',   icon: '📍', color: '#A78BFA' },
+  { key: 'retorno_ligacao',      label: 'Retorno ligação',      icon: '📞', color: '#E8834A' },
+]
+
 // ── Helpers de histórico ───────────────────────────────────────────
 
 function formatTimeAgo(dateStr) {
@@ -294,9 +303,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
-  const [showRating, setShowRating]       = useState(false)
-  const [ratingEdits, setRatingEdits]     = useState({}) // { [visitId]: { rating, visit_notes } }
+  const [showRating, setShowRating]         = useState(false)
+  const [ratingEdits, setRatingEdits]       = useState({})
   const [savingRatingId, setSavingRatingId] = useState(null)
+  const [syncAfterSave, setSyncAfterSave]   = useState(null) // visitId do retorno presencial recém-salvo
 
   useEffect(() => {
     fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory()
@@ -521,9 +531,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   function openRatingPanel() {
     const initial = {}
     visits.forEach(v => {
-      initial[v.id] = { rating: v.rating || null, visit_notes: v.visit_notes || '' }
+      initial[v.id] = {
+        rating:                  v.rating           || null,
+        visit_notes:             v.visit_notes      || '',
+        visit_outcome:           v.visit_outcome    || null,
+        outcome_training:        v.outcome_training || null,
+        outcome_return_datetime: '',
+      }
     })
     setRatingEdits(initial)
+    setSyncAfterSave(null)
     setShowRating(true)
   }
 
@@ -531,10 +548,44 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const edit = ratingEdits[visitId]
     if (!edit) return
     setSavingRatingId(visitId)
+
+    // Salva campos na tabela visits
     await supabase.from('visits').update({
-      rating:      edit.rating,
-      visit_notes: edit.visit_notes,
+      rating:           edit.rating,
+      visit_notes:      edit.visit_notes,
+      visit_outcome:    edit.visit_outcome    || null,
+      outcome_training: edit.outcome_training || null,
     }).eq('id', visitId)
+
+    // Matriculada → adiciona treinamento + atualiza estágio
+    if (edit.visit_outcome === 'matriculada' && edit.outcome_training) {
+      const current = currentClient.matriculas || []
+      if (!current.includes(edit.outcome_training)) {
+        const updated = [...current, edit.outcome_training]
+        await supabase.from('clients').update({
+          matriculas:      updated,
+          matricula_stage: 'matriculado',
+        }).eq('id', client.id)
+        await logEvent('matricula_added', { training: edit.outcome_training })
+        await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'matriculado' })
+        setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado' }))
+      }
+    }
+
+    // Retorno → agenda nova data no cliente
+    if (
+      (edit.visit_outcome === 'retorno_pessoalmente' || edit.visit_outcome === 'retorno_ligacao')
+      && edit.outcome_return_datetime
+    ) {
+      const iso = new Date(edit.outcome_return_datetime).toISOString()
+      await supabase.from('clients').update({
+        visit_scheduled_at:       iso,
+        google_calendar_event_id: null,
+      }).eq('id', client.id)
+      setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null }))
+      if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
+    }
+
     setSavingRatingId(null)
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
   }
@@ -1160,87 +1211,224 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {/* ── Painel de avaliação de visitas ── */}
       {showRating && (
         <div
-          onClick={e => { if (e.target === e.currentTarget) setShowRating(false) }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowRating(false); setSyncAfterSave(null) } }}
           style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
 
-            {/* Header do painel */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0' }}>
+            {/* Handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
+              <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#252525' }} />
+            </div>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px 10px' }}>
               <div>
-                <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação de Visitas</p>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação da Visita</p>
                 <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
-                  {canRate ? 'Preencha sua avaliação de cada visita' : 'Somente o responsável pode avaliar'}
+                  {canRate ? 'Registre o resultado e avalie a visita' : 'Somente o responsável pode avaliar'}
                 </p>
               </div>
-              <button onClick={() => setShowRating(false)}
+              <button onClick={() => { setShowRating(false); setSyncAfterSave(null) }}
                 style={{ background: 'none', border: 'none', color: '#6B6560', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
 
             {/* Lista de visitas */}
-            <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ overflowY: 'auto', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
                   <p style={{ color: '#3A3A3A', fontSize: '13px', fontWeight: 600 }}>Nenhuma visita registrada ainda</p>
-                  <p style={{ color: '#2A2A2A', fontSize: '11px', marginTop: '6px' }}>Use o botão + na tela do cliente para registrar a visita e poder avaliar</p>
+                  <p style={{ color: '#2A2A2A', fontSize: '11px', marginTop: '6px' }}>A visita será registrada automaticamente após a data agendada</p>
                 </div>
               )}
+
               {visits.map((v, i) => {
-                const edit = ratingEdits[v.id] || { rating: v.rating || null, visit_notes: v.visit_notes || '' }
-                const isSaving = savingRatingId === v.id
+                const edit = ratingEdits[v.id] || {
+                  rating: v.rating || null, visit_notes: v.visit_notes || '',
+                  visit_outcome: v.visit_outcome || null, outcome_training: v.outcome_training || null,
+                  outcome_return_datetime: '',
+                }
+                const isSaving   = savingRatingId === v.id
+                const justSaved  = syncAfterSave === v.id
+                const isRetorno  = edit.visit_outcome === 'retorno_pessoalmente' || edit.visit_outcome === 'retorno_ligacao'
+                const isPresencial = edit.visit_outcome === 'retorno_pessoalmente'
+
+                function setEdit(fields) {
+                  setRatingEdits(prev => ({
+                    ...prev,
+                    [v.id]: { ...(prev[v.id] || edit), ...fields },
+                  }))
+                }
+
                 return (
-                  <div key={v.id} style={{ background: '#161616', borderRadius: '16px', border: '1px solid #252525', padding: '16px' }}>
+                  <div key={v.id} style={{ background: '#161616', borderRadius: '18px', border: '1px solid #252525', padding: '18px' }}>
+
                     {/* Data da visita */}
-                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A', marginBottom: '12px' }}>
-                      {i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`} · {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A', marginBottom: '16px' }}>
+                      {i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`}
+                      {' · '}
+                      {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                     </p>
 
-                    {/* Pills de nota */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '14px' }}>
-                      {RATINGS.map(r => {
-                        const active = edit.rating === r.key
-                        return (
-                          <button key={r.key}
-                            disabled={!canRate}
-                            onClick={() => setRatingEdits(prev => ({ ...prev, [v.id]: { ...edit, rating: active ? null : r.key } }))}
-                            style={{
-                              padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
-                              cursor: canRate ? 'pointer' : 'default',
-                              background: active ? r.bg : '#111',
-                              color: active ? r.color : '#3A3A3A',
-                              border: `1px solid ${active ? r.color + '55' : '#252525'}`,
-                              transition: 'all 0.15s',
-                            }}>
-                            {r.label}
-                          </button>
-                        )
-                      })}
+                    {/* ── RESULTADO ── */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '10px' }}>
+                        Resultado da visita
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        {OUTCOMES.map(o => {
+                          const active = edit.visit_outcome === o.key
+                          return (
+                            <button key={o.key}
+                              disabled={!canRate}
+                              onClick={() => setEdit({
+                                visit_outcome:           active ? null : o.key,
+                                outcome_training:        null,
+                                outcome_return_datetime: '',
+                              })}
+                              style={{
+                                padding: '10px 11px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                                textAlign: 'left', cursor: canRate ? 'pointer' : 'default',
+                                display: 'flex', alignItems: 'center', gap: '7px',
+                                background: active ? `${o.color}18` : '#111',
+                                color:      active ? o.color : '#6B6560',
+                                border:     `1px solid ${active ? o.color + '40' : '#1E1E1E'}`,
+                              }}>
+                              <span style={{ fontSize: '14px' }}>{o.icon}</span>
+                              {o.label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
-                    {/* Campo de anotações */}
+                    {/* ── Treinamento (se matriculada) ── */}
+                    {edit.visit_outcome === 'matriculada' && (
+                      <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '10px' }}>
+                          Qual treinamento?
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {TRAININGS.map(t => {
+                            const active = edit.outcome_training === t
+                            return (
+                              <button key={t}
+                                disabled={!canRate}
+                                onClick={() => setEdit({ outcome_training: active ? null : t })}
+                                style={{
+                                  padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600,
+                                  cursor: canRate ? 'pointer' : 'default',
+                                  background: active ? 'rgba(74,222,128,0.15)' : 'transparent',
+                                  color:      active ? '#4ADE80' : '#6B6560',
+                                  border:     `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
+                                }}>
+                                {active ? '✓ ' : ''}{t}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Data de retorno (se retorno presencial ou ligação) ── */}
+                    {isRetorno && (
+                      <div style={{
+                        marginBottom: '16px', padding: '14px', borderRadius: '12px',
+                        background: isPresencial ? 'rgba(167,139,250,0.05)' : 'rgba(232,131,74,0.05)',
+                        border: `1px solid ${isPresencial ? 'rgba(167,139,250,0.15)' : 'rgba(232,131,74,0.15)'}`,
+                      }}>
+                        <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: isPresencial ? '#A78BFA' : '#E8834A', marginBottom: '10px' }}>
+                          {isPresencial ? '📍 Data da visita presencial' : '📞 Data do retorno por ligação'}
+                        </p>
+                        <input
+                          type="datetime-local"
+                          value={edit.outcome_return_datetime}
+                          disabled={!canRate}
+                          onChange={e => setEdit({ outcome_return_datetime: e.target.value })}
+                          style={{
+                            width: '100%', background: '#111', border: '1px solid #2A2A2A',
+                            borderRadius: '10px', padding: '10px 12px',
+                            color: '#EFEFEF', fontSize: '13px', outline: 'none',
+                          }}
+                        />
+                        {/* Após salvar retorno presencial: botão Google Agenda */}
+                        {justSaved && isPresencial && profile?.google_refresh_token && (
+                          <button
+                            onClick={syncCalendarEvent}
+                            disabled={syncingCalendar}
+                            style={{
+                              marginTop: '10px', width: '100%', padding: '10px',
+                              borderRadius: '10px', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', gap: '7px', cursor: 'pointer',
+                              background: 'rgba(201,168,76,0.08)', color: '#C9A84C',
+                              border: '1px solid rgba(201,168,76,0.2)',
+                              fontSize: '13px', fontWeight: 600,
+                            }}>
+                            <Calendar size={14} />
+                            {syncingCalendar ? 'Adicionando...' : 'Adicionar ao Google Agenda'}
+                          </button>
+                        )}
+                        {justSaved && !isPresencial && (
+                          <p style={{ marginTop: '8px', fontSize: '11px', color: '#E8834A', fontWeight: 600 }}>
+                            ✓ Retorno agendado para ligar
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Nota da visita ── */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '10px' }}>
+                        Nota da visita
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                        {RATINGS.map(r => {
+                          const active = edit.rating === r.key
+                          return (
+                            <button key={r.key}
+                              disabled={!canRate}
+                              onClick={() => setEdit({ rating: active ? null : r.key })}
+                              style={{
+                                padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
+                                cursor: canRate ? 'pointer' : 'default',
+                                background: active ? r.bg : '#111',
+                                color:      active ? r.color : '#3A3A3A',
+                                border:     `1px solid ${active ? r.color + '55' : '#252525'}`,
+                              }}>
+                              {r.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ── Anotações ── */}
                     <textarea
                       value={edit.visit_notes}
                       readOnly={!canRate}
-                      onChange={e => setRatingEdits(prev => ({ ...prev, [v.id]: { ...edit, visit_notes: e.target.value } }))}
+                      onChange={e => setEdit({ visit_notes: e.target.value })}
                       placeholder={canRate ? 'Anotações pessoais sobre essa visita...' : 'Sem anotações'}
                       rows={3}
                       style={{
                         width: '100%', background: '#111', border: '1px solid #252525', borderRadius: '12px',
-                        padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', resize: 'none',
-                        outline: 'none', lineHeight: 1.5, marginBottom: '12px',
+                        padding: '10px 12px', fontSize: '13px', resize: 'none',
+                        outline: 'none', lineHeight: 1.5,
                         color: canRate ? '#EFEFEF' : '#6B6560',
+                        marginBottom: canRate ? '12px' : 0,
                       }}
                     />
 
-                    {/* Botão salvar */}
+                    {/* ── Salvar ── */}
                     {canRate && (
                       <button
                         onClick={() => saveVisitRating(v.id)}
                         disabled={isSaving}
                         style={{
-                          width: '100%', padding: '11px', borderRadius: '12px', fontSize: '13px', fontWeight: 700,
-                          cursor: 'pointer',
-                          background: 'rgba(201,168,76,0.08)', color: '#C9A84C',
-                          border: '1px solid rgba(201,168,76,0.2)',
+                          width: '100%', padding: '13px', borderRadius: '13px',
+                          fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none',
+                          background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
+                          color: '#F0EAD6',
+                          boxShadow: '0 2px 12px rgba(201,168,76,0.2)',
                           opacity: isSaving ? 0.6 : 1,
                         }}>
                         {isSaving ? 'Salvando...' : 'Salvar avaliação'}
