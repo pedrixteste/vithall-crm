@@ -438,8 +438,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function addVisit() {
     setAddingVisit(true)
     const today = new Date().toISOString().split('T')[0]
-    await supabase.from('visits').insert({ client_id: client.id, visit_date: today })
+    const { data: newVisit } = await supabase
+      .from('visits')
+      .insert({ client_id: client.id, visit_date: today })
+      .select()
+      .single()
     await logEvent('visit', { date: today })
+
+    // Agenda lembretes de avaliacao para vendedor/gerente (fire and forget)
+    if (newVisit && profile?.role !== 'pre_vendas') {
+      supabase.functions.invoke('schedule-rating-reminder', {
+        body: { visitId: newVisit.id, clientName: currentClient.name, userId: profile.id },
+      })
+    }
+
     await fetchVisits()
     if (showHistory) fetchHistory()
     setAddingVisit(false)
@@ -708,6 +720,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null }))
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
     }
+
+    // Cancela lembretes pendentes agora que a avaliacao foi preenchida (fire and forget)
+    supabase.functions.invoke('cancel-rating-reminders', { body: { visitId } })
 
     setSavingRatingId(null)
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
