@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
@@ -34,6 +34,11 @@ const RATINGS = [
   { key: 'razoavel', label: 'Razoável', color: '#E8834A', bg: 'rgba(232,131,74,0.13)'  },
   { key: 'boa',      label: 'Boa',      color: '#60A5FA', bg: 'rgba(96,165,250,0.13)'  },
   { key: 'otima',    label: 'Ótima',    color: '#4ADE80', bg: 'rgba(74,222,128,0.13)'  },
+]
+
+const POSSIBILIDADES = [
+  'LORAP', 'Impacto', 'Perfil', 'Vendas', 'Mentoria',
+  'Workshop Planejamento', 'Palestra Dia dos Namorados', 'Academia Vithall',
 ]
 
 const OUTCOMES = [
@@ -303,10 +308,18 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
-  const [showRating, setShowRating]         = useState(false)
-  const [ratingEdits, setRatingEdits]       = useState({})
-  const [savingRatingId, setSavingRatingId] = useState(null)
-  const [syncAfterSave, setSyncAfterSave]   = useState(null) // visitId do retorno presencial recém-salvo
+  const [showRating, setShowRating]           = useState(false)
+  const [ratingEdits, setRatingEdits]         = useState({})
+  const [savingRatingId, setSavingRatingId]   = useState(null)
+  const [syncAfterSave, setSyncAfterSave]     = useState(null)
+  const [listeningVisitId, setListeningVisitId] = useState(null)
+  const [collapsedVisits, setCollapsedVisits]   = useState(new Set())
+
+  // Refs para voice-to-text do painel de avaliação
+  const visitRecognitionRef     = useRef(null)
+  const visitListeningRef       = useRef(false)
+  const visitNotesBaseRef       = useRef('')
+  const visitFinalTranscriptRef = useRef('')
 
   useEffect(() => {
     fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory()
@@ -528,18 +541,96 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
   // ── Avaliação de visitas ───────────────────────────────────────────
 
+  // ── Voice-to-text para anotações de visita ─────────────────────
+
+  function buildVisitRecognition(visitId) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.continuous = false
+    rec.interimResults = true
+    rec.onresult = e => {
+      let interim = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) visitFinalTranscriptRef.current += e.results[i][0].transcript + ' '
+        else interim += e.results[i][0].transcript
+      }
+      const combined = (visitFinalTranscriptRef.current + interim).trim()
+      const base = visitNotesBaseRef.current
+      setRatingEdits(prev => ({
+        ...prev,
+        [visitId]: { ...(prev[visitId] || {}), visit_notes: base ? base.trimEnd() + ' ' + combined : combined },
+      }))
+    }
+    rec.onerror = e => {
+      if (e.error === 'not-allowed') {
+        alert('Microfone bloqueado. Permita o acesso ao microfone.')
+        visitListeningRef.current = false
+        setListeningVisitId(null)
+      }
+    }
+    rec.onend = () => {
+      if (visitListeningRef.current) {
+        setTimeout(() => {
+          if (visitListeningRef.current) {
+            try {
+              const next = buildVisitRecognition(visitId)
+              visitRecognitionRef.current = next
+              next.start()
+            } catch (_) {}
+          }
+        }, 150)
+      } else {
+        setListeningVisitId(null)
+      }
+    }
+    return rec
+  }
+
+  function toggleListeningForVisit(visitId, currentNotes) {
+    if (visitListeningRef.current) {
+      visitListeningRef.current = false
+      visitRecognitionRef.current?.stop()
+      setListeningVisitId(null)
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Safari.'); return }
+    visitNotesBaseRef.current = currentNotes
+    visitFinalTranscriptRef.current = ''
+    visitListeningRef.current = true
+    setListeningVisitId(visitId)
+    const rec = buildVisitRecognition(visitId)
+    visitRecognitionRef.current = rec
+    rec.start()
+  }
+
+  function stopVisitListening() {
+    visitListeningRef.current = false
+    visitRecognitionRef.current?.stop()
+    setListeningVisitId(null)
+  }
+
   function openRatingPanel() {
-    const initial = {}
-    visits.forEach(v => {
+    const initial  = {}
+    const collapsed = new Set()
+    visits.forEach((v, i) => {
+      // Detecta se há custom text em visit_possibilities
+      const stdPoss    = (v.visit_possibilities || []).filter(p => POSSIBILIDADES.includes(p))
+      const customPoss = (v.visit_possibilities || []).find(p => !POSSIBILIDADES.includes(p))
       initial[v.id] = {
         rating:                  v.rating           || null,
         visit_notes:             v.visit_notes      || '',
         visit_outcome:           v.visit_outcome    || null,
         outcome_training:        v.outcome_training || null,
         outcome_return_datetime: '',
+        visit_possibilities:     customPoss ? [...stdPoss, 'outros_eventos'] : stdPoss,
+        outros_eventos_text:     customPoss || '',
       }
+      if (i > 0) collapsed.add(v.id) // só a mais recente começa expandida
     })
     setRatingEdits(initial)
+    setCollapsedVisits(collapsed)
     setSyncAfterSave(null)
     setShowRating(true)
   }
@@ -549,12 +640,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!edit) return
     setSavingRatingId(visitId)
 
+    // Monta array de possibilidades (substitui 'outros_eventos' pelo texto digitado)
+    let poss = [...(edit.visit_possibilities || [])]
+    if (poss.includes('outros_eventos')) {
+      poss = poss.filter(p => p !== 'outros_eventos')
+      if (edit.outros_eventos_text?.trim()) poss.push(edit.outros_eventos_text.trim())
+    }
+
     // Salva campos na tabela visits
     await supabase.from('visits').update({
-      rating:           edit.rating,
-      visit_notes:      edit.visit_notes,
-      visit_outcome:    edit.visit_outcome    || null,
-      outcome_training: edit.outcome_training || null,
+      rating:              edit.rating,
+      visit_notes:         edit.visit_notes,
+      visit_outcome:       edit.visit_outcome    || null,
+      outcome_training:    edit.outcome_training || null,
+      visit_possibilities: poss,
     }).eq('id', visitId)
 
     // Matriculada → adiciona treinamento + atualiza estágio
@@ -1211,7 +1310,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {/* ── Painel de avaliação de visitas ── */}
       {showRating && (
         <div
-          onClick={e => { if (e.target === e.currentTarget) { setShowRating(false); setSyncAfterSave(null) } }}
+          onClick={e => { if (e.target === e.currentTarget) { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) } }}
           style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
           <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
 
@@ -1225,15 +1324,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <div>
                 <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação da Visita</p>
                 <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
-                  {canRate ? 'Registre o resultado e avalie a visita' : 'Somente o responsável pode avaliar'}
+                  {canRate ? 'Preencha resultado, possibilidade e nota' : 'Somente o responsável pode avaliar'}
                 </p>
               </div>
-              <button onClick={() => { setShowRating(false); setSyncAfterSave(null) }}
+              <button onClick={() => { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) }}
                 style={{ background: 'none', border: 'none', color: '#6B6560', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
 
             {/* Lista de visitas */}
-            <div style={{ overflowY: 'auto', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ overflowY: 'auto', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
@@ -1246,193 +1345,263 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const edit = ratingEdits[v.id] || {
                   rating: v.rating || null, visit_notes: v.visit_notes || '',
                   visit_outcome: v.visit_outcome || null, outcome_training: v.outcome_training || null,
-                  outcome_return_datetime: '',
+                  outcome_return_datetime: '', visit_possibilities: v.visit_possibilities || [],
+                  outros_eventos_text: '',
                 }
-                const isSaving   = savingRatingId === v.id
-                const justSaved  = syncAfterSave === v.id
-                const isRetorno  = edit.visit_outcome === 'retorno_pessoalmente' || edit.visit_outcome === 'retorno_ligacao'
+                const isSaving     = savingRatingId === v.id
+                const justSaved    = syncAfterSave === v.id
+                const isRetorno    = edit.visit_outcome === 'retorno_pessoalmente' || edit.visit_outcome === 'retorno_ligacao'
                 const isPresencial = edit.visit_outcome === 'retorno_pessoalmente'
+                const isCollapsed  = collapsedVisits.has(v.id)
+                const isListening  = listeningVisitId === v.id
+                const poss         = edit.visit_possibilities || []
+                const hasOutros    = poss.includes('outros_eventos')
+
+                // Validação: resultado + nota + pelo menos 1 possibilidade são obrigatórios
+                const isComplete = !!edit.visit_outcome && !!edit.rating && poss.length > 0 &&
+                  (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim())
 
                 function setEdit(fields) {
-                  setRatingEdits(prev => ({
-                    ...prev,
-                    [v.id]: { ...(prev[v.id] || edit), ...fields },
-                  }))
+                  setRatingEdits(prev => ({ ...prev, [v.id]: { ...(prev[v.id] || edit), ...fields } }))
+                }
+                function toggleCollapse() {
+                  setCollapsedVisits(prev => {
+                    const next = new Set(prev)
+                    next.has(v.id) ? next.delete(v.id) : next.add(v.id)
+                    return next
+                  })
+                }
+                function togglePossibilidade(key) {
+                  if (!canRate) return
+                  const curr = poss
+                  setEdit({ visit_possibilities: curr.includes(key) ? curr.filter(p => p !== key) : [...curr, key] })
                 }
 
+                const visitLabel = i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`
+                const visitDate  = new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+                const outcomeObj = OUTCOMES.find(o => o.key === edit.visit_outcome)
+                const ratingObj  = RATINGS.find(r => r.key === edit.rating)
+
                 return (
-                  <div key={v.id} style={{ background: '#161616', borderRadius: '18px', border: '1px solid #252525', padding: '18px' }}>
+                  <div key={v.id} style={{ background: '#161616', borderRadius: '18px', border: `1px solid ${isCollapsed ? '#252525' : '#303030'}`, overflow: 'hidden' }}>
 
-                    {/* Data da visita */}
-                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A', marginBottom: '16px' }}>
-                      {i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`}
-                      {' · '}
-                      {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-
-                    {/* ── RESULTADO ── */}
-                    <div style={{ marginBottom: '16px' }}>
-                      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '10px' }}>
-                        Resultado da visita
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        {OUTCOMES.map(o => {
-                          const active = edit.visit_outcome === o.key
-                          return (
-                            <button key={o.key}
-                              disabled={!canRate}
-                              onClick={() => setEdit({
-                                visit_outcome:           active ? null : o.key,
-                                outcome_training:        null,
-                                outcome_return_datetime: '',
-                              })}
-                              style={{
-                                padding: '10px 11px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-                                textAlign: 'left', cursor: canRate ? 'pointer' : 'default',
-                                display: 'flex', alignItems: 'center', gap: '7px',
-                                background: active ? `${o.color}18` : '#111',
-                                color:      active ? o.color : '#6B6560',
-                                border:     `1px solid ${active ? o.color + '40' : '#1E1E1E'}`,
-                              }}>
-                              <span style={{ fontSize: '14px' }}>{o.icon}</span>
-                              {o.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* ── Treinamento (se matriculada) ── */}
-                    {edit.visit_outcome === 'matriculada' && (
-                      <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '10px' }}>
-                          Qual treinamento?
+                    {/* ── Cabeçalho da visita (sempre visível) ── */}
+                    <button onClick={toggleCollapse} style={{
+                      width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                      padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div style={{ textAlign: 'left' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A' }}>
+                          {visitLabel} · {visitDate}
                         </p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          {TRAININGS.map(t => {
-                            const active = edit.outcome_training === t
-                            return (
-                              <button key={t}
-                                disabled={!canRate}
-                                onClick={() => setEdit({ outcome_training: active ? null : t })}
-                                style={{
-                                  padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600,
-                                  cursor: canRate ? 'pointer' : 'default',
-                                  background: active ? 'rgba(74,222,128,0.15)' : 'transparent',
-                                  color:      active ? '#4ADE80' : '#6B6560',
-                                  border:     `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
-                                }}>
-                                {active ? '✓ ' : ''}{t}
-                              </button>
-                            )
-                          })}
+                        {/* Resumo quando colapsado */}
+                        {isCollapsed && (outcomeObj || ratingObj || poss.length > 0) && (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {outcomeObj && (
+                              <span style={{ fontSize: '11px', fontWeight: 600, color: outcomeObj.color }}>
+                                {outcomeObj.icon} {outcomeObj.label}
+                              </span>
+                            )}
+                            {ratingObj && (
+                              <span style={{ fontSize: '11px', fontWeight: 600, color: ratingObj.color }}>
+                                {ratingObj.label}
+                              </span>
+                            )}
+                            {poss.filter(p => p !== 'outros_eventos').length > 0 && (
+                              <span style={{ fontSize: '11px', color: '#6B6560' }}>
+                                {poss.filter(p => p !== 'outros_eventos').join(', ')}
+                                {edit.outros_eventos_text ? `, ${edit.outros_eventos_text}` : ''}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isCollapsed
+                        ? <ChevronDown size={16} style={{ color: '#6B6560', flexShrink: 0 }} />
+                        : <ChevronUp   size={16} style={{ color: '#6B6560', flexShrink: 0 }} />
+                      }
+                    </button>
+
+                    {/* ── Conteúdo expandido ── */}
+                    {!isCollapsed && (
+                      <div style={{ padding: '0 18px 18px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                        {/* RESULTADO */}
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
+                            ✱ Resultado <span style={{ color: '#333' }}>(obrigatório)</span>
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                            {OUTCOMES.map(o => {
+                              const active = edit.visit_outcome === o.key
+                              return (
+                                <button key={o.key} disabled={!canRate}
+                                  onClick={() => setEdit({ visit_outcome: active ? null : o.key, outcome_training: null, outcome_return_datetime: '' })}
+                                  style={{
+                                    padding: '10px 11px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                                    textAlign: 'left', cursor: canRate ? 'pointer' : 'default',
+                                    display: 'flex', alignItems: 'center', gap: '7px',
+                                    background: active ? `${o.color}18` : '#111',
+                                    color: active ? o.color : '#6B6560',
+                                    border: `1px solid ${active ? o.color + '40' : '#1E1E1E'}`,
+                                  }}>
+                                  <span style={{ fontSize: '14px' }}>{o.icon}</span>{o.label}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* ── Data de retorno (se retorno presencial ou ligação) ── */}
-                    {isRetorno && (
-                      <div style={{
-                        marginBottom: '16px', padding: '14px', borderRadius: '12px',
-                        background: isPresencial ? 'rgba(167,139,250,0.05)' : 'rgba(232,131,74,0.05)',
-                        border: `1px solid ${isPresencial ? 'rgba(167,139,250,0.15)' : 'rgba(232,131,74,0.15)'}`,
-                      }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: isPresencial ? '#A78BFA' : '#E8834A', marginBottom: '10px' }}>
-                          {isPresencial ? '📍 Data da visita presencial' : '📞 Data do retorno por ligação'}
-                        </p>
-                        <input
-                          type="datetime-local"
-                          value={edit.outcome_return_datetime}
-                          disabled={!canRate}
-                          onChange={e => setEdit({ outcome_return_datetime: e.target.value })}
-                          style={{
-                            width: '100%', background: '#111', border: '1px solid #2A2A2A',
-                            borderRadius: '10px', padding: '10px 12px',
-                            color: '#EFEFEF', fontSize: '13px', outline: 'none',
-                          }}
-                        />
-                        {/* Após salvar retorno presencial: botão Google Agenda */}
-                        {justSaved && isPresencial && profile?.google_refresh_token && (
+                        {/* Treinamento (matriculada) */}
+                        {edit.visit_outcome === 'matriculada' && (
+                          <div style={{ padding: '12px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px' }}>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>Qual treinamento?</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {TRAININGS.map(t => {
+                                const active = edit.outcome_training === t
+                                return (
+                                  <button key={t} disabled={!canRate} onClick={() => setEdit({ outcome_training: active ? null : t })}
+                                    style={{ padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(74,222,128,0.15)' : 'transparent', color: active ? '#4ADE80' : '#6B6560', border: `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}` }}>
+                                    {active ? '✓ ' : ''}{t}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Data de retorno */}
+                        {isRetorno && (
+                          <div style={{ padding: '12px', borderRadius: '12px', background: isPresencial ? 'rgba(167,139,250,0.05)' : 'rgba(232,131,74,0.05)', border: `1px solid ${isPresencial ? 'rgba(167,139,250,0.15)' : 'rgba(232,131,74,0.15)'}` }}>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: isPresencial ? '#A78BFA' : '#E8834A', marginBottom: '8px' }}>
+                              {isPresencial ? '📍 Data da visita presencial' : '📞 Data do retorno por ligação'}
+                            </p>
+                            <input type="datetime-local" value={edit.outcome_return_datetime} disabled={!canRate}
+                              onChange={e => setEdit({ outcome_return_datetime: e.target.value })}
+                              style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
+                            {justSaved && isPresencial && profile?.google_refresh_token && (
+                              <button onClick={syncCalendarEvent} disabled={syncingCalendar}
+                                style={{ marginTop: '10px', width: '100%', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', cursor: 'pointer', background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)', fontSize: '13px', fontWeight: 600 }}>
+                                <Calendar size={14} />{syncingCalendar ? 'Adicionando...' : 'Adicionar ao Google Agenda'}
+                              </button>
+                            )}
+                            {justSaved && !isPresencial && (
+                              <p style={{ marginTop: '8px', fontSize: '11px', color: '#E8834A', fontWeight: 600 }}>✓ Retorno agendado para ligar</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* POSSIBILIDADE (multi-select) */}
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
+                            ✱ Possibilidade <span style={{ color: '#333' }}>(pode marcar mais de 1 · obrigatório)</span>
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {POSSIBILIDADES.map(p => {
+                              const active = poss.includes(p)
+                              return (
+                                <button key={p} disabled={!canRate} onClick={() => togglePossibilidade(p)}
+                                  style={{ padding: '7px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(201,168,76,0.15)' : 'transparent', color: active ? '#C9A84C' : '#6B6560', border: `1px solid ${active ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}` }}>
+                                  {active ? '✓ ' : ''}{p}
+                                </button>
+                              )
+                            })}
+                            {/* Outros eventos */}
+                            <button disabled={!canRate} onClick={() => togglePossibilidade('outros_eventos')}
+                              style={{ padding: '7px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: hasOutros ? 'rgba(201,168,76,0.15)' : 'transparent', color: hasOutros ? '#C9A84C' : '#6B6560', border: `1px solid ${hasOutros ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}` }}>
+                              {hasOutros ? '✓ ' : ''}Outros eventos
+                            </button>
+                          </div>
+                          {hasOutros && (
+                            <input
+                              placeholder="Qual evento?"
+                              value={edit.outros_eventos_text || ''}
+                              readOnly={!canRate}
+                              onChange={e => setEdit({ outros_eventos_text: e.target.value })}
+                              style={{ marginTop: '8px', width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '9px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }}
+                            />
+                          )}
+                        </div>
+
+                        {/* NOTA DA VISITA */}
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
+                            ✱ Nota da visita <span style={{ color: '#333' }}>(obrigatório)</span>
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                            {RATINGS.map(r => {
+                              const active = edit.rating === r.key
+                              return (
+                                <button key={r.key} disabled={!canRate} onClick={() => setEdit({ rating: active ? null : r.key })}
+                                  style={{ padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? r.bg : '#111', color: active ? r.color : '#3A3A3A', border: `1px solid ${active ? r.color + '55' : '#252525'}` }}>
+                                  {r.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* ANOTAÇÕES (opcional) + voice-to-text */}
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '8px' }}>
+                            Observações do vendedor <span style={{ color: '#2A2A2A' }}>(opcional)</span>
+                          </p>
+                          <div style={{ position: 'relative' }}>
+                            <textarea
+                              value={edit.visit_notes}
+                              readOnly={!canRate}
+                              onChange={e => setEdit({ visit_notes: e.target.value })}
+                              placeholder={canRate ? 'Anotações pessoais sobre essa visita...' : 'Sem anotações'}
+                              rows={3}
+                              style={{
+                                width: '100%', background: '#111', border: `1px solid ${isListening ? 'rgba(232,85,85,0.4)' : '#252525'}`, borderRadius: '12px',
+                                padding: '10px 44px 10px 12px', fontSize: '13px', resize: 'none', outline: 'none', lineHeight: 1.5,
+                                color: canRate ? '#EFEFEF' : '#6B6560',
+                                animation: isListening ? 'pulse 1.5s infinite' : 'none',
+                              }}
+                            />
+                            {canRate && (
+                              <button onClick={() => toggleListeningForVisit(v.id, edit.visit_notes)}
+                                style={{
+                                  position: 'absolute', top: '10px', right: '10px',
+                                  width: '28px', height: '28px', borderRadius: '8px', cursor: 'pointer',
+                                  background: isListening ? 'rgba(232,85,85,0.15)' : 'rgba(201,168,76,0.1)',
+                                  border: `1px solid ${isListening ? 'rgba(232,85,85,0.4)' : 'rgba(201,168,76,0.2)'}`,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                {isListening
+                                  ? <MicOff size={13} style={{ color: '#E85555' }} />
+                                  : <Mic    size={13} style={{ color: '#C9A84C' }} />
+                                }
+                              </button>
+                            )}
+                          </div>
+                          {isListening && (
+                            <p style={{ fontSize: '11px', color: '#E85555', marginTop: '4px', fontWeight: 600 }}>● Gravando... toque no microfone para parar</p>
+                          )}
+                        </div>
+
+                        {/* CONCLUIR */}
+                        {canRate && (
                           <button
-                            onClick={syncCalendarEvent}
-                            disabled={syncingCalendar}
+                            onClick={() => { stopVisitListening(); saveVisitRating(v.id) }}
+                            disabled={isSaving || !isComplete}
                             style={{
-                              marginTop: '10px', width: '100%', padding: '10px',
-                              borderRadius: '10px', display: 'flex', alignItems: 'center',
-                              justifyContent: 'center', gap: '7px', cursor: 'pointer',
-                              background: 'rgba(201,168,76,0.08)', color: '#C9A84C',
-                              border: '1px solid rgba(201,168,76,0.2)',
-                              fontSize: '13px', fontWeight: 600,
+                              width: '100%', padding: '14px', borderRadius: '13px',
+                              fontSize: '14px', fontWeight: 700, border: 'none',
+                              cursor: isComplete && !isSaving ? 'pointer' : 'not-allowed',
+                              background: isComplete
+                                ? 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)'
+                                : '#1A1A1A',
+                              color: isComplete ? '#F0EAD6' : '#333',
+                              boxShadow: isComplete ? '0 2px 12px rgba(201,168,76,0.2)' : 'none',
+                              opacity: isSaving ? 0.6 : 1,
+                              transition: 'all 0.2s',
                             }}>
-                            <Calendar size={14} />
-                            {syncingCalendar ? 'Adicionando...' : 'Adicionar ao Google Agenda'}
+                            {isSaving ? 'Salvando...' : isComplete ? 'Concluir ✓' : 'Preencha resultado, possibilidade e nota'}
                           </button>
                         )}
-                        {justSaved && !isPresencial && (
-                          <p style={{ marginTop: '8px', fontSize: '11px', color: '#E8834A', fontWeight: 600 }}>
-                            ✓ Retorno agendado para ligar
-                          </p>
-                        )}
                       </div>
-                    )}
-
-                    {/* ── Nota da visita ── */}
-                    <div style={{ marginBottom: '14px' }}>
-                      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '10px' }}>
-                        Nota da visita
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                        {RATINGS.map(r => {
-                          const active = edit.rating === r.key
-                          return (
-                            <button key={r.key}
-                              disabled={!canRate}
-                              onClick={() => setEdit({ rating: active ? null : r.key })}
-                              style={{
-                                padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
-                                cursor: canRate ? 'pointer' : 'default',
-                                background: active ? r.bg : '#111',
-                                color:      active ? r.color : '#3A3A3A',
-                                border:     `1px solid ${active ? r.color + '55' : '#252525'}`,
-                              }}>
-                              {r.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* ── Anotações ── */}
-                    <textarea
-                      value={edit.visit_notes}
-                      readOnly={!canRate}
-                      onChange={e => setEdit({ visit_notes: e.target.value })}
-                      placeholder={canRate ? 'Anotações pessoais sobre essa visita...' : 'Sem anotações'}
-                      rows={3}
-                      style={{
-                        width: '100%', background: '#111', border: '1px solid #252525', borderRadius: '12px',
-                        padding: '10px 12px', fontSize: '13px', resize: 'none',
-                        outline: 'none', lineHeight: 1.5,
-                        color: canRate ? '#EFEFEF' : '#6B6560',
-                        marginBottom: canRate ? '12px' : 0,
-                      }}
-                    />
-
-                    {/* ── Salvar ── */}
-                    {canRate && (
-                      <button
-                        onClick={() => saveVisitRating(v.id)}
-                        disabled={isSaving}
-                        style={{
-                          width: '100%', padding: '13px', borderRadius: '13px',
-                          fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none',
-                          background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)',
-                          color: '#F0EAD6',
-                          boxShadow: '0 2px 12px rgba(201,168,76,0.2)',
-                          opacity: isSaving ? 0.6 : 1,
-                        }}>
-                        {isSaving ? 'Salvando...' : 'Salvar avaliação'}
-                      </button>
                     )}
                   </div>
                 )
