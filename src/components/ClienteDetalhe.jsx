@@ -1312,7 +1312,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <div
           onClick={e => { if (e.target === e.currentTarget) { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) } }}
           style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', height: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {/* Handle */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
@@ -1332,7 +1332,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
 
             {/* Lista de visitas */}
-            <div style={{ overflowY: 'auto', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
