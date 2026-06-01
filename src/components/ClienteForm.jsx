@@ -9,11 +9,12 @@ import { scheduleClientReminder } from '../lib/onesignal'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
-const ORIGINS = ['frias contatinhos', 'frias listas', 'lead', 'feiras', 'indicacao']
+const ORIGINS = ['frias contatinhos', 'frias listas', 'lead campanha', 'lead organico', 'feiras', 'indicacao']
 const ORIGIN_LABELS = {
   'frias contatinhos': 'Frias contatinhos',
   'frias listas':      'Frias listas',
-  'lead':              'Lead',
+  'lead campanha':     'Lead campanha',
+  'lead organico':     'Lead orgânico',
   'feiras':            'Feiras',
   'indicacao':         'Indicacao',
 }

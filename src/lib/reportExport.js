@@ -9,7 +9,8 @@ const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', '
 const ORIGINS = [
   { key: 'frias contatinhos', label: 'Frias contatinhos' },
   { key: 'frias listas',      label: 'Frias listas' },
-  { key: 'lead',              label: 'Lead' },
+  { key: 'lead campanha',     label: 'Lead campanha' },
+  { key: 'lead organico',    label: 'Lead orgânico' },
   { key: 'feiras',            label: 'Feiras' },
   { key: 'indicacao',         label: 'Indicação' },
 ]

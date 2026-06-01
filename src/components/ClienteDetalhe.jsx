@@ -23,7 +23,8 @@ const STAGES = {
 const ORIGIN_LABELS = {
   'frias contatinhos': { label: 'Frias contatinhos', color: '#60A5FA' },
   'frias listas':      { label: 'Frias listas',      color: '#38BDF8' },
-  'lead':              { label: 'Lead',               color: '#C9A84C' },
+  'lead campanha':     { label: 'Lead campanha',       color: '#C9A84C' },
+  'lead organico':     { label: 'Lead orgânico',       color: '#EAB308' },
   'feiras':            { label: 'Feira',              color: '#A78BFA' },
   'indicacao':         { label: 'Indicacao',          color: '#4ADE80' },
 }
