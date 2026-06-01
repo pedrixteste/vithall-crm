@@ -314,8 +314,35 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   }
 
   async function fetchVisits() {
-    const { data } = await supabase.from('visits').select('*').eq('client_id', client.id).order('visit_date', { ascending: false })
-    setVisits(data || [])
+    const { data } = await supabase
+      .from('visits')
+      .select('*')
+      .eq('client_id', client.id)
+      .order('visit_date', { ascending: false })
+    let fetched = data || []
+
+    // Após a data da visita agendada passar, criar o registro automaticamente
+    if (client.visit_scheduled_at) {
+      const scheduledDate = new Date(client.visit_scheduled_at)
+      if (scheduledDate < new Date()) {
+        const dateStr = scheduledDate.toISOString().split('T')[0]
+        const alreadyExists = fetched.some(v => v.visit_date === dateStr)
+        if (!alreadyExists) {
+          const { data: inserted } = await supabase
+            .from('visits')
+            .insert({ client_id: client.id, visit_date: dateStr })
+            .select()
+            .single()
+          if (inserted) {
+            fetched = [inserted, ...fetched]
+            await logEvent('visit', { date: dateStr })
+            fetchHistory()
+          }
+        }
+      }
+    }
+
+    setVisits(fetched)
   }
 
   async function fetchTasks() {
@@ -576,8 +603,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <h1 className="text-lg font-bold flex-1 truncate" style={{ color: '#EFEFEF' }}>
           {currentClient.contact_name || currentClient.company_name}
         </h1>
-        {/* Botão avaliação de visitas — aparece após a data agendada passar */}
-        {currentClient.visit_scheduled_at && new Date(currentClient.visit_scheduled_at) < new Date() && (
+        {/* Botão avaliação de visitas */}
+        {visits.length > 0 && (
           <button onClick={openRatingPanel}
             className="p-2 rounded-xl relative"
             style={{
