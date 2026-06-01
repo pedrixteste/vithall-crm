@@ -1309,18 +1309,24 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
       {/* ── Painel de avaliação de visitas ── */}
       {showRating && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) } }}
-          style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div style={{ background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', height: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
+
+          {/* Backdrop separado — não interfere no scroll do painel */}
+          <div
+            onClick={() => { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) }}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+          />
+
+          {/* Painel posicionado diretamente, sem ser filho do flex do backdrop */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '92%', background: '#0E0E0E', borderRadius: '24px 24px 0 0', border: '1px solid #252525', display: 'flex', flexDirection: 'column' }}>
 
             {/* Handle */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
               <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#252525' }} />
             </div>
 
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px 10px' }}>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px 10px' }}>
               <div>
                 <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação da Visita</p>
                 <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
@@ -1331,7 +1337,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 style={{ background: 'none', border: 'none', color: '#6B6560', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
 
-            {/* Lista de visitas */}
+            {/* Lista de visitas — área de scroll */}
             <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
@@ -1612,6 +1618,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       )}
 
       {/* ── Modais ── */}
+
       {showEdit && (
         <ClienteForm initialData={currentClient} onClose={() => setShowEdit(false)}
           onSaved={async () => {
