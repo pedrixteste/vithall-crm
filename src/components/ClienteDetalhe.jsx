@@ -329,17 +329,23 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [])
 
-  // Trava o scroll do <main> quando painel de avaliação está aberto
-  // (o scroll da página fica no <main>, não no body)
+  // Trava scroll da página + previne touchmove fora do container de scroll do painel
+  const ratingScrollRef = useRef(null)
   useEffect(() => {
+    if (!showRating) return
+    // Trava o <main> (onde fica o scroll da página no Layout)
     const main = document.querySelector('main')
-    if (!main) return
-    if (showRating) {
-      main.style.overflow = 'hidden'
-    } else {
-      main.style.overflow = ''
+    if (main) main.style.overflow = 'hidden'
+    // Previne touchmove em todo o documento exceto dentro do container de scroll
+    const preventTouch = (e) => {
+      if (ratingScrollRef.current && ratingScrollRef.current.contains(e.target)) return
+      e.preventDefault()
     }
-    return () => { main.style.overflow = '' }
+    document.addEventListener('touchmove', preventTouch, { passive: false })
+    return () => {
+      if (main) main.style.overflow = ''
+      document.removeEventListener('touchmove', preventTouch)
+    }
   }, [showRating])
 
   // ── Fetches ────────────────────────────────────────────────────
@@ -1352,7 +1358,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
 
             {/* Lista de visitas — área de scroll */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div ref={ratingScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '8px 20px 36px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
