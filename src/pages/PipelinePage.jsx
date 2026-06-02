@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda',   badge: 'muted',  dot: '#6B6560' },
+  { key: 'marcado',        label: 'Marcado',            badge: 'teal',   dot: '#22D3EE' },
   { key: 'nao_visitado',   label: 'Nao foi visitado',   badge: 'blue',   dot: '#60A5FA' },
   { key: 'nao_apareceu',   label: 'Nao apareceu',       badge: 'orange', dot: '#E8834A' },
   { key: 'recebeu_visita', label: 'Recebeu visita',     badge: 'purple', dot: '#A78BFA' },

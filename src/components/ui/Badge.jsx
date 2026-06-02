@@ -8,6 +8,7 @@ const variants = {
   orange: { color: '#E8834A', bg: 'rgba(232,131,74,0.1)',  border: 'rgba(232,131,74,0.2)' },
   blue:   { color: '#60A5FA', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.2)' },
   muted:  { color: '#6B6560', bg: 'rgba(107,101,96,0.1)',  border: 'rgba(107,101,96,0.2)' },
+  teal:   { color: '#22D3EE', bg: 'rgba(34,211,238,0.1)',  border: 'rgba(34,211,238,0.2)' },
 }
 
 export function Badge({ children, variant = 'muted', className }) {
@@ -24,6 +25,7 @@ export function Badge({ children, variant = 'muted', className }) {
 
 export const STAGE_BADGES = {
   nao_marcou:     <Badge variant="muted">Nao marcou ainda</Badge>,
+  marcado:        <Badge variant="teal">Marcado</Badge>,
   nao_visitado:   <Badge variant="blue">Nao foi visitado</Badge>,
   nao_apareceu:   <Badge variant="orange">Nao apareceu</Badge>,
   recebeu_visita: <Badge variant="purple">Recebeu visita</Badge>,

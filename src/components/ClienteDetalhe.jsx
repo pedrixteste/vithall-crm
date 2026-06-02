@@ -13,6 +13,7 @@ const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia V
 const STAGES = {
   nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },
   pediu_ligar:    { label: 'Pediu para ligar', color: '#E8834A', bg: 'rgba(232,131,74,0.12)'  },
+  marcado:        { label: 'Marcado',          color: '#22D3EE', bg: 'rgba(34,211,238,0.12)'  },
   nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)'  },
   nao_apareceu:   { label: 'Nao apareceu',     color: '#E85555', bg: 'rgba(232,85,85,0.12)'   },
   cancelado:      { label: 'Cancelou visita',  color: '#F97316', bg: 'rgba(249,115,22,0.12)'  },
@@ -86,7 +87,7 @@ function getEventColor(type, data) {
     const map = {
       matriculado: '#4ADE80', nao_apareceu: '#E85555', cancelado: '#F97316',
       recebeu_visita: '#A78BFA', nao_visitado: '#60A5FA',
-      pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
+      marcado: '#22D3EE', pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
     }
     return map[data?.to] || '#6B6560'
   }
@@ -107,6 +108,7 @@ function getEventIcon(type, data) {
     if (data?.to === 'cancelado')      return '📵'
     if (data?.to === 'matriculado')    return '🎉'
     if (data?.to === 'recebeu_visita') return '🤝'
+    if (data?.to === 'marcado')        return '📋'
     if (data?.to === 'nao_visitado')   return '📅'
     if (data?.to === 'pediu_ligar')    return '📞'
     return '🔄'

@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const STAGE_OPTIONS = [
   { key: 'nao_marcou',     label: 'Nao marcou',    color: '#6B6560' },
+  { key: 'marcado',        label: 'Marcado',        color: '#22D3EE' },
   { key: 'nao_visitado',   label: 'Nao visitado',  color: '#60A5FA' },
   { key: 'nao_apareceu',   label: 'Nao apareceu',  color: '#E8834A' },
   { key: 'recebeu_visita', label: 'Recebeu visita', color: '#A78BFA' },

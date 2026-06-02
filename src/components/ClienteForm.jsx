@@ -22,6 +22,7 @@ const ORIGIN_LABELS = {
 const MATRICULA_STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda' },
   { key: 'pediu_ligar',    label: 'Pediu para ligar depois' },
+  { key: 'marcado',        label: 'Marcado' },
   { key: 'nao_visitado',   label: 'Nao foi visitado' },
   { key: 'nao_apareceu',   label: 'Nao apareceu na visita' },
   { key: 'recebeu_visita', label: 'Recebeu visita' },
@@ -31,6 +32,7 @@ const MATRICULA_STAGES = [
 const MATRICULA_STAGES_PRE_VENDAS = [
   { key: 'nao_marcou',   label: 'Nao marcado' },
   { key: 'pediu_ligar',  label: 'Pediu para ligar depois' },
+  { key: 'marcado',      label: 'Marcado' },
   { key: 'nao_visitado', label: 'Marcacao feita' },
 ]
 
