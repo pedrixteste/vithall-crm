@@ -416,10 +416,11 @@ export default function Dashboard() {
         {/* Tarefas pendentes */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2.5">
+            <Link to="/tarefas" className="flex items-center gap-2.5" style={{ textDecoration: 'none' }}>
               <CheckSquare size={14} style={{ color: '#E8834A' }} />
               <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
-            </div>
+              <ExternalLink size={11} style={{ color: '#444040' }} />
+            </Link>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowTarefaForm(true)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
@@ -440,8 +441,9 @@ export default function Dashboard() {
                 const prioColors = { alta: '#E85555', media: '#E8834A', baixa: '#4ADE80' }
                 const prioColor  = prioColors[t.priority] || '#E8834A'
                 return (
-                  <li key={t.id} style={{ padding: '16px 20px' }} className="flex items-center justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
+                  <li key={t.id} className="flex items-center justify-between gap-3"
+                    style={{ padding: '16px 20px' }}>
+                    <Link to="/tarefas" className="flex items-start gap-2.5 min-w-0 flex-1" style={{ textDecoration: 'none' }}>
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: prioColor }} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
@@ -449,7 +451,7 @@ export default function Dashboard() {
                           <p className="text-xs mt-0.5 truncate" style={{ color: '#6B6560' }}>{t.clients.company_name}</p>
                         )}
                       </div>
-                    </div>
+                    </Link>
                     {t.due_date && (
                       <Badge variant="orange">
                         {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}

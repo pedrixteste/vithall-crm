@@ -51,6 +51,7 @@ const OUTCOMES = [
   { key: 'sem_chance',           label: 'Sem chance',           icon: '🚫', color: '#E85555' },
   { key: 'retorno_pessoalmente', label: 'Retorno presencial',   icon: '📍', color: '#A78BFA' },
   { key: 'retorno_ligacao',      label: 'Retorno ligação',      icon: '📞', color: '#E8834A' },
+  { key: 'remarcar',             label: 'Remarcar',             icon: '📅', color: '#22D3EE' },
 ]
 
 // ── Helpers de histórico ───────────────────────────────────────────
@@ -732,6 +733,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       }).eq('id', client.id)
       setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null }))
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
+    }
+
+    // Remarcar → cria tarefa pendente no dashboard
+    if (edit.visit_outcome === 'remarcar') {
+      const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
+      await supabase.from('tasks').insert({
+        title:     'Remarcar visita — ' + clientLabel,
+        client_id: client.id,
+        seller_id: user.id,
+        completed: false,
+        priority:  'alta',
+        notes:     'Gerado automaticamente após visita marcada para remarcar.',
+      })
     }
 
     // Cancela lembretes pendentes agora que a avaliacao foi preenchida (fire and forget)
