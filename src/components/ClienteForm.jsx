@@ -205,6 +205,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.contact_name.trim()) { setError('Nome e obrigatorio.'); return }
+    if (!form.phone.trim())        { setError('Telefone e obrigatorio.'); return }
+    if (!form.city.trim())         { setError('Cidade e obrigatoria.'); return }
     if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado') {
       if (!form.assigned_to)   { setError('Selecione o vendedor responsavel.'); return }
       if (!visitScheduledAt)   { setError('Informe a data e hora da visita.'); return }
@@ -288,7 +290,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         </div>
 
         <Input
-          label="Cidade"
+          label="Cidade *"
           value={form.city}
           onChange={e => set('city', titleCase(e.target.value))}
           placeholder="Ex: Sao Paulo, SP"
@@ -326,7 +328,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             placeholder="@usuario"
           />
           <Input
-            label="Celular"
+            label="Celular *"
             value={form.phone}
             onChange={e => set('phone', e.target.value)}
             placeholder="(00) 00000-0000"
