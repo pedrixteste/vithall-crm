@@ -1,24 +1,28 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2, Phone } from 'lucide-react'
+import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2, Phone, CalendarDays } from 'lucide-react'
 
 const BASE_NAV = [
   { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
   { to: '/clientes',   label: 'Clientes',   icon: Users },
   { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
-  { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone },
-  { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare, mobileHide: true },
-  { to: '/perfil',     label: 'Perfil',     icon: UserCircle,  mobileHide: true },
+  { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone,         mobileHide: true },
+  { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare,   mobileHide: true },
+  { to: '/perfil',     label: 'Perfil',     icon: UserCircle,    mobileHide: true },
 ]
+
+const AGENDA_ITEM = { to: '/agenda', label: 'Hoje', icon: CalendarDays }
 
 export default function Layout({ children }) {
   const { profile, signOut } = useAuth()
   const location = useLocation()
 
   const navItems = profile?.role === 'gerente'
-    ? [...BASE_NAV.slice(0, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
-    : BASE_NAV
+    ? [...BASE_NAV.slice(0, 4), AGENDA_ITEM, ...BASE_NAV.slice(4, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
+    : profile?.role === 'vendedor'
+      ? [...BASE_NAV.slice(0, 4), AGENDA_ITEM, ...BASE_NAV.slice(4)]
+      : BASE_NAV
 
   const isActive = (to) => location.pathname === to
 

@@ -9,6 +9,7 @@ import PerfilPage from './pages/PerfilPage'
 import EquipePage from './pages/EquipePage'
 import RelatoriosPage from './pages/RelatoriosPage'
 import LigacoesPage from './pages/LigacoesPage'
+import VisitasHojePage from './pages/VisitasHojePage'
 import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import Layout from './components/Layout'
 
@@ -56,6 +57,11 @@ function AppRoutes() {
       <Route path="/relatorios" element={
         <PrivateRoute>
           <Layout><RelatoriosPage /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/agenda" element={
+        <PrivateRoute>
+          <Layout><VisitasHojePage /></Layout>
         </PrivateRoute>
       } />
       <Route path="/ligacoes" element={
