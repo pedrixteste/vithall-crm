@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Plus, Search, ChevronRight, X, SlidersHorizontal } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
@@ -42,6 +43,8 @@ function normalizeCity(city) {
 
 export default function ClientesPage() {
   const { profile, user } = useAuth()
+  const [searchParams] = useSearchParams()
+
   const [clients, setClients]       = useState([])
   const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
@@ -57,8 +60,13 @@ export default function ClientesPage() {
   const [filterNotDone, setFilterNotDone]   = useState([])
   const [filterRating, setFilterRating]     = useState('')
   const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
-  const [filterOutcome, setFilterOutcome]   = useState('')
+  const [filterOutcome, setFilterOutcome]   = useState(() => searchParams.get('outcome') || '')
   const [preVendasIds, setPreVendasIds]     = useState(new Set())
+
+  // Abre painel de filtros automaticamente se vier com filtro pela URL
+  useEffect(() => {
+    if (searchParams.get('outcome')) setShowFilters(true)
+  }, [])
 
   useEffect(() => {
     async function fetchPreVendasIds() {
@@ -149,7 +157,9 @@ export default function ClientesPage() {
       (c.visits || []).some(v => v.rating === filterRating)
 
     const matchesOutcome = !filterOutcome ||
-      (c.visits || []).some(v => v.visit_outcome === filterOutcome)
+      (filterOutcome === 'retorno'
+        ? (c.visits || []).some(v => v.visit_outcome === 'retorno_pessoalmente' || v.visit_outcome === 'retorno_ligacao')
+        : (c.visits || []).some(v => v.visit_outcome === filterOutcome))
 
     const matchesSource = !filterSource ||
       (filterSource === 'mine'       && c.created_by === user.id) ||
@@ -384,6 +394,23 @@ export default function ClientesPage() {
               Resultado da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+              {/* Opção combinada: qualquer retorno */}
+              {(() => {
+                const active = filterOutcome === 'retorno'
+                return (
+                  <button key="retorno" type="button"
+                    onClick={() => setFilterOutcome(f => f === 'retorno' ? '' : 'retorno')}
+                    className="text-xs font-semibold rounded-full transition-all"
+                    style={{
+                      padding: '5px 12px',
+                      background: active ? '#60A5FA18' : 'transparent',
+                      border: `1px solid ${active ? '#60A5FA60' : '#2A2A2A'}`,
+                      color: active ? '#60A5FA' : '#6B6560',
+                    }}>
+                    🔄 {active ? '✓ ' : ''}Retornos
+                  </button>
+                )
+              })()}
               {OUTCOME_OPTIONS.map(o => (
                 <button key={o.key} type="button"
                   onClick={() => setFilterOutcome(f => f === o.key ? '' : o.key)}
