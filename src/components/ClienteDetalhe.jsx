@@ -911,6 +911,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   style={{ padding: '4px 12px', background: `${origin.color}18`, color: origin.color, border: `1px solid ${origin.color}30` }}>
                   {origin.label}
                 </span>
+                {currentClient.origin === 'indicacao' && currentClient.indicado_por && (
+                  <span className="text-xs" style={{ color: '#6B6560' }}>
+                    — por <span style={{ color: '#C9A84C', fontWeight: 600 }}>{currentClient.indicado_por}</span>
+                  </span>
+                )}
               </div>
             )}
 

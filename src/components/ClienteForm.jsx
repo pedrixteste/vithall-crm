@@ -67,6 +67,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     instagram:       initialData?.instagram       || '',
     phone:           initialData?.phone           || '',
     origin:          initialData?.origin          || '',
+    indicado_por:    initialData?.indicado_por    || '',
     matricula_stage: initialData?.matricula_stage || 'nao_marcou',
     notes:           initialData?.notes           || '',
     assigned_to:     initialData?.assigned_to     || '',
@@ -335,13 +336,22 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Select
           label="Como surgiu?"
           value={form.origin}
-          onChange={e => set('origin', e.target.value)}
+          onChange={e => { set('origin', e.target.value); if (e.target.value !== 'indicacao') set('indicado_por', '') }}
         >
           <option value="" style={{ background: '#1A1A1A' }}>Selecionar...</option>
           {ORIGINS.map(o => (
             <option key={o} value={o} style={{ background: '#1A1A1A' }}>{ORIGIN_LABELS[o]}</option>
           ))}
         </Select>
+
+        {form.origin === 'indicacao' && (
+          <Input
+            label="Quem indicou?"
+            value={form.indicado_por}
+            onChange={e => set('indicado_por', e.target.value)}
+            placeholder="Nome de quem fez a indicacao"
+          />
+        )}
 
         {/* Treinamento de interesse */}
         <div>
