@@ -308,6 +308,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [editingVisitId, setEditingVisitId] = useState(null)
   const [editingStage, setEditingStage]   = useState(false)
   const [pendingStage, setPendingStage]   = useState(null)
+  const [pendingPediuLigar, setPendingPediuLigar] = useState(false)
+  const [callBackAt, setCallBackAt]       = useState('')
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
   const [notesValue, setNotesValue]       = useState(client.notes || '')
@@ -467,6 +469,31 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!confirm('Remover a visita mais recente?')) return
     await supabase.from('visits').delete().eq('id', visits[0].id)
     fetchVisits()
+  }
+
+  async function updatePediuLigar(callBackDate) {
+    const oldStage = currentClient.matricula_stage
+    await supabase.from('clients').update({
+      matricula_stage: 'pediu_ligar',
+      call_back_at:    callBackDate || null,
+    }).eq('id', client.id)
+    await logEvent('stage_change', { from: oldStage, to: 'pediu_ligar' })
+    setCurrentClient(c => ({ ...c, matricula_stage: 'pediu_ligar', call_back_at: callBackDate || null }))
+    setEditingStage(false)
+    fetchHistory()
+
+    // Cria tarefa de lembrete automática
+    const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
+    const dueDate = callBackDate ? callBackDate.split('T')[0] : null
+    await supabase.from('tasks').insert({
+      title:     'Ligar para ' + clientLabel,
+      client_id: client.id,
+      seller_id: user.id,
+      completed: false,
+      priority:  'alta',
+      due_date:  dueDate,
+      notes:     'Criado automaticamente: cliente pediu para ligar depois.',
+    })
   }
 
   async function deleteVisit(id) {
@@ -960,7 +987,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
                   {Object.entries(STAGES).map(([key, s]) => (
                     <button key={key}
-                      onClick={() => key === 'cancelado' ? setPendingStage('cancelado') : updateStage(key)}
+                      onClick={() => key === 'cancelado' ? setPendingStage('cancelado') : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true)) : updateStage(key)}
                       className="text-xs font-semibold rounded-full transition-all"
                       style={{
                         padding: '5px 12px',
@@ -975,6 +1002,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 </div>
               )}
             </div>
+
+            {/* Data de retorno (pediu_ligar) */}
+            {currentClient.matricula_stage === 'pediu_ligar' && currentClient.call_back_at && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Clock size={14} style={{ color: '#E8834A' }} />
+                <span style={{ color: '#6B6560' }}>Ligar em: </span>
+                <span className="text-xs font-semibold rounded-full"
+                  style={{ padding: '4px 12px', background: 'rgba(232,131,74,0.1)', color: '#E8834A', border: '1px solid rgba(232,131,74,0.25)' }}>
+                  {new Date(currentClient.call_back_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  {' às '}
+                  {new Date(currentClient.call_back_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            )}
 
             {/* Vendedor */}
             <div className="flex items-center gap-2.5 text-sm">
@@ -1372,6 +1413,81 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   fontSize: '14px', fontWeight: 600,
                   background: 'rgba(249,115,22,0.12)', color: '#F97316',
                   border: '1px solid rgba(249,115,22,0.3)', cursor: 'pointer',
+                }}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: pediu para ligar depois ── */}
+      {pendingPediuLigar && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) setPendingPediuLigar(false) }}>
+          <div style={{
+            background: '#111', borderRadius: '24px',
+            border: '1px solid #303030',
+            width: '100%', maxWidth: '360px',
+            padding: '28px 24px 24px',
+          }}>
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '16px',
+              background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '24px', marginBottom: '18px',
+            }}>📞</div>
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '6px' }}>
+              Pediu para ligar depois
+            </p>
+            <p style={{ fontSize: '13px', color: '#6B6560', lineHeight: 1.5, marginBottom: '20px' }}>
+              Informe quando ligar para{' '}
+              <span style={{ color: '#EFEFEF', fontWeight: 600 }}>
+                {currentClient.contact_name || currentClient.company_name}
+              </span>.
+              Uma tarefa será criada automaticamente.
+            </p>
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>
+                Data e hora para ligar
+              </p>
+              <input
+                type="datetime-local"
+                value={callBackAt}
+                onChange={e => setCallBackAt(e.target.value)}
+                style={{
+                  width: '100%', background: '#1A1A1A', border: '1px solid #303030',
+                  borderRadius: '12px', padding: '12px 14px',
+                  color: '#EFEFEF', fontSize: '14px', outline: 'none',
+                }}
+              />
+              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>
+                Opcional — deixe em branco para criar a tarefa sem data
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPendingPediuLigar(false)}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: '14px',
+                  fontSize: '14px', fontWeight: 600,
+                  background: '#1A1A1A', color: '#6B6560',
+                  border: '1px solid #2A2A2A', cursor: 'pointer',
+                }}>
+                Voltar
+              </button>
+              <button
+                onClick={() => { updatePediuLigar(callBackAt); setPendingPediuLigar(false) }}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: '14px',
+                  fontSize: '14px', fontWeight: 600,
+                  background: 'rgba(232,131,74,0.12)', color: '#E8834A',
+                  border: '1px solid rgba(232,131,74,0.3)', cursor: 'pointer',
                 }}>
                 Confirmar
               </button>
