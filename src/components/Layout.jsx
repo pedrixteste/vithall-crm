@@ -7,11 +7,12 @@ const BASE_NAV = [
   { to: '/clientes',   label: 'Clientes',   icon: Users },
   { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
-  { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone,         mobileHide: true },
+  { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone },
   { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare,   mobileHide: true },
   { to: '/perfil',     label: 'Perfil',     icon: UserCircle,    mobileHide: true },
 ]
 
+// Para vendedor/gerente: "Hoje" substitui "Tarefas" no nav (Tarefas fica só na sidebar)
 const AGENDA_ITEM = { to: '/agenda', label: 'Hoje', icon: CalendarDays }
 
 export default function Layout({ children }) {
@@ -19,9 +20,9 @@ export default function Layout({ children }) {
   const location = useLocation()
 
   const navItems = profile?.role === 'gerente'
-    ? [...BASE_NAV.slice(0, 4), AGENDA_ITEM, ...BASE_NAV.slice(4, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
+    ? [...BASE_NAV.slice(0, 5), AGENDA_ITEM, ...BASE_NAV.slice(5, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
     : profile?.role === 'vendedor'
-      ? [...BASE_NAV.slice(0, 4), AGENDA_ITEM, ...BASE_NAV.slice(4)]
+      ? [...BASE_NAV.slice(0, 5), AGENDA_ITEM, ...BASE_NAV.slice(5)]
       : BASE_NAV
 
   const isActive = (to) => location.pathname === to
