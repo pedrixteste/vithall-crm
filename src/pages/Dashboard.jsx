@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink } from 'lucide-react'
+import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -37,7 +37,7 @@ export default function Dashboard() {
   const { profile: authProfile, user } = useAuth()
   const [freshProfile, setFreshProfile] = useState(authProfile)
   const profile = freshProfile
-  const [stats, setStats] = useState({ clients: 0, visits: 0, tasks: 0, closed: 0 })
+  const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0 })
   const [recentVisits, setRecentVisits] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -116,15 +116,15 @@ export default function Dashboard() {
       return q.in('client_id', ids)
     }
 
-    const [c, v, t, cl, rv, pt] = await Promise.all([
-      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' })), 'created_at'),
+    const [ret, v, t, cl, rv, pt] = await Promise.all([
+      applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),
       applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
       applyClientFilter(supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false)),
       applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado')), 'created_at'),
       applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
       applyClientFilter(supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4)),
     ])
-    setStats({ clients: c.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
+    setStats({ retornos: ret.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
     setRecentVisits(rv.data || [])
     setPendingTasks(pt.data || [])
 
@@ -159,7 +159,7 @@ export default function Dashboard() {
   const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
 
   const statCards = [
-    { label: 'Clientes', value: stats.clients, icon: Users, accent: '#C9A84C', to: '/clientes' },
+    { label: 'Retornos', value: stats.retornos, icon: RotateCcw, accent: '#60A5FA', to: '/clientes' },
     { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
     { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
     { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
