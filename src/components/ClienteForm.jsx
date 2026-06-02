@@ -212,10 +212,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (!form.address_neighborhood.trim())    { setError('Bairro e obrigatorio.'); return }
     if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
     if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
-    if (profile?.role !== 'pre_vendas' && !form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
+    if (!form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
     if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado') {
-      if (!form.assigned_to)   { setError('Selecione o vendedor responsavel.'); return }
-      if (!visitScheduledAt)   { setError('Informe a data e hora da visita.'); return }
+      if (!visitScheduledAt) { setError('Informe a data e hora da visita.'); return }
     }
     setSaving(true)
     setError('')
@@ -398,22 +397,24 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ))}
         </Select>
 
-        {/* Marcacao feita — pre_vendas: atribuir vendedor + data/hora */}
+        {/* pre_vendas: atribuir vendedor — sempre visível */}
+        {profile?.role === 'pre_vendas' && vendedores.length > 0 && (
+          <Select
+            label="Atribuir para vendedor *"
+            value={form.assigned_to}
+            onChange={e => set('assigned_to', e.target.value)}
+          >
+            <option value="" style={{ background: '#1A1A1A' }}>Selecionar vendedor...</option>
+            {vendedores.map(v => (
+              <option key={v.id} value={v.id} style={{ background: '#1A1A1A' }}>{v.name || v.id}</option>
+            ))}
+          </Select>
+        )}
+
+        {/* Marcacao feita — pre_vendas: data/hora da visita */}
         {profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && (
           <div className="rounded-2xl" style={{ background: '#0F1A0F', border: '1px solid rgba(74,222,128,0.15)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ADE80' }}>Detalhes da marcacao</p>
-
-            <Select
-              label="Responsavel pela visita *"
-              value={form.assigned_to}
-              onChange={e => set('assigned_to', e.target.value)}
-            >
-              <option value="" style={{ background: '#1A1A1A' }}>Selecionar...</option>
-              {vendedores.map(v => (
-                <option key={v.id} value={v.id} style={{ background: '#1A1A1A' }}>{v.name || v.id}</option>
-              ))}
-            </Select>
-
             <div>
               <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
                 Data e hora da visita *
