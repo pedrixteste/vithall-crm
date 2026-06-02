@@ -204,9 +204,15 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.contact_name.trim()) { setError('Nome e obrigatorio.'); return }
-    if (!form.phone.trim())        { setError('Telefone e obrigatorio.'); return }
-    if (!form.city.trim())         { setError('Cidade e obrigatoria.'); return }
+    if (!form.contact_name.trim())            { setError('Nome e obrigatorio.'); return }
+    if (!form.phone.trim())                   { setError('Telefone e obrigatorio.'); return }
+    if (!form.city.trim())                    { setError('Cidade e obrigatoria.'); return }
+    if (!form.address_street.trim())          { setError('Rua e obrigatoria.'); return }
+    if (!form.address_number.trim())          { setError('Numero e obrigatorio.'); return }
+    if (!form.address_neighborhood.trim())    { setError('Bairro e obrigatorio.'); return }
+    if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
+    if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
+    if (profile?.role !== 'pre_vendas' && !form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
     if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado') {
       if (!form.assigned_to)   { setError('Selecione o vendedor responsavel.'); return }
       if (!visitScheduledAt)   { setError('Informe a data e hora da visita.'); return }
@@ -300,20 +306,20 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.2fr', gap: '10px' }}>
             <Input
-              label="Rua"
+              label="Rua *"
               value={form.address_street}
               onChange={e => set('address_street', titleCase(e.target.value))}
               placeholder="Ex: Av. Paulista"
             />
             <Input
-              label="Numero"
+              label="Numero *"
               value={form.address_number}
               onChange={e => set('address_number', e.target.value)}
               placeholder="123"
             />
           </div>
           <Input
-            label="Bairro"
+            label="Bairro *"
             value={form.address_neighborhood}
             onChange={e => set('address_neighborhood', titleCase(e.target.value))}
             placeholder="Ex: Centro"
@@ -336,7 +342,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         </div>
 
         <Select
-          label="Como surgiu?"
+          label="Como surgiu? *"
           value={form.origin}
           onChange={e => { set('origin', e.target.value); if (e.target.value !== 'indicacao') set('indicado_por', '') }}
         >
@@ -377,7 +383,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         </div>
 
         <Select
-          label="Estagio da matricula"
+          label="Estagio da matricula *"
           value={form.matricula_stage}
           onChange={e => {
             set('matricula_stage', e.target.value)
@@ -428,7 +434,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         {/* ---- OBSERVACOES ---- */}
         <div>
           <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
-            Observacoes
+            Observacoes *
           </label>
           <div className="relative">
             <textarea
@@ -475,7 +481,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         {/* ---- ATRIBUICAO (vendedor/gerente only — pre_vendas tem campo proprio no bloco "Marcacao feita") ---- */}
         {profile?.role !== 'pre_vendas' && vendedores.length > 0 && (
           <Select
-            label="Atribuir para vendedor"
+            label="Atribuir para vendedor *"
             value={form.assigned_to}
             onChange={e => set('assigned_to', e.target.value)}
           >
