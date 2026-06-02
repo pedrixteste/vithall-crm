@@ -393,7 +393,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             }
           }}
         >
-          {(profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES).map(s => (
+          {(!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES).map(s => (
             <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
