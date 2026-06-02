@@ -298,10 +298,11 @@ export default function Dashboard() {
               <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
                 {scheduledVisits.map(v => {
                   const dt = new Date(v.visit_scheduled_at)
+                  const isPast = dt < new Date()
                   const dateLabel = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
                   const timeLabel = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                   return (
-                    <li key={v.id} style={{ padding: '16px 20px' }}>
+                    <li key={v.id} style={{ padding: '16px 20px', background: isPast ? 'rgba(232,131,74,0.03)' : 'transparent' }}>
                       <div className="flex items-start justify-between gap-3">
                         {/* Lado esquerdo — clicável para ver o cliente */}
                         <button
@@ -314,13 +315,29 @@ export default function Dashboard() {
                           {v.company_name && (
                             <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>
                           )}
-                          <p className="text-xs font-medium mt-1" style={{ color: '#4ADE80' }}>
+                          <p className="text-xs font-medium mt-1" style={{ color: isPast ? '#E8834A' : '#4ADE80' }}>
                             {dateLabel} às {timeLabel}
+                            {isPast && <span style={{ marginLeft: '6px', fontSize: '10px', opacity: 0.7 }}>· já passou</span>}
                           </p>
                           <p className="text-[10px] mt-1" style={{ color: '#333030' }}>Toque para ver detalhes →</p>
                         </button>
-                        {/* Botão Google Agenda */}
-                        {v.google_calendar_event_id ? (
+
+                        {/* Lado direito */}
+                        <div className="flex flex-col gap-2 flex-shrink-0 items-end">
+                          {/* Botão OK — aparece quando a data já passou */}
+                          {isPast && (
+                            <button
+                              onClick={async () => {
+                                await supabase.from('clients').update({ visit_scheduled_at: null }).eq('id', v.id)
+                                setScheduledVisits(sv => sv.filter(s => s.id !== v.id))
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-bold rounded-xl transition-all active:scale-95"
+                              style={{ padding: '8px 14px', background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.35)', color: '#4ADE80', cursor: 'pointer' }}>
+                              ✓ OK
+                            </button>
+                          )}
+                          {/* Botão Google Agenda — só mostra se a visita ainda não passou */}
+                          {!isPast && (v.google_calendar_event_id ? (
                           <span className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold rounded-xl"
                             style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ADE80' }}>
                             <CalendarCheck size={11} /> Agendado
@@ -354,7 +371,8 @@ export default function Dashboard() {
                             style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ADE80', textDecoration: 'none' }}>
                             <ExternalLink size={11} /> Agenda
                           </a>
-                        )}
+                        ))}
+                        </div>
                       </div>
                     </li>
                   )
