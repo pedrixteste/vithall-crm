@@ -315,6 +315,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [showRating, setShowRating]           = useState(false)
   const [ratingEdits, setRatingEdits]         = useState({})
   const [savingRatingId, setSavingRatingId]   = useState(null)
+  const [savedVisitIds, setSavedVisitIds]     = useState(new Set())
   const [syncAfterSave, setSyncAfterSave]     = useState(null)
   const [listeningVisitId, setListeningVisitId] = useState(null)
   const [collapsedVisits, setCollapsedVisits]   = useState(new Set())
@@ -664,6 +665,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       }
       if (i > 0) collapsed.add(v.id) // só a mais recente começa expandida
     })
+    // Visitas já completamente salvas no banco começam "verdes"
+    const alreadySaved = new Set(
+      visits.filter(v =>
+        v.rating && v.visit_outcome && v.visit_notes?.trim() &&
+        (v.visit_possibilities || []).length > 0 &&
+        (v.visit_outcome !== 'matriculada' || (Array.isArray(v.outcome_training) ? v.outcome_training.length > 0 : !!v.outcome_training))
+      ).map(v => v.id)
+    )
+    setSavedVisitIds(alreadySaved)
     setRatingEdits(initial)
     setCollapsedVisits(collapsed)
     setSyncAfterSave(null)
@@ -727,6 +737,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Cancela lembretes pendentes agora que a avaliacao foi preenchida (fire and forget)
     supabase.functions.invoke('cancel-rating-reminders', { body: { visitId } })
 
+    // Marca como salvo → botão fica verde
+    setSavedVisitIds(prev => new Set([...prev, visitId]))
     setSavingRatingId(null)
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
   }
@@ -1410,13 +1422,17 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const poss         = edit.visit_possibilities || []
                 const hasOutros    = poss.includes('outros_eventos')
 
-                // Validação: resultado + nota + pelo menos 1 possibilidade são obrigatórios
-                const isComplete = !!edit.visit_outcome && !!edit.rating && poss.length > 0 &&
+                // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
+                const isComplete = !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
                   (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
                   (edit.visit_outcome !== 'matriculada' || (edit.outcome_training || []).length > 0)
 
+                const isSavedClean = isComplete && savedVisitIds.has(v.id)
+
                 function setEdit(fields) {
                   setRatingEdits(prev => ({ ...prev, [v.id]: { ...(prev[v.id] || edit), ...fields } }))
+                  // Qualquer alteração tira o verde e põe laranja
+                  setSavedVisitIds(prev => { const n = new Set(prev); n.delete(v.id); return n })
                 }
                 function toggleCollapse() {
                   setCollapsedVisits(prev => {
@@ -1599,10 +1615,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           </div>
                         </div>
 
-                        {/* ANOTAÇÕES (opcional) + voice-to-text */}
+                        {/* ANOTAÇÕES (obrigatório) + voice-to-text */}
                         <div>
-                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '8px' }}>
-                            Observações do vendedor <span style={{ color: '#2A2A2A' }}>(opcional)</span>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
+                            ✱ Observações do vendedor <span style={{ color: '#333' }}>(obrigatório)</span>
                           </p>
                           <div style={{ position: 'relative' }}>
                             <textarea
@@ -1643,20 +1659,31 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {canRate && (
                           <button
                             onClick={() => { stopVisitListening(); saveVisitRating(v.id) }}
-                            disabled={isSaving || !isComplete}
+                            disabled={isSaving || !isComplete || isSavedClean}
                             style={{
                               width: '100%', padding: '14px', borderRadius: '13px',
                               fontSize: '14px', fontWeight: 700, border: 'none',
-                              cursor: isComplete && !isSaving ? 'pointer' : 'not-allowed',
-                              background: isComplete
-                                ? 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)'
-                                : '#1A1A1A',
-                              color: isComplete ? '#F0EAD6' : '#333',
-                              boxShadow: isComplete ? '0 2px 12px rgba(201,168,76,0.2)' : 'none',
+                              cursor: isComplete && !isSaving && !isSavedClean ? 'pointer' : 'not-allowed',
+                              background: isSavedClean
+                                ? 'rgba(74,222,128,0.12)'
+                                : isComplete
+                                  ? 'linear-gradient(135deg, #7B1C3A 0%, #E8834A 100%)'
+                                  : '#1A1A1A',
+                              color: isSavedClean ? '#4ADE80' : isComplete ? '#F0EAD6' : '#333',
+                              border: isSavedClean ? '1px solid rgba(74,222,128,0.3)' : 'none',
+                              boxShadow: isSavedClean
+                                ? 'none'
+                                : isComplete ? '0 2px 12px rgba(232,131,74,0.25)' : 'none',
                               opacity: isSaving ? 0.6 : 1,
-                              transition: 'all 0.2s',
+                              transition: 'all 0.25s',
                             }}>
-                            {isSaving ? 'Salvando...' : isComplete ? 'Concluir ✓' : 'Preencha resultado, possibilidade e nota'}
+                            {isSaving
+                              ? 'Salvando...'
+                              : isSavedClean
+                                ? '✓ Salvo'
+                                : isComplete
+                                  ? 'Concluir ✓'
+                                  : 'Preencha resultado, possibilidade, nota e observações'}
                           </button>
                         )}
                       </div>
