@@ -723,11 +723,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Salva campos na tabela visits
     const trainingsArr = (edit.outcome_training || []).filter(Boolean)
     await supabase.from('visits').update({
-      rating:              edit.rating,
-      visit_notes:         edit.visit_notes,
-      visit_outcome:       edit.visit_outcome || null,
-      outcome_training:    trainingsArr.length > 0 ? trainingsArr : null,
-      visit_possibilities: poss,
+      rating:                edit.rating,
+      visit_notes:           edit.visit_notes,
+      visit_outcome:         edit.visit_outcome || null,
+      outcome_training:      trainingsArr.length > 0 ? trainingsArr : null,
+      visit_possibilities:   poss,
+      outcome_enrolled_name: edit.outcome_enrolled_name?.trim() || null,
+      outcome_sale_value:    edit.outcome_sale_value?.trim()    || null,
     }).eq('id', visitId)
 
     // Matriculada → adiciona treinamentos + atualiza estágio
@@ -1558,7 +1560,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const edit = ratingEdits[v.id] || {
                   rating: v.rating || null, visit_notes: v.visit_notes || '',
                   visit_outcome: v.visit_outcome || null, outcome_training: v.outcome_training || null,
-                  outcome_return_datetime: '', visit_possibilities: v.visit_possibilities || [],
+                  outcome_return_datetime: '', outcome_followup_datetime: '',
+                  outcome_enrolled_name: v.outcome_enrolled_name || '',
+                  outcome_sale_value: v.outcome_sale_value || '',
+                  visit_possibilities: v.visit_possibilities || [],
                   outros_eventos_text: '',
                 }
                 const isSaving     = savingRatingId === v.id
@@ -1573,7 +1578,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
                 const isComplete = !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
                   (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
-                  (edit.visit_outcome !== 'matriculada' || (edit.outcome_training || []).length > 0)
+                  (edit.visit_outcome !== 'matriculada' || (
+                    (edit.outcome_training || []).length > 0 &&
+                    !!edit.outcome_enrolled_name?.trim() &&
+                    !!edit.outcome_sale_value?.trim()
+                  ))
 
                 const isSavedClean = isComplete && savedVisitIds.has(v.id)
 
@@ -1670,24 +1679,70 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           </div>
                         </div>
 
-                        {/* Treinamento (matriculada) — multi-select */}
+                        {/* Treinamento + dados de matrícula */}
                         {edit.visit_outcome === 'matriculada' && (
-                          <div style={{ padding: '12px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px' }}>
-                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>Qual treinamento? <span style={{ color: '#4ADE8080' }}>(pode marcar mais de 1)</span></p>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {TRAININGS.map(t => {
-                                const selected = (edit.outcome_training || []).includes(t)
-                                return (
-                                  <button key={t} disabled={!canRate}
-                                    onClick={() => {
-                                      const curr = edit.outcome_training || []
-                                      setEdit({ outcome_training: selected ? curr.filter(x => x !== t) : [...curr, t] })
-                                    }}
-                                    style={{ padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: selected ? 'rgba(74,222,128,0.15)' : 'transparent', color: selected ? '#4ADE80' : '#6B6560', border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}` }}>
-                                    {selected ? '✓ ' : ''}{t}
-                                  </button>
-                                )
-                              })}
+                          <div style={{ padding: '12px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.12)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {/* Treinamentos */}
+                            <div>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>
+                                Qual treinamento? <span style={{ color: '#4ADE8080' }}>(pode marcar mais de 1)</span>
+                              </p>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {TRAININGS.map(t => {
+                                  const sel = (edit.outcome_training || []).includes(t)
+                                  return (
+                                    <button key={t} disabled={!canRate}
+                                      onClick={() => {
+                                        const curr = edit.outcome_training || []
+                                        setEdit({ outcome_training: sel ? curr.filter(x => x !== t) : [...curr, t] })
+                                      }}
+                                      style={{ padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: sel ? 'rgba(74,222,128,0.15)' : 'transparent', color: sel ? '#4ADE80' : '#6B6560', border: `1px solid ${sel ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}` }}>
+                                      {sel ? '✓ ' : ''}{t}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Nome do matriculado */}
+                            <div>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '6px' }}>
+                                ✱ Nome do matriculado
+                              </p>
+                              <input
+                                type="text"
+                                disabled={!canRate}
+                                value={edit.outcome_enrolled_name || ''}
+                                onChange={e => setEdit({ outcome_enrolled_name: e.target.value })}
+                                placeholder="Nome completo de quem foi matriculado..."
+                                style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderColor = '#4ADE80'}
+                                onBlur={e => e.target.style.borderColor = '#2A2A2A'}
+                              />
+                              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '4px' }}>
+                                Pode ser diferente do nome do cliente cadastrado
+                              </p>
+                            </div>
+
+                            {/* Valor da venda */}
+                            <div>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '6px' }}>
+                                ✱ Valor vendido (R$)
+                              </p>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '13px', fontWeight: 600, color: '#4ADE80' }}>R$</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={!canRate}
+                                  value={edit.outcome_sale_value || ''}
+                                  onChange={e => setEdit({ outcome_sale_value: e.target.value.replace(/[^0-9.,]/g, '') })}
+                                  placeholder="0,00"
+                                  style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px 10px 36px', color: '#EFEFEF', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                  onFocus={e => e.target.style.borderColor = '#4ADE80'}
+                                  onBlur={e => e.target.style.borderColor = '#2A2A2A'}
+                                />
+                              </div>
                             </div>
                           </div>
                         )}
