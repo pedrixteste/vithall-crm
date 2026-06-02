@@ -46,6 +46,16 @@ export default function ClientesPage() {
   const [filterHasDone, setFilterHasDone]   = useState([])
   const [filterNotDone, setFilterNotDone]   = useState([])
   const [filterRating, setFilterRating]     = useState('')
+  const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
+  const [preVendasIds, setPreVendasIds]     = useState(new Set())
+
+  useEffect(() => {
+    async function fetchPreVendasIds() {
+      const { data } = await supabase.from('profiles').select('id').eq('role', 'pre_vendas')
+      setPreVendasIds(new Set((data || []).map(p => p.id)))
+    }
+    if (profile?.role === 'gerente' || profile?.role === 'vendedor') fetchPreVendasIds()
+  }, [profile])
 
   useEffect(() => { fetchClients() }, [profile])
 
@@ -71,10 +81,11 @@ export default function ClientesPage() {
     setFilterHasDone([])
     setFilterNotDone([])
     setFilterRating('')
+    setFilterSource('')
   }
 
   const activeFilters = [
-    filterStage, filterPeriod, filterCity, filterRating,
+    filterStage, filterPeriod, filterCity, filterRating, filterSource,
     filterHasDone.length > 0 ? 'hasDone' : '',
     filterNotDone.length > 0 ? 'notDone' : '',
   ].filter(Boolean).length
@@ -125,7 +136,11 @@ export default function ClientesPage() {
     const matchesRating = !filterRating ||
       (c.visits || []).some(v => v.rating === filterRating)
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating
+    const matchesSource = !filterSource ||
+      (filterSource === 'mine'       && c.created_by === user.id) ||
+      (filterSource === 'pre_vendas' && preVendasIds.has(c.created_by))
+
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesSource
   })
 
   if (selected) return (
@@ -184,6 +199,32 @@ export default function ClientesPage() {
             )}
           </button>
         </div>
+
+        {/* Filtro de origem — gerente e vendedor */}
+        {(profile?.role === 'gerente' || profile?.role === 'vendedor') && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {[
+              { key: '',           label: 'Todos' },
+              { key: 'mine',       label: 'Meus' },
+              { key: 'pre_vendas', label: 'Do pré-vendas' },
+            ].map(opt => {
+              const active = filterSource === opt.key
+              return (
+                <button key={opt.key} type="button"
+                  onClick={() => setFilterSource(opt.key)}
+                  className="text-xs font-semibold rounded-full transition-all"
+                  style={{
+                    padding: '6px 14px',
+                    background: active ? 'rgba(201,168,76,0.14)' : '#161616',
+                    border: `1px solid ${active ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
+                    color: active ? '#C9A84C' : '#6B6560',
+                  }}>
+                  {active && '✓ '}{opt.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Painel de filtros */}
         {showFilters && (
