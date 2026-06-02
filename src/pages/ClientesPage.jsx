@@ -8,6 +8,16 @@ import { STAGE_BADGES } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
 
+const OUTCOME_OPTIONS = [
+  { key: 'matriculada',          label: 'Matriculada',        icon: '✅', color: '#4ADE80' },
+  { key: 'grandes_chances',      label: 'Grandes chances',    icon: '🔥', color: '#C9A84C' },
+  { key: 'chance_futura',        label: 'Chance futura',      icon: '🔮', color: '#60A5FA' },
+  { key: 'sem_chance',           label: 'Sem chance',         icon: '🚫', color: '#E85555' },
+  { key: 'retorno_pessoalmente', label: 'Retorno presencial', icon: '📍', color: '#A78BFA' },
+  { key: 'retorno_ligacao',      label: 'Retorno ligação',    icon: '📞', color: '#E8834A' },
+  { key: 'remarcar',             label: 'Remarcar',           icon: '📅', color: '#22D3EE' },
+]
+
 const STAGE_OPTIONS = [
   { key: 'nao_marcou',     label: 'Nao marcou',    color: '#6B6560' },
   { key: 'marcado',        label: 'Marcado',        color: '#22D3EE' },
@@ -47,6 +57,7 @@ export default function ClientesPage() {
   const [filterNotDone, setFilterNotDone]   = useState([])
   const [filterRating, setFilterRating]     = useState('')
   const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
+  const [filterOutcome, setFilterOutcome]   = useState('')
   const [preVendasIds, setPreVendasIds]     = useState(new Set())
 
   useEffect(() => {
@@ -60,7 +71,7 @@ export default function ClientesPage() {
   useEffect(() => { fetchClients() }, [profile])
 
   async function fetchClients() {
-    let query = supabase.from('clients').select('*, visits(id, rating)').order('created_at', { ascending: false })
+    let query = supabase.from('clients').select('*, visits(id, rating, visit_outcome)').order('created_at', { ascending: false })
     if (profile?.role === 'pre_vendas') {
       query = query.eq('created_by', user.id)
     } else if (profile?.role === 'vendedor') {
@@ -82,10 +93,11 @@ export default function ClientesPage() {
     setFilterNotDone([])
     setFilterRating('')
     setFilterSource('')
+    setFilterOutcome('')
   }
 
   const activeFilters = [
-    filterStage, filterPeriod, filterCity, filterRating, filterSource,
+    filterStage, filterPeriod, filterCity, filterRating, filterSource, filterOutcome,
     filterHasDone.length > 0 ? 'hasDone' : '',
     filterNotDone.length > 0 ? 'notDone' : '',
   ].filter(Boolean).length
@@ -133,14 +145,17 @@ export default function ClientesPage() {
       }
     }
 
-    const matchesRating = !filterRating ||
+    const matchesRating  = !filterRating  ||
       (c.visits || []).some(v => v.rating === filterRating)
+
+    const matchesOutcome = !filterOutcome ||
+      (c.visits || []).some(v => v.visit_outcome === filterOutcome)
 
     const matchesSource = !filterSource ||
       (filterSource === 'mine'       && c.created_by === user.id) ||
       (filterSource === 'pre_vendas' && preVendasIds.has(c.created_by))
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesSource
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesOutcome && matchesSource
   })
 
   if (selected) return (
@@ -364,8 +379,28 @@ export default function ClientesPage() {
               </div>
             )}
 
-            {/* Nota da visita */}
+            {/* Resultado da visita */}
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040', marginTop: '16px' }}>
+              Resultado da visita
+            </p>
+            <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+              {OUTCOME_OPTIONS.map(o => (
+                <button key={o.key} type="button"
+                  onClick={() => setFilterOutcome(f => f === o.key ? '' : o.key)}
+                  className="text-xs font-semibold rounded-full transition-all"
+                  style={{
+                    padding: '5px 12px',
+                    background: filterOutcome === o.key ? o.color + '18' : 'transparent',
+                    border: `1px solid ${filterOutcome === o.key ? o.color + '60' : '#2A2A2A'}`,
+                    color: filterOutcome === o.key ? o.color : '#6B6560',
+                  }}>
+                  {o.icon} {filterOutcome === o.key ? '✓ ' : ''}{o.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Nota da visita */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
               Nota da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '4px' }}>
