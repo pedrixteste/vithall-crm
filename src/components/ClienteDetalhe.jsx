@@ -762,6 +762,24 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
     }
 
+    // Grandes chances / Chance futura → cria tarefa de follow-up se informou data
+    if (
+      (edit.visit_outcome === 'grandes_chances' || edit.visit_outcome === 'chance_futura')
+      && edit.outcome_followup_datetime
+    ) {
+      const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
+      const dueDate = edit.outcome_followup_datetime.split('T')[0]
+      await supabase.from('tasks').insert({
+        title:     'Follow-up — ' + clientLabel,
+        client_id: client.id,
+        seller_id: user.id,
+        completed: false,
+        priority:  edit.visit_outcome === 'grandes_chances' ? 'alta' : 'media',
+        due_date:  dueDate,
+        notes:     'Criado automaticamente: ' + (edit.visit_outcome === 'grandes_chances' ? 'Grandes chances' : 'Chance futura') + '.',
+      })
+    }
+
     // Remarcar → cria tarefa pendente no dashboard
     if (edit.visit_outcome === 'remarcar') {
       const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
@@ -1636,7 +1654,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               const active = edit.visit_outcome === o.key
                               return (
                                 <button key={o.key} disabled={!canRate}
-                                  onClick={() => setEdit({ visit_outcome: active ? null : o.key, outcome_training: [], outcome_return_datetime: '' })}
+                                  onClick={() => setEdit({ visit_outcome: active ? null : o.key, outcome_training: [], outcome_return_datetime: '', outcome_followup_datetime: '' })}
                                   style={{
                                     padding: '10px 11px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
                                     textAlign: 'left', cursor: canRate ? 'pointer' : 'default',
@@ -1692,6 +1710,28 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             {justSaved && !isPresencial && (
                               <p style={{ marginTop: '8px', fontSize: '11px', color: '#E8834A', fontWeight: 600 }}>✓ Retorno agendado para ligar</p>
                             )}
+                          </div>
+                        )}
+
+                        {/* Data de follow-up (grandes_chances / chance_futura) */}
+                        {(edit.visit_outcome === 'grandes_chances' || edit.visit_outcome === 'chance_futura') && (
+                          <div style={{
+                            padding: '12px', borderRadius: '12px',
+                            background: edit.visit_outcome === 'grandes_chances' ? 'rgba(201,168,76,0.05)' : 'rgba(96,165,250,0.05)',
+                            border: `1px solid ${edit.visit_outcome === 'grandes_chances' ? 'rgba(201,168,76,0.2)' : 'rgba(96,165,250,0.2)'}`,
+                          }}>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px',
+                              color: edit.visit_outcome === 'grandes_chances' ? '#C9A84C' : '#60A5FA' }}>
+                              {edit.visit_outcome === 'grandes_chances' ? '🔥 Quando fazer o follow-up?' : '🔮 Quando fazer o follow-up?'}
+                            </p>
+                            <p style={{ fontSize: '11px', color: '#3A3A3A', marginBottom: '10px' }}>
+                              Opcional — uma tarefa será criada automaticamente
+                            </p>
+                            <input type="datetime-local"
+                              value={edit.outcome_followup_datetime || ''}
+                              disabled={!canRate}
+                              onChange={e => setEdit({ outcome_followup_datetime: e.target.value })}
+                              style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
                           </div>
                         )}
 
