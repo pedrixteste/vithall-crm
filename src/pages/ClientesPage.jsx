@@ -304,7 +304,7 @@ export default function ClientesPage() {
               Fez o treinamento
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
-              {['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall'].map(t => {
+              {['Impacto', 'Perfil', 'Vendas', 'LORAPE', 'Academia Vithall'].map(t => {
                 const active = filterHasDone.includes(t)
                 return (
                   <button key={t} type="button"
@@ -327,7 +327,7 @@ export default function ClientesPage() {
               Ainda nao fez
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
-              {['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall'].map(t => {
+              {['Impacto', 'Perfil', 'Vendas', 'LORAPE', 'Academia Vithall'].map(t => {
                 const active = filterNotDone.includes(t)
                 return (
                   <button key={t} type="button"

@@ -5,12 +5,12 @@ import { generateReportHTML } from '../lib/reportExport'
 
 // ── Constantes ─────────────────────────────────────────────────────
 
-const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Mentoria']
+const TRAININGS = ['Impacto', 'Perfil', 'Vendas', 'LORAPE', 'Academia Vithall', 'Mentoria']
 const TRAINING_COLORS = {
   'Impacto':          '#E85555',
   'Perfil':           '#E8834A',
   'Vendas':           '#C9A84C',
-  'LORAP':            '#4ADE80',
+  'LORAPE':           '#4ADE80',
   'Academia Vithall': '#60A5FA',
   'Mentoria':         '#A78BFA',
 }
