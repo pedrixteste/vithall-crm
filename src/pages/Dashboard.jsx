@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw } from 'lucide-react'
+import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
 import TarefaForm from '../components/TarefaForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
+import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
@@ -33,6 +34,13 @@ const PERIOD_OPTIONS = [
   { key: 'max',    label: 'Maximo' },
 ]
 
+// Estilo do status de confirmação da visita (definido por quem marcou)
+const CONFIRMATION_STYLES = {
+  confirmada:     { label: 'Confirmada',     color: '#4ADE80', bg: 'rgba(74,222,128,0.08)',  icon: CheckCircle2 },
+  nao_confirmada: { label: 'Não confirmada', color: '#E85555', bg: 'rgba(232,85,85,0.08)',   icon: XCircle },
+  tentativa:      { label: 'Tentou confirmar', color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', icon: PhoneCall },
+}
+
 export default function Dashboard() {
   const { profile: authProfile, user } = useAuth()
   const [freshProfile, setFreshProfile] = useState(authProfile)
@@ -50,15 +58,38 @@ export default function Dashboard() {
   const [showPeriodDrop, setShowPeriodDrop] = useState(false)
   const [scheduledVisits, setScheduledVisits] = useState([])
   const [syncingId, setSyncingId] = useState(null) // id do cliente sendo sincronizado
+  const [confirmVisits, setConfirmVisits] = useState([]) // visitas de amanhã p/ quem marcou confirmar
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   useEffect(() => {
     setupReminders()
+    fetchVisitsToConfirm()
     // Busca perfil fresco para tokens do Google
     if (user?.id) {
       supabase.from('profiles').select('*').eq('id', user.id).single()
         .then(({ data }) => { if (data) setFreshProfile(data) })
     }
   }, [])
+
+  // Visitas agendadas para AMANHÃ que EU marquei e ainda não confirmei
+  async function fetchVisitsToConfirm() {
+    if (!user?.id) return
+    const start = new Date(); start.setDate(start.getDate() + 1); start.setHours(0, 0, 0, 0)
+    const end   = new Date(start); end.setHours(23, 59, 59, 999)
+    const { data } = await supabase
+      .from('clients')
+      .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation')
+      .eq('created_by', user.id)
+      .not('visit_scheduled_at', 'is', null)
+      .is('visit_confirmation', null)
+      .gte('visit_scheduled_at', start.toISOString())
+      .lte('visit_scheduled_at', end.toISOString())
+      .order('visit_scheduled_at', { ascending: true })
+    if (data && data.length > 0) {
+      setConfirmVisits(data)
+      setShowConfirmModal(true)
+    }
+  }
 
 
   useEffect(() => {
@@ -301,8 +332,15 @@ export default function Dashboard() {
                   const isPast = dt < new Date()
                   const dateLabel = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
                   const timeLabel = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  const conf = CONFIRMATION_STYLES[v.visit_confirmation]
                   return (
-                    <li key={v.id} style={{ padding: '16px 20px', background: isPast ? 'rgba(232,131,74,0.03)' : 'transparent' }}>
+                    <li key={v.id} style={{ padding: '16px 20px', background: conf ? conf.bg : (isPast ? 'rgba(232,131,74,0.03)' : 'transparent'), borderLeft: conf ? `3px solid ${conf.color}` : '3px solid transparent' }}>
+                      {conf && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <conf.icon size={12} style={{ color: conf.color }} />
+                          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: conf.color }}>{conf.label}</span>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-3">
                         {/* Lado esquerdo — clicável para ver o cliente */}
                         <button
@@ -319,6 +357,11 @@ export default function Dashboard() {
                             {dateLabel} às {timeLabel}
                             {isPast && <span style={{ marginLeft: '6px', fontSize: '10px', opacity: 0.7 }}>· já passou</span>}
                           </p>
+                          {conf && v.visit_confirmation_note && (
+                            <p className="text-[11px] mt-1.5 rounded-lg" style={{ color: conf.color, background: conf.bg, padding: '6px 8px', lineHeight: '1.4' }}>
+                              "{v.visit_confirmation_note}"
+                            </p>
+                          )}
                           <p className="text-[10px] mt-1" style={{ color: '#333030' }}>Toque para ver detalhes →</p>
                         </button>
 
@@ -502,6 +545,14 @@ export default function Dashboard() {
         <TarefaForm
           onClose={() => setShowTarefaForm(false)}
           onSaved={() => { setShowTarefaForm(false); fetchData() }}
+        />
+      )}
+
+      {showConfirmModal && confirmVisits.length > 0 && (
+        <VisitConfirmationModal
+          visits={confirmVisits}
+          onClose={() => setShowConfirmModal(false)}
+          onConfirmed={fetchData}
         />
       )}
 
