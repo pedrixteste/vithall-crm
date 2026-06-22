@@ -22,8 +22,7 @@ const ORIGIN_LABELS = {
 const MATRICULA_STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda' },
   { key: 'pediu_ligar',    label: 'Pediu para ligar depois' },
-  { key: 'marcado',        label: 'Marcado' },
-  { key: 'nao_visitado',   label: 'Nao foi visitado' },
+  { key: 'nao_visitado',   label: 'Marcacao feita' },
   { key: 'nao_apareceu',   label: 'Nao apareceu na visita' },
   { key: 'recebeu_visita', label: 'Recebeu visita' },
   { key: 'matriculado',    label: 'Matriculado!!' },
@@ -32,7 +31,6 @@ const MATRICULA_STAGES = [
 const MATRICULA_STAGES_PRE_VENDAS = [
   { key: 'nao_marcou',   label: 'Nao marcado' },
   { key: 'pediu_ligar',  label: 'Pediu para ligar depois' },
-  { key: 'marcado',      label: 'Marcado' },
   { key: 'nao_visitado', label: 'Marcacao feita' },
 ]
 
@@ -213,7 +211,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
     if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
     if (!form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
-    if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado') {
+    if (form.matricula_stage === 'nao_visitado') {
       if (!visitScheduledAt) { setError('Informe a data e hora da visita.'); return }
     }
     setSaving(true)
@@ -249,8 +247,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           reminderConfig: reminder_config,
         })
       }
-      // Notifica o responsavel quando pre_vendas cria uma marcacao feita
-      if (profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && form.assigned_to && visitScheduledAt) {
+      // Notifica o responsavel quando alguem cria uma marcacao feita (exceto a si mesmo)
+      if (form.matricula_stage === 'nao_visitado' && form.assigned_to && form.assigned_to !== user.id && visitScheduledAt) {
         supabase.functions.invoke('notify-visit', {
           body: {
             assignedToId:  form.assigned_to,
@@ -411,8 +409,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           </Select>
         )}
 
-        {/* Marcacao feita — pre_vendas: data/hora da visita */}
-        {profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && (
+        {/* Marcacao feita — data/hora da visita (todos os perfis) */}
+        {form.matricula_stage === 'nao_visitado' && (
           <div className="rounded-2xl" style={{ background: '#0F1A0F', border: '1px solid rgba(74,222,128,0.15)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ADE80' }}>Detalhes da marcacao</p>
             <div>
