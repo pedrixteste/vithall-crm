@@ -2,8 +2,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2, Phone, CalendarDays } from 'lucide-react'
 
+// "Hoje" fica em 2ª posição (ao lado do Dashboard) para todos os perfis
 const BASE_NAV = [
   { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/agenda',     label: 'Hoje',       icon: CalendarDays },
   { to: '/clientes',   label: 'Clientes',   icon: Users },
   { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
@@ -12,18 +14,14 @@ const BASE_NAV = [
   { to: '/perfil',     label: 'Perfil',     icon: UserCircle,    mobileHide: true },
 ]
 
-// Para vendedor/gerente: "Hoje" substitui "Tarefas" no nav (Tarefas fica só na sidebar)
-const AGENDA_ITEM = { to: '/agenda', label: 'Hoje', icon: CalendarDays }
-
 export default function Layout({ children }) {
   const { profile, signOut } = useAuth()
   const location = useLocation()
 
+  // gerente: adiciona "Equipe" antes do "Perfil"
   const navItems = profile?.role === 'gerente'
-    ? [...BASE_NAV.slice(0, 5), AGENDA_ITEM, ...BASE_NAV.slice(5, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
-    : profile?.role === 'vendedor'
-      ? [...BASE_NAV.slice(0, 5), AGENDA_ITEM, ...BASE_NAV.slice(5)]
-      : BASE_NAV
+    ? [...BASE_NAV.slice(0, -1), { to: '/equipe', label: 'Equipe', icon: Users2, mobileHide: true }, BASE_NAV[BASE_NAV.length - 1]]
+    : BASE_NAV
 
   const isActive = (to) => location.pathname === to
 

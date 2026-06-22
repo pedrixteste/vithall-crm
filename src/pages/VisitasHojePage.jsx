@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { CalendarDays, MapPin, Clock, User } from 'lucide-react'
+import { CalendarDays, MapPin, Clock, User, CalendarCheck } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
+import VisitConfirmationList from '../components/VisitConfirmationList'
 
 function getTodayRange() {
   const now = new Date()
@@ -18,12 +19,23 @@ function getTodayRange() {
   }
 }
 
+function getTomorrowRange() {
+  const t = new Date()
+  t.setDate(t.getDate() + 1)
+  const y = t.getFullYear()
+  const m = String(t.getMonth() + 1).padStart(2, '0')
+  const d = String(t.getDate()).padStart(2, '0')
+  return { start: `${y}-${m}-${d}T00:00:00`, end: `${y}-${m}-${d}T23:59:59` }
+}
+
 export default function VisitasHojePage() {
   const { profile, user } = useAuth()
   const [visits, setVisits]       = useState([])
   const [profilesMap, setProfilesMap] = useState({})
   const [loading, setLoading]     = useState(true)
   const [selected, setSelected]   = useState(null)
+  const [toConfirm, setToConfirm] = useState([])      // visitas de amanhã que EU marquei
+  const [confirmHidden, setConfirmHidden] = useState(false)
 
   const { start, end, label } = getTodayRange()
 
@@ -44,13 +56,29 @@ export default function VisitasHojePage() {
       .lte('visit_scheduled_at', end)
       .order('visit_scheduled_at', { ascending: true })
 
-    if (profile?.role === 'vendedor') {
-      q = q.eq('assigned_to', user.id)
-    }
+    if (profile?.role === 'vendedor')        q = q.eq('assigned_to', user.id)
+    else if (profile?.role === 'pre_vendas') q = q.eq('created_by', user.id)
     // gerente: vê todas
 
     const { data } = await q
     setVisits(data || [])
+
+    // Visitas de amanhã que EU marquei e ainda não confirmei
+    if (user?.id) {
+      const tm = getTomorrowRange()
+      const { data: tc } = await supabase
+        .from('clients')
+        .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation')
+        .eq('created_by', user.id)
+        .not('visit_scheduled_at', 'is', null)
+        .is('visit_confirmation', null)
+        .gte('visit_scheduled_at', tm.start)
+        .lte('visit_scheduled_at', tm.end)
+        .order('visit_scheduled_at', { ascending: true })
+      setToConfirm(tc || [])
+      setConfirmHidden(false)
+    }
+
     setLoading(false)
   }
 
@@ -77,6 +105,23 @@ export default function VisitasHojePage() {
             : `${visits.length} visita${visits.length > 1 ? 's' : ''} agendada${visits.length > 1 ? 's' : ''}`}
         </p>
       </div>
+
+      {/* Confirmar visitas de amanhã — para quem marcou */}
+      {!loading && !confirmHidden && toConfirm.length > 0 && (
+        <div className="rounded-2xl" style={{ background: '#141414', border: '1px solid #252525', padding: '16px' }}>
+          <div className="flex items-center gap-2.5 mb-1">
+            <CalendarCheck size={15} style={{ color: '#C9A84C' }} />
+            <h2 className="text-sm font-bold" style={{ color: '#EFEFEF' }}>Confirmar visitas de amanhã</h2>
+          </div>
+          <p className="text-xs mb-4" style={{ color: '#6B6560' }}>
+            {toConfirm.length} {toConfirm.length === 1 ? 'visita marcada' : 'visitas marcadas'} por você. Confirme cada uma.
+          </p>
+          <VisitConfirmationList
+            visits={toConfirm}
+            onEmpty={() => setConfirmHidden(true)}
+          />
+        </div>
+      )}
 
       {/* Lista */}
       {loading ? (
