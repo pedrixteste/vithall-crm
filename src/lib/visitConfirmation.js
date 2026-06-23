@@ -1,25 +1,26 @@
 import { supabase } from './supabase'
 
-// Faixa do dia de hoje (local) + label amigável. Usado pela aba "Hoje"
-// e pelo pop-up, garantindo a mesma lista nos dois.
-export function getTodayRange() {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
+// Faixa de um dia (local) + label amigável. offset 0 = hoje, 1 = amanhã, etc.
+export function getDayRange(offset = 0) {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
   return {
-    start: `${y}-${m}-${d}T00:00:00`,
-    end:   `${y}-${m}-${d}T23:59:59`,
-    label: now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }),
+    start: `${y}-${m}-${day}T00:00:00`,
+    end:   `${y}-${m}-${day}T23:59:59`,
+    label: d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }),
   }
 }
 
-// Visitas agendadas para HOJE (a agenda do dia). Só faz sentido para quem
-// FAZ visita: vendedor (as atribuídas a ele) e gerente (todas).
-// Pré-vendas não tem agenda de visitas → retorna [].
-export async function fetchTodayVisits(role, userId) {
+export const getTodayRange = () => getDayRange(0)
+
+// Visitas agendadas para um dia (offset). Só para quem FAZ visita:
+// vendedor (atribuídas a ele) e gerente (todas). Pré-vendas → [].
+export async function fetchVisitsForDay(role, userId, offset = 0) {
   if (role !== 'vendedor' && role !== 'gerente') return []
-  const { start, end } = getTodayRange()
+  const { start, end } = getDayRange(offset)
   let q = supabase
     .from('clients')
     .select('*')
@@ -28,6 +29,29 @@ export async function fetchTodayVisits(role, userId) {
     .lte('visit_scheduled_at', end)
     .order('visit_scheduled_at', { ascending: true })
   if (role === 'vendedor') q = q.eq('assigned_to', userId)
+  // gerente: vê todas
+  const { data } = await q
+  return data || []
+}
+
+// Atalho usado pelo Dashboard (agenda de hoje)
+export const fetchTodayVisits = (role, userId) => fetchVisitsForDay(role, userId, 0)
+
+// Ligações a fazer num dia (offset): clientes em "pediu_ligar" cujo call_back_at
+// cai nesse dia. Filtrado por dono: pré-vendas (created_by), vendedor (assigned_to),
+// gerente (todas).
+export async function fetchCallbacksForDay(role, userId, offset = 0) {
+  const { start, end } = getDayRange(offset)
+  let q = supabase
+    .from('clients')
+    .select('*')
+    .eq('matricula_stage', 'pediu_ligar')
+    .not('call_back_at', 'is', null)
+    .gte('call_back_at', start)
+    .lte('call_back_at', end)
+    .order('call_back_at', { ascending: true })
+  if (role === 'vendedor')        q = q.eq('assigned_to', userId)
+  else if (role === 'pre_vendas') q = q.eq('created_by', userId)
   // gerente: vê todas
   const { data } = await q
   return data || []
