@@ -12,6 +12,7 @@ import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
+import { fetchVisitsToConfirm } from '../lib/visitConfirmation'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -63,7 +64,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setupReminders()
-    fetchVisitsToConfirm()
+    loadVisitsToConfirm()
     // Busca perfil fresco para tokens do Google
     if (user?.id) {
       supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -71,21 +72,11 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Visitas agendadas para AMANHÃ que EU marquei e ainda não confirmei
-  async function fetchVisitsToConfirm() {
+  // Visitas que EU marquei (hoje + amanhã) ainda não confirmadas → pop-up
+  async function loadVisitsToConfirm() {
     if (!user?.id) return
-    const start = new Date(); start.setDate(start.getDate() + 1); start.setHours(0, 0, 0, 0)
-    const end   = new Date(start); end.setHours(23, 59, 59, 999)
-    const { data } = await supabase
-      .from('clients')
-      .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation')
-      .eq('created_by', user.id)
-      .not('visit_scheduled_at', 'is', null)
-      .is('visit_confirmation', null)
-      .gte('visit_scheduled_at', start.toISOString())
-      .lte('visit_scheduled_at', end.toISOString())
-      .order('visit_scheduled_at', { ascending: true })
-    if (data && data.length > 0) {
+    const data = await fetchVisitsToConfirm(user.id)
+    if (data.length > 0) {
       setConfirmVisits(data)
       setShowConfirmModal(true)
     }

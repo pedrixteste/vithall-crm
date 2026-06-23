@@ -15,10 +15,10 @@ export default function VisitConfirmationModal({ visits, onClose, onConfirmed })
         <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b" style={{ borderColor: '#1C1C1C' }}>
           <div className="flex items-center gap-2.5 mb-1.5">
             <Calendar size={16} style={{ color: '#C9A84C' }} />
-            <h2 className="text-base font-bold" style={{ color: '#EFEFEF' }}>Confirmar visitas de amanhã</h2>
+            <h2 className="text-base font-bold" style={{ color: '#EFEFEF' }}>Confirmar visitas</h2>
           </div>
           <p className="text-xs" style={{ color: '#6B6560' }}>
-            Você tem {visits.length} {visits.length === 1 ? 'visita marcada' : 'visitas marcadas'} para amanhã. Confirme cada uma.
+            Você tem {visits.length} {visits.length === 1 ? 'visita marcada' : 'visitas marcadas'} (hoje e amanhã) para confirmar. Confirme cada uma.
           </p>
         </div>
 
