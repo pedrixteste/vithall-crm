@@ -69,30 +69,30 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
 
             {!isActive ? (
               /* 3 botões */
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 mt-2">
                 <button
                   disabled={saving}
                   onClick={() => save(v.id, 'confirmada', null)}
-                  className="flex flex-col items-center gap-1 rounded-xl py-2.5 transition-all active:scale-95"
-                  style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
-                  <CheckCircle2 size={16} />
-                  <span className="text-[10px] font-bold">Confirmado</span>
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
+                  style={{ minHeight: '68px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
+                  <CheckCircle2 size={17} />
+                  <span className="text-[11px] font-bold leading-snug text-center">Confirmado</span>
                 </button>
                 <button
                   disabled={saving}
                   onClick={() => openNote(v.id, 'nao_confirmada')}
-                  className="flex flex-col items-center gap-1 rounded-xl py-2.5 transition-all active:scale-95"
-                  style={{ background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.3)', color: '#E85555' }}>
-                  <XCircle size={16} />
-                  <span className="text-[10px] font-bold leading-tight text-center">Não<br/>confirmada</span>
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
+                  style={{ minHeight: '68px', background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.3)', color: '#E85555' }}>
+                  <XCircle size={17} />
+                  <span className="text-[11px] font-bold leading-snug text-center">Não<br/>confirmada</span>
                 </button>
                 <button
                   disabled={saving}
                   onClick={() => openNote(v.id, 'tentativa')}
-                  className="flex flex-col items-center gap-1 rounded-xl py-2.5 transition-all active:scale-95"
-                  style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
-                  <PhoneCall size={16} />
-                  <span className="text-[10px] font-bold leading-tight text-center">Tentei<br/>confirmar</span>
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
+                  style={{ minHeight: '68px', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
+                  <PhoneCall size={17} />
+                  <span className="text-[11px] font-bold leading-snug text-center">Tentei<br/>confirmar</span>
                 </button>
               </div>
             ) : (
