@@ -5,20 +5,7 @@ import { MapPin, Clock, User, CalendarCheck } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
-import { fetchVisitsToConfirm } from '../lib/visitConfirmation'
-
-function getTodayRange() {
-  const now = new Date()
-  // Usa horário local do Brasil (UTC-3) convertido para ISO
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return {
-    start: `${y}-${m}-${d}T00:00:00`,
-    end:   `${y}-${m}-${d}T23:59:59`,
-    label: now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }),
-  }
-}
+import { fetchVisitsToConfirm, fetchTodayVisits, getTodayRange } from '../lib/visitConfirmation'
 
 export default function VisitasHojePage() {
   const { profile, user } = useAuth()
@@ -29,7 +16,7 @@ export default function VisitasHojePage() {
   const [toConfirm, setToConfirm] = useState([])      // visitas (hoje+amanhã) que EU marquei
   const [confirmHidden, setConfirmHidden] = useState(false)
 
-  const { start, end, label } = getTodayRange()
+  const { label } = getTodayRange()
 
   // Quem FAZ visita vê a agenda de hoje; pré-vendas vê só as confirmações
   const isVisitor = profile?.role === 'vendedor' || profile?.role === 'gerente'
@@ -47,20 +34,7 @@ export default function VisitasHojePage() {
     if (isVisitor) {
       const { data: profs } = await supabase.from('profiles').select('id, name, role')
       setProfilesMap(Object.fromEntries((profs || []).map(p => [p.id, p])))
-
-      let q = supabase
-        .from('clients')
-        .select('*')
-        .not('visit_scheduled_at', 'is', null)
-        .gte('visit_scheduled_at', start)
-        .lte('visit_scheduled_at', end)
-        .order('visit_scheduled_at', { ascending: true })
-
-      if (profile?.role === 'vendedor') q = q.eq('assigned_to', user.id)
-      // gerente: vê todas
-
-      const { data } = await q
-      setVisits(data || [])
+      setVisits(await fetchTodayVisits(profile?.role, user.id))
     }
 
     setLoading(false)

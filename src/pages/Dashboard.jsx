@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
@@ -12,7 +12,7 @@ import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
-import { fetchVisitsToConfirm } from '../lib/visitConfirmation'
+import { fetchVisitsToConfirm, fetchTodayVisits } from '../lib/visitConfirmation'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -44,6 +44,7 @@ const CONFIRMATION_STYLES = {
 
 export default function Dashboard() {
   const { profile: authProfile, user } = useAuth()
+  const navigate = useNavigate()
   const [freshProfile, setFreshProfile] = useState(authProfile)
   const profile = freshProfile
   const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0 })
@@ -59,12 +60,13 @@ export default function Dashboard() {
   const [showPeriodDrop, setShowPeriodDrop] = useState(false)
   const [scheduledVisits, setScheduledVisits] = useState([])
   const [syncingId, setSyncingId] = useState(null) // id do cliente sendo sincronizado
-  const [confirmVisits, setConfirmVisits] = useState([]) // visitas de amanhã p/ quem marcou confirmar
+  const [confirmVisits, setConfirmVisits] = useState([]) // p/ confirmar (hoje+amanhã, marcadas por mim)
+  const [todayVisits, setTodayVisits]     = useState([]) // agenda de hoje (vendedor/gerente)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const briefingShownRef = useRef(false)
 
   useEffect(() => {
     setupReminders()
-    loadVisitsToConfirm()
     // Busca perfil fresco para tokens do Google
     if (user?.id) {
       supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -72,14 +74,22 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Visitas que EU marquei (hoje + amanhã) ainda não confirmadas → pop-up
-  async function loadVisitsToConfirm() {
-    if (!user?.id) return
-    const data = await fetchVisitsToConfirm(user.id)
-    if (data.length > 0) {
-      setConfirmVisits(data)
-      setShowConfirmModal(true)
-    }
+  // Pop-up = espelho da aba "Hoje". Roda uma vez, só após o profile carregar
+  // (precisa do role para buscar a agenda de hoje de vendedor/gerente).
+  useEffect(() => {
+    if (!user?.id || !profile?.role || briefingShownRef.current) return
+    briefingShownRef.current = true
+    loadDayBriefing()
+  }, [user, profile])
+
+  async function loadDayBriefing() {
+    const [confirm, today] = await Promise.all([
+      fetchVisitsToConfirm(user.id),
+      fetchTodayVisits(profile?.role, user.id),
+    ])
+    setConfirmVisits(confirm)
+    setTodayVisits(today)
+    if (confirm.length > 0 || today.length > 0) setShowConfirmModal(true)
   }
 
 
@@ -539,11 +549,13 @@ export default function Dashboard() {
         />
       )}
 
-      {showConfirmModal && confirmVisits.length > 0 && (
+      {showConfirmModal && (confirmVisits.length > 0 || todayVisits.length > 0) && (
         <VisitConfirmationModal
           visits={confirmVisits}
+          todayVisits={todayVisits}
           onClose={() => setShowConfirmModal(false)}
           onConfirmed={fetchData}
+          onOpenAgenda={() => { setShowConfirmModal(false); navigate('/agenda') }}
         />
       )}
 
