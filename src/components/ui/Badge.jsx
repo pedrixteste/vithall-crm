@@ -28,6 +28,7 @@ export const STAGE_BADGES = {
   marcado:        <Badge variant="teal">Marcado</Badge>,
   nao_visitado:   <Badge variant="blue">Nao foi visitado</Badge>,
   nao_apareceu:   <Badge variant="orange">Nao apareceu</Badge>,
+  cancelado:      <Badge variant="bordo">Cancelou visita</Badge>,
   recebeu_visita: <Badge variant="purple">Recebeu visita</Badge>,
   matriculado:    <Badge variant="green">Matriculado!!</Badge>,
 }

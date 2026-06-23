@@ -6,6 +6,15 @@ import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import { fetchVisitsToConfirm, fetchTodayVisits, getTodayRange } from '../lib/visitConfirmation'
+import { updateClientStage } from '../lib/clientStage'
+
+// Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
+const STAGE_ACTIONS = [
+  { key: 'recebeu_visita', label: 'Recebida',      color: '#A78BFA' },
+  { key: 'matriculado',    label: 'Matriculada',   color: '#4ADE80' },
+  { key: 'nao_apareceu',   label: 'Não apareceu',  color: '#E85555' },
+  { key: 'cancelado',      label: 'Cancelada',     color: '#F97316' },
+]
 
 export default function VisitasHojePage() {
   const { profile, user } = useAuth()
@@ -38,6 +47,14 @@ export default function VisitasHojePage() {
     }
 
     setLoading(false)
+  }
+
+  // Clicou num botão de resultado → muda o estágio automaticamente (otimista)
+  async function handleStageChange(visit, newStage) {
+    const oldStage = visit.matricula_stage
+    if (oldStage === newStage) return
+    setVisits(vs => vs.map(x => x.id === visit.id ? { ...x, matricula_stage: newStage } : x))
+    await updateClientStage({ clientId: visit.id, newStage, oldStage, userId: user.id, userName: profile?.name })
   }
 
   if (selected) return (
@@ -126,17 +143,16 @@ export default function VisitasHojePage() {
               const creatorName = creator?.name?.split(' ')[0] || '—'
 
               return (
-                <button
+                <div
                   key={v.id}
-                  onClick={() => setSelected(v)}
-                  className="w-full text-left transition-all active:scale-[0.98]"
                   style={{
                     background: '#161616',
                     border: `1px solid ${isPast ? '#252525' : '#303030'}`,
                     borderRadius: '18px',
                     padding: '18px 20px',
-                    opacity: isPast ? 0.65 : 1,
                   }}>
+
+                  <button onClick={() => setSelected(v)} className="w-full text-left transition-all active:opacity-70">
 
                   {/* Hora + badges de topo */}
                   <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
@@ -192,7 +208,31 @@ export default function VisitasHojePage() {
                   <p className="text-[11px] mt-3" style={{ color: '#2A2A2A' }}>
                     Toque para abrir o cliente →
                   </p>
-                </button>
+                  </button>
+
+                  {/* Resultado da visita — muda o estágio automaticamente */}
+                  <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1F1F1F' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#444040' }}>
+                      Resultado da visita
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {STAGE_ACTIONS.map(a => {
+                        const active = v.matricula_stage === a.key
+                        return (
+                          <button
+                            key={a.key}
+                            onClick={() => handleStageChange(v, a.key)}
+                            className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                            style={active
+                              ? { background: a.color, color: '#0A0A0A', border: `1px solid ${a.color}` }
+                              : { background: `${a.color}1a`, color: a.color, border: `1px solid ${a.color}55` }}>
+                            {active ? '✓ ' : ''}{a.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
               )
             })}
           </div>
