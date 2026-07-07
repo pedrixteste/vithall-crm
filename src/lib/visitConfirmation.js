@@ -84,7 +84,7 @@ export async function fetchPendingRatings(userId) {
 
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, contact_name, company_name, city, visit_scheduled_at, assigned_to')
+    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, assigned_to')
     .eq('assigned_to', userId)
   if (!clients || clients.length === 0) return []
 
@@ -99,10 +99,11 @@ export async function fetchPendingRatings(userId) {
     const cv = byClient[c.id] || []
     // registros de visita passados com estrela incompleta
     const incompletePast = cv.filter(v => v.visit_date && v.visit_date < todayStr && !isVisitRated(v))
-    // visita agendada que já passou e ainda nem tem registro (nunca foi aberta)
+    // visita agendada que já passou e ainda nem tem registro (nunca foi aberta).
+    // Não cobra se a marcação foi "não confirmada" (a visita não aconteceu).
     let missingScheduled = false
     let schedDate = null
-    if (c.visit_scheduled_at) {
+    if (c.visit_scheduled_at && c.visit_confirmation !== 'nao_confirmada') {
       schedDate = utcDateStr(c.visit_scheduled_at)
       if (schedDate < todayStr && !cv.some(v => v.visit_date === schedDate)) missingScheduled = true
     }

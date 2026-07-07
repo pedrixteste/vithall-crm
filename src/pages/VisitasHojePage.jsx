@@ -28,8 +28,30 @@ function SectionLabel({ children, color = '#6B6560' }) {
   )
 }
 
+// Status de confirmação (feito por quem marcou a visita) — exibido na agenda.
+// 'nao_confirmada' não é exibido: essas visitas são filtradas da lista.
+const CONFIRM_DISPLAY = {
+  confirmada: { label: 'Confirmada',       color: '#4ADE80', icon: '✓' },
+  tentativa:  { label: 'Tentou confirmar', color: '#A78BFA', icon: '☎' },
+}
+
+function ConfirmStrip({ status, note }) {
+  const c = CONFIRM_DISPLAY[status]
+  if (!c) return null
+  return (
+    <div className="rounded-xl" style={{ background: `${c.color}14`, border: `1px solid ${c.color}40`, padding: '8px 10px' }}>
+      <p className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: c.color }}>
+        <span>{c.icon}</span> {c.label}
+      </p>
+      {status === 'tentativa' && note && (
+        <p className="text-[11px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{note}"</p>
+      )}
+    </div>
+  )
+}
+
 // Card compacto (prévia) — usado em ligações e nas coisas de amanhã
-function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick }) {
+function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick, confirmStatus, confirmNote }) {
   return (
     <button onClick={onClick} className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
       style={{ background: '#161616', border: '1px solid #252525', padding: '13px 15px', opacity: isPast ? 0.6 : 1 }}>
@@ -41,6 +63,7 @@ function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick 
       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{name}</p>
       {company && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{company}</p>}
       {sub && <p className="text-[11px] mt-1 flex items-center gap-1 truncate" style={{ color: '#444040' }}>{sub}</p>}
+      {confirmStatus && <div className="mt-2"><ConfirmStrip status={confirmStatus} note={confirmNote} /></div>}
     </button>
   )
 }
@@ -82,11 +105,13 @@ export default function VisitasHojePage() {
       fetchVisitsForDay(role, user.id, 1),
       fetchCallbacksForDay(role, user.id, 1),
     ])
+    // Visitas "não confirmadas" (por quem marcou) não aparecem na agenda
+    const visible = arr => arr.filter(v => v.visit_confirmation !== 'nao_confirmada')
     setToConfirm(confirm)
     setConfirmHidden(false)
-    setTodayVisits(tv)
+    setTodayVisits(visible(tv))
     setTodayCalls(tc)
-    setTomVisits(mv)
+    setTomVisits(visible(mv))
     setTomCalls(mc)
 
     if (isVisitor) {
@@ -212,6 +237,9 @@ export default function VisitasHojePage() {
                       </span>
                     </div>
                   </div>
+                  {CONFIRM_DISPLAY[v.visit_confirmation] && (
+                    <div className="mb-2.5"><ConfirmStrip status={v.visit_confirmation} note={v.visit_confirmation_note} /></div>
+                  )}
                   <p className="text-base font-semibold" style={{ color: '#EFEFEF', marginBottom: '2px' }}>{v.contact_name}</p>
                   {v.company_name && <p className="text-sm" style={{ color: '#6B6560', marginBottom: '8px' }}>{v.company_name}</p>}
                   <div className="flex items-center justify-between gap-2" style={{ marginTop: '8px' }}>
@@ -299,6 +327,7 @@ export default function VisitasHojePage() {
                   tag="Visita" tagColor="#A78BFA"
                   name={v.contact_name} company={v.company_name}
                   sub={(v.city || v.address_street) ? <><MapPin size={10} /> {[v.address_street, v.address_neighborhood, v.city].filter(Boolean).join(', ')}</> : null}
+                  confirmStatus={v.visit_confirmation} confirmNote={v.visit_confirmation_note}
                   onClick={() => setSelected(v)}
                 />
               ))}
