@@ -49,6 +49,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
       {pending.map(v => {
         const dt = new Date(v.visit_scheduled_at)
         const timeLabel = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        const dateLabel = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')
         const isActive = activeId === v.id
         const cfg = activeKind ? NOTE_CONFIG[activeKind] : null
 
@@ -61,7 +62,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                 <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
                 {v.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>}
                 <p className="text-xs font-medium mt-1 flex items-center gap-1.5" style={{ color: '#C9A84C' }}>
-                  <span>🕐 {timeLabel}</span>
+                  <span>🕐 {dateLabel} · {timeLabel}</span>
                   {v.city && <span style={{ color: '#6B6560' }} className="flex items-center gap-1"><MapPin size={10} /> {v.city}</span>}
                 </p>
               </div>
