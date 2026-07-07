@@ -57,6 +57,66 @@ export async function fetchCallbacksForDay(role, userId, offset = 0) {
   return data || []
 }
 
+// Uma visita está "avaliada" (estrela completa) — mesma regra que o app usa
+// para deixar a visita "verde" no painel de avaliação.
+export function isVisitRated(v) {
+  const hasTraining = Array.isArray(v.outcome_training)
+    ? v.outcome_training.length > 0
+    : !!v.outcome_training
+  return !!(
+    v.rating && v.visit_outcome && v.visit_notes?.trim() &&
+    (v.visit_possibilities || []).length > 0 &&
+    (v.visit_outcome !== 'matriculada' || hasTraining)
+  )
+}
+
+// Data (UTC) no formato YYYY-MM-DD — mesmo formato que a tabela visits usa
+// (visit_date é criado via toISOString().split('T')[0]).
+const utcDateStr = (d = new Date()) => new Date(d).toISOString().split('T')[0]
+
+// Visitas REALIZADAS (de ontem para trás) que ainda não foram avaliadas por
+// completo, dos clientes atribuídos ao usuário. Enquanto houver alguma, a aba
+// "Hoje" fica bloqueada para vendedor/gerente. Retorna a lista de clientes
+// pendentes (mais antigos primeiro), cada um com pendingCount e oldestDate.
+export async function fetchPendingRatings(userId) {
+  if (!userId) return []
+  const todayStr = utcDateStr()
+
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id, contact_name, company_name, city, visit_scheduled_at, assigned_to')
+    .eq('assigned_to', userId)
+  if (!clients || clients.length === 0) return []
+
+  const ids = clients.map(c => c.id)
+  const { data: visits } = await supabase.from('visits').select('*').in('client_id', ids)
+
+  const byClient = {}
+  for (const v of visits || []) (byClient[v.client_id] ||= []).push(v)
+
+  const pending = []
+  for (const c of clients) {
+    const cv = byClient[c.id] || []
+    // registros de visita passados com estrela incompleta
+    const incompletePast = cv.filter(v => v.visit_date && v.visit_date < todayStr && !isVisitRated(v))
+    // visita agendada que já passou e ainda nem tem registro (nunca foi aberta)
+    let missingScheduled = false
+    let schedDate = null
+    if (c.visit_scheduled_at) {
+      schedDate = utcDateStr(c.visit_scheduled_at)
+      if (schedDate < todayStr && !cv.some(v => v.visit_date === schedDate)) missingScheduled = true
+    }
+    if (incompletePast.length > 0 || missingScheduled) {
+      const dates = incompletePast.map(v => v.visit_date)
+      if (missingScheduled) dates.push(schedDate)
+      dates.sort()
+      pending.push({ ...c, pendingCount: incompletePast.length + (missingScheduled ? 1 : 0), oldestDate: dates[0] })
+    }
+  }
+  pending.sort((a, b) => (a.oldestDate || '').localeCompare(b.oldestDate || ''))
+  return pending
+}
+
 // Visitas que o usuário MARCOU (created_by) e ainda não confirmou,
 // agendadas para HOJE ou AMANHÃ. Mesma fonte usada pelo pop-up (Dashboard)
 // e pela aba "Hoje" — assim os dois mostram sempre o mesmo conteúdo.

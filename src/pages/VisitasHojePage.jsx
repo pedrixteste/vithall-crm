@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone } from 'lucide-react'
+import { MapPin, Clock, User, Phone, Star, AlertTriangle } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
-  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, getDayRange,
+  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, fetchPendingRatings, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 
@@ -56,6 +56,7 @@ export default function VisitasHojePage() {
   const [todayCalls, setTodayCalls]     = useState([])
   const [tomVisits, setTomVisits]       = useState([])
   const [tomCalls, setTomCalls]         = useState([])
+  const [pendingRatings, setPendingRatings] = useState([]) // visitas passadas sem avaliar
 
   const today    = getDayRange(0)
   const tomorrow = getDayRange(1)
@@ -66,6 +67,13 @@ export default function VisitasHojePage() {
   async function fetchData() {
     if (!user?.id) return
     const role = profile?.role
+
+    // Bloqueio: visitas passadas sem avaliar (só quem faz visita)
+    if (isVisitor) {
+      const pend = await fetchPendingRatings(user.id)
+      setPendingRatings(pend)
+      if (pend.length > 0) { setLoading(false); return } // trava a aba até avaliar
+    }
 
     const [confirm, tv, tc, mv, mc] = await Promise.all([
       fetchVisitsToConfirm(user.id),
@@ -104,6 +112,48 @@ export default function VisitasHojePage() {
       onUpdated={() => { setSelected(null); fetchData() }}
     />
   )
+
+  // 🔒 Bloqueio: aba Hoje travada até avaliar todas as visitas passadas
+  if (!loading && isVisitor && pendingRatings.length > 0) {
+    const total = pendingRatings.reduce((s, c) => s + c.pendingCount, 0)
+    return (
+      <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="rounded-2xl" style={{ background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.3)', padding: '20px' }}>
+          <div className="flex items-center gap-2.5 mb-2">
+            <AlertTriangle size={18} style={{ color: '#E8834A' }} />
+            <h1 className="text-lg font-bold" style={{ color: '#EFEFEF' }}>Avalie suas visitas</h1>
+          </div>
+          <p className="text-sm" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+            Você tem <b style={{ color: '#E8834A' }}>{total} {total === 1 ? 'visita realizada' : 'visitas realizadas'}</b> sem avaliação completa.
+            Preencha a <b>estrela</b> (nota, resultado, possibilidade e anotações) de cada uma para liberar sua agenda de hoje.
+          </p>
+        </div>
+
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: '#6B6560' }}>Pendentes de avaliação</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {pendingRatings.map(c => (
+            <button key={c.id} onClick={() => setSelected(c)}
+              className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
+              style={{ background: '#161616', border: '1px solid #303030', padding: '16px' }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                  {c.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{c.company_name}</p>}
+                  <p className="text-[11px] mt-1.5 flex items-center gap-1.5" style={{ color: '#E8834A' }}>
+                    <Clock size={11} /> visita de {new Date(c.oldestDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    {c.pendingCount > 1 && <span style={{ color: '#6B6560' }}>· {c.pendingCount} pendentes</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0 rounded-xl" style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C' }}>
+                  <Star size={14} /> <span className="text-xs font-bold">Avaliar</span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
