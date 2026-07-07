@@ -312,6 +312,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [callBackAt, setCallBackAt]       = useState('')
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
+  const [creator, setCreator]             = useState(null) // quem marcou a visita (created_by)
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
@@ -330,7 +331,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const visitFinalTranscriptRef = useRef('')
 
   useEffect(() => {
-    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory()
+    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator()
     // Busca perfil fresco para garantir tokens do Google atualizados
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => { if (data) setFreshProfile(data) })
@@ -361,6 +362,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!client.assigned_to) return
     const { data } = await supabase.from('profiles').select('name').eq('id', client.assigned_to).single()
     if (data) setAssignedName(data.name || 'Vendedor')
+  }
+
+  async function fetchCreator() {
+    if (!client.created_by) return
+    const { data } = await supabase.from('profiles').select('name, role').eq('id', client.created_by).single()
+    if (data) setCreator(data)
   }
 
   async function fetchVisits() {
@@ -1050,6 +1057,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 <span className="text-xs font-semibold" style={{ color: '#E8834A' }}>⚠️ Nao atribuido</span>
               )}
             </div>
+
+            {/* Marcado por (quem marcou a visita) */}
+            {currentClient.created_by && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Flag size={14} style={{ color: '#60A5FA' }} />
+                <span style={{ color: '#6B6560' }}>Marcado por: </span>
+                <span className="text-xs font-semibold rounded-full"
+                  style={{ padding: '4px 12px', background: 'rgba(96,165,250,0.1)', color: '#60A5FA', border: '1px solid rgba(96,165,250,0.25)' }}>
+                  {creator?.name || '...'}
+                  {creator?.role && ` · ${({ pre_vendas: 'Pré-vendas', vendedor: 'Vendedor', gerente: 'Gerente' })[creator.role] || creator.role}`}
+                </span>
+              </div>
+            )}
 
             {/* Treinamento de interesse */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
