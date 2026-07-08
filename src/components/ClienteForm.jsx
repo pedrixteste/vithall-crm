@@ -35,9 +35,9 @@ const MATRICULA_STAGES_PRE_VENDAS = [
 ]
 
 const REMINDER_TYPES = [
-  { key: 'daily',   label: 'Todo dia' },
-  { key: 'weekly',  label: 'Dias da semana' },
-  { key: 'in_days', label: 'Daqui X dias' },
+  { key: 'daily',         label: 'Todo dia' },
+  { key: 'weekly',        label: 'Dias da semana' },
+  { key: 'specific_date', label: 'Data específica' },
 ]
 
 const WEEK_DAYS = [
@@ -87,7 +87,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const rc = initialData?.reminder_config
   const [reminderType, setReminderType]     = useState(rc?.type    || '')
   const [reminderDays, setReminderDays]     = useState(rc?.days    || [])
-  const [reminderInDays, setReminderInDays] = useState(rc?.in_days?.toString() || '')
+  const [reminderDate, setReminderDate]     = useState(rc?.date ? rc.date.slice(0, 16) : '')
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
 
@@ -217,12 +217,16 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     setSaving(true)
     setError('')
 
-    const reminder_config = (reminderType && reminderTimes.length > 0) ? {
-      type: reminderType,
-      ...(reminderType === 'weekly'  && { days: reminderDays }),
-      ...(reminderType === 'in_days' && { in_days: parseInt(reminderInDays) || 7 }),
-      times: reminderTimes,
-    } : null
+    let reminder_config = null
+    if (reminderType === 'specific_date' && reminderDate) {
+      reminder_config = { type: 'specific_date', date: new Date(reminderDate).toISOString() }
+    } else if (reminderType && reminderType !== 'specific_date' && reminderTimes.length > 0) {
+      reminder_config = {
+        type: reminderType,
+        ...(reminderType === 'weekly' && { days: reminderDays }),
+        times: reminderTimes,
+      }
+    }
 
     const payload = {
       ...form,
@@ -550,26 +554,27 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             </div>
           )}
 
-          {/* Daqui X dias */}
-          {reminderType === 'in_days' && (
-            <div className="flex items-center gap-3" style={{ marginBottom: '14px' }}>
+          {/* Data específica — calendário + horário */}
+          {reminderType === 'specific_date' && (
+            <div style={{ marginBottom: '14px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
+                Data e hora do lembrete
+              </p>
               <input
-                type="number"
-                min="1" max="365"
-                value={reminderInDays}
-                onChange={e => setReminderInDays(e.target.value)}
-                placeholder="7"
-                className="text-sm outline-none text-center"
-                style={{ width: '72px', padding: '10px', borderRadius: '12px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }}
+                type="datetime-local"
+                value={reminderDate}
+                onChange={e => setReminderDate(e.target.value)}
+                className="w-full text-sm outline-none"
+                style={{ padding: '12px 14px', borderRadius: '12px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }}
                 onFocus={e => e.target.style.borderColor = '#C9A84C'}
                 onBlur={e => e.target.style.borderColor = '#252525'}
               />
-              <span className="text-sm" style={{ color: '#6B6560' }}>dias a partir de hoje</span>
+              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>Você será lembrado uma vez, nessa data e horário.</p>
             </div>
           )}
 
-          {/* Horarios (aparece quando qualquer tipo for selecionado) */}
-          {reminderType && (
+          {/* Horarios (só para lembretes recorrentes: todo dia / dias da semana) */}
+          {reminderType && reminderType !== 'specific_date' && (
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
                 Horarios (pode escolher mais de um)

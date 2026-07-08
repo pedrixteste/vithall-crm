@@ -55,7 +55,9 @@ async function saveSubId(id) {
 
 // Chamado ao salvar um cliente com lembrete configurado
 export async function scheduleClientReminder({ clientName, clientId, reminderConfig }) {
-  if (!reminderConfig?.times?.length) return
+  const hasTimes = reminderConfig?.times?.length
+  const hasDate  = reminderConfig?.type === 'specific_date' && reminderConfig?.date
+  if (!hasTimes && !hasDate) return
 
   // Pega o player_id salvo do usuario
   const { data: { user } } = await supabase.auth.getUser()

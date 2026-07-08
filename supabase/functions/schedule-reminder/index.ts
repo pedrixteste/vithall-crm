@@ -18,7 +18,9 @@ serve(async (req) => {
   try {
     const { clientName, reminderConfig, playerId } = await req.json()
 
-    if (!playerId || !reminderConfig?.times?.length) {
+    const hasTimes = reminderConfig?.times?.length
+    const hasDate  = reminderConfig?.type === 'specific_date' && reminderConfig?.date
+    if (!playerId || (!hasTimes && !hasDate)) {
       return new Response(JSON.stringify({ error: 'Dados insuficientes' }), { status: 400, headers: cors })
     }
 
@@ -66,7 +68,11 @@ function buildSchedule(clientName: string, config: any, playerId: string) {
     }
   }
 
-  if (config.type === 'in_days') {
+  if (config.type === 'specific_date') {
+    const sendAt = new Date(config.date)
+    if (sendAt > now) notifications.push(notif(sendAt))
+
+  } else if (config.type === 'in_days') {
     const target = new Date(now)
     target.setDate(target.getDate() + (config.in_days || 7))
     addTimes(target)

@@ -17,7 +17,26 @@ export function scheduleTodayReminders(clients) {
 
   for (const client of clients) {
     const cfg = client.reminder_config
-    if (!cfg || !cfg.times?.length) continue
+    if (!cfg) continue
+
+    // Data específica — lembrete único, só dispara se for hoje
+    if (cfg.type === 'specific_date' && cfg.date) {
+      const target = new Date(cfg.date)
+      if (target.toDateString() === now.toDateString()) {
+        const delay = target - now
+        if (delay >= 0) setTimeout(() => {
+          new Notification(`Lembrete: ${client.contact_name || client.company_name}`, {
+            body: 'Hora de entrar em contato!',
+            icon: '/logo.png',
+            tag: `client-${client.id}-date`,
+            renotify: true,
+          })
+        }, delay)
+      }
+      continue
+    }
+
+    if (!cfg.times?.length) continue
 
     let shouldRemindToday = false
 
