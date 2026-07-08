@@ -118,6 +118,24 @@ export async function fetchPendingRatings(userId) {
   return pending
 }
 
+// Visitas de um dia que o usuário MARCOU (created_by) e JÁ respondeu
+// (visit_confirmation preenchido). Usado para o pré-vendas ver, na aba Hoje,
+// as visitas do dia que ele já tratou no pop-up — coloridas pelo status.
+export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
+  if (!userId) return []
+  const { start, end } = getDayRange(offset)
+  const { data } = await supabase
+    .from('clients')
+    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, visit_confirmation_note')
+    .eq('created_by', userId)
+    .not('visit_scheduled_at', 'is', null)
+    .not('visit_confirmation', 'is', null)
+    .gte('visit_scheduled_at', start)
+    .lte('visit_scheduled_at', end)
+    .order('visit_scheduled_at', { ascending: true })
+  return data || []
+}
+
 // Visitas que o usuário MARCOU (created_by) e ainda não confirmou,
 // agendadas para HOJE ou AMANHÃ. Mesma fonte usada pelo pop-up (Dashboard)
 // e pela aba "Hoje" — assim os dois mostram sempre o mesmo conteúdo.

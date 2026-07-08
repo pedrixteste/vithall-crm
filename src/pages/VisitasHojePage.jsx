@@ -6,7 +6,8 @@ import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
-  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, fetchPendingRatings, getDayRange,
+  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, fetchPendingRatings,
+  fetchAnsweredVisitsForDay, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 
@@ -68,6 +69,34 @@ function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick,
   )
 }
 
+// Status respondido pelo pré-vendas (as 3 opções, cada uma numa cor)
+const ANSWERED_DISPLAY = {
+  confirmada:     { label: 'Confirmada',       color: '#4ADE80' },
+  nao_confirmada: { label: 'Não confirmada',   color: '#E85555' },
+  tentativa:      { label: 'Tentou confirmar', color: '#A78BFA' },
+}
+
+// Card das visitas de hoje que o pré-vendas já respondeu no pop-up
+function AnsweredCard({ client, onClick }) {
+  const c = ANSWERED_DISPLAY[client.visit_confirmation]
+  if (!c) return null
+  return (
+    <button onClick={onClick} className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
+      style={{ background: '#161616', border: '1px solid #252525', borderLeft: `3px solid ${c.color}`, padding: '14px 16px' }}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-xs font-bold tabular-nums" style={{ color: c.color }}>🕐 {timeOf(client.visit_scheduled_at)}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+          style={{ background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>{c.label}</span>
+      </div>
+      <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{client.contact_name}</p>
+      {client.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{client.company_name}</p>}
+      {client.visit_confirmation !== 'confirmada' && client.visit_confirmation_note && (
+        <p className="text-[11px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{client.visit_confirmation_note}"</p>
+      )}
+    </button>
+  )
+}
+
 export default function VisitasHojePage() {
   const { profile, user } = useAuth()
   const [profilesMap, setProfilesMap]   = useState({})
@@ -80,6 +109,7 @@ export default function VisitasHojePage() {
   const [tomVisits, setTomVisits]       = useState([])
   const [tomCalls, setTomCalls]         = useState([])
   const [pendingRatings, setPendingRatings] = useState([]) // visitas passadas sem avaliar
+  const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
 
   const today    = getDayRange(0)
   const tomorrow = getDayRange(1)
@@ -117,6 +147,9 @@ export default function VisitasHojePage() {
     if (isVisitor) {
       const { data: profs } = await supabase.from('profiles').select('id, name, role')
       setProfilesMap(Object.fromEntries((profs || []).map(p => [p.id, p])))
+    } else {
+      // Pré-vendas: visitas de hoje que ele já respondeu no pop-up (coloridas)
+      setAnsweredToday(await fetchAnsweredVisitsForDay(user.id, 0))
     }
 
     setLoading(false)
@@ -182,7 +215,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -209,6 +242,16 @@ export default function VisitasHojePage() {
       {loading && (
         <div className="flex items-center justify-center" style={{ paddingTop: '60px' }}>
           <div className="w-7 h-7 rounded-full border-2 animate-spin" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
+        </div>
+      )}
+
+      {/* Pré-vendas: visitas de hoje já respondidas no pop-up (coloridas por status) */}
+      {!loading && !isVisitor && answeredToday.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel>Visitas de hoje</SectionLabel>
+          {answeredToday.map(c => (
+            <AnsweredCard key={c.id} client={c} onClick={() => setSelected(c)} />
+          ))}
         </div>
       )}
 
