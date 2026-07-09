@@ -118,6 +118,57 @@ export async function fetchPendingRatings(userId) {
   return pending
 }
 
+// Próxima data em que um lembrete (reminder_config) vai disparar + dias até lá.
+// daily → hoje (0); weekly → próximo dia da semana marcado; specific_date → a data.
+const WEEKDAY_MAP = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 }
+function nextReminderInfo(cfg) {
+  if (!cfg) return null
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const daysBetween = (d) => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000)
+
+  if (cfg.type === 'specific_date' && cfg.date) {
+    const d = new Date(cfg.date)
+    const daysUntil = daysBetween(d)
+    if (daysUntil < 0) return null // lembrete único que já passou
+    return { date: cfg.date, daysUntil }
+  }
+  if (cfg.type === 'daily') {
+    return { date: today.toISOString(), daysUntil: 0 }
+  }
+  if (cfg.type === 'weekly') {
+    const targets = (cfg.days || []).map((d) => WEEKDAY_MAP[d]).filter((n) => n !== undefined)
+    if (!targets.length) return null
+    for (let i = 0; i <= 6; i++) {
+      if (targets.includes((now.getDay() + i) % 7)) {
+        const d = new Date(today); d.setDate(d.getDate() + i)
+        return { date: d.toISOString(), daysUntil: i }
+      }
+    }
+  }
+  return null
+}
+
+// Clientes que o usuário marcou p/ ser lembrado (reminder_config) e cujo próximo
+// lembrete está chegando (0..withinDays). Aparece na aba "Hoje".
+export async function fetchUpcomingReminders(userId, withinDays = 3) {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('clients')
+    .select('id, contact_name, company_name, city, phone, reminder_config')
+    .eq('created_by', userId)
+    .not('reminder_config', 'is', null)
+  const out = []
+  for (const c of data || []) {
+    const info = nextReminderInfo(c.reminder_config)
+    if (info && info.daysUntil >= 0 && info.daysUntil <= withinDays) {
+      out.push({ ...c, reminderDate: info.date, daysUntil: info.daysUntil, reminderType: c.reminder_config.type })
+    }
+  }
+  out.sort((a, b) => a.daysUntil - b.daysUntil)
+  return out
+}
+
 // Visitas de um dia que o usuário MARCOU (created_by) e JÁ respondeu
 // (visit_confirmation preenchido). Usado para o pré-vendas ver, na aba Hoje,
 // as visitas do dia que ele já tratou no pop-up — coloridas pelo status.

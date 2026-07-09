@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, Star, AlertTriangle } from 'lucide-react'
+import { MapPin, Clock, User, Phone, Star, AlertTriangle, Bell } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, fetchPendingRatings,
-  fetchAnsweredVisitsForDay, getDayRange,
+  fetchAnsweredVisitsForDay, fetchUpcomingReminders, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 
@@ -21,6 +21,12 @@ const STAGE_ACTIONS = [
 
 function timeOf(ts) {
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function reminderLabel(daysUntil, ts) {
+  if (daysUntil === 0) return 'Hoje'
+  if (daysUntil === 1) return 'Amanhã'
+  return new Date(ts).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')
 }
 
 function SectionLabel({ children, color = '#6B6560' }) {
@@ -110,6 +116,7 @@ export default function VisitasHojePage() {
   const [tomCalls, setTomCalls]         = useState([])
   const [pendingRatings, setPendingRatings] = useState([]) // visitas passadas sem avaliar
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
+  const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
 
   const today    = getDayRange(0)
   const tomorrow = getDayRange(1)
@@ -128,13 +135,15 @@ export default function VisitasHojePage() {
       if (pend.length > 0) { setLoading(false); return } // trava a aba até avaliar
     }
 
-    const [confirm, tv, tc, mv, mc] = await Promise.all([
+    const [confirm, tv, tc, mv, mc, rem] = await Promise.all([
       fetchVisitsToConfirm(user.id),
       fetchVisitsForDay(role, user.id, 0),
       fetchCallbacksForDay(role, user.id, 0),
       fetchVisitsForDay(role, user.id, 1),
       fetchCallbacksForDay(role, user.id, 1),
+      fetchUpcomingReminders(user.id, 3),
     ])
+    setReminders(rem)
     // Visitas "não confirmadas" (por quem marcou) não aparecem na agenda
     const visible = arr => arr.filter(v => v.visit_confirmation !== 'nao_confirmada')
     setToConfirm(confirm)
@@ -215,7 +224,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -334,6 +343,22 @@ export default function VisitasHojePage() {
               name={c.contact_name} company={c.company_name}
               sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
               isPast={new Date(c.call_back_at) < new Date()}
+              onClick={() => setSelected(c)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Lembretes chegando (≤3 dias) — clientes que a pessoa marcou p/ lembrar */}
+      {!loading && reminders.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color="#C9A84C"><span className="inline-flex items-center gap-1.5"><Bell size={12} /> Lembretes</span></SectionLabel>
+          {reminders.map(c => (
+            <CompactCard key={c.id}
+              time={reminderLabel(c.daysUntil, c.reminderDate)}
+              tag="Lembrete" tagColor="#C9A84C"
+              name={c.contact_name} company={c.company_name}
+              sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
               onClick={() => setSelected(c)}
             />
           ))}
