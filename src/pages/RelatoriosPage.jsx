@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { generateReportHTML } from '../lib/reportExport'
+import RelatoriosListas from '../components/RelatoriosListas'
 
 // ── Constantes ─────────────────────────────────────────────────────
 
@@ -320,6 +321,7 @@ export default function RelatoriosPage() {
   const [exportScope, setExportScope]         = useState('all')
   const [exportPersonId, setExportPersonId]   = useState(null)
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, marcacoes: true, visitas: true, matriculas: false })
+  const [view, setView]                       = useState('graficos') // graficos | listas
 
   useEffect(() => { fetchData() }, [profile])
 
@@ -333,10 +335,8 @@ export default function RelatoriosPage() {
     const { data: clientsData } = await query
     setClients(clientsData || [])
 
-    if (profile?.role === 'gerente') {
-      const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
-      setProfiles(profilesData || [])
-    }
+    const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
+    setProfiles(profilesData || [])
 
     let logsQuery = supabase.from('daily_logs').select('calls, appointments, log_date, user_id')
     if (profile?.role !== 'gerente') logsQuery = logsQuery.eq('user_id', user.id)
@@ -627,7 +627,7 @@ export default function RelatoriosPage() {
             </p>
           )}
         </div>
-        {profile?.role === 'gerente' && (
+        {profile?.role === 'gerente' && view === 'graficos' && (
           <button
             onClick={() => setShowExportModal(true)}
             style={{
@@ -643,6 +643,27 @@ export default function RelatoriosPage() {
           </button>
         )}
       </div>
+
+      {/* Seletor de modo: Gráficos | Listas */}
+      <div style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px', background: '#161616', border: '1px solid #252525' }}>
+        {[['graficos', 'Gráficos'], ['listas', 'Listas']].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)}
+            style={{
+              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+              background: view === k ? 'rgba(201,168,76,0.12)' : 'transparent',
+              color:      view === k ? '#C9A84C' : '#6B6560',
+              border:     view === k ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+            }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {view === 'listas' && (
+        <RelatoriosListas clients={clients} profiles={profiles} role={profile?.role} />
+      )}
+
+      {view === 'graficos' && (<>
 
       {/* ── Filtro de período ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1137,6 +1158,8 @@ export default function RelatoriosPage() {
           </div>
         </div>
       )}
+
+      </>)}
 
     </div>
   )
