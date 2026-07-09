@@ -135,7 +135,7 @@ export default function VisitasHojePage() {
       fetchCallbacksForDay(role, user.id, 0),
       fetchVisitsForDay(role, user.id, 1),
       fetchCallbacksForDay(role, user.id, 1),
-      fetchUpcomingReminders(user.id, 3),
+      fetchUpcomingReminders(user.id, 1),
     ])
     setReminders(rem)
     // Visitas "não confirmadas" (por quem marcou) não aparecem na agenda
@@ -346,11 +346,11 @@ export default function VisitasHojePage() {
       {/* Lembretes chegando (≤3 dias) — clientes que a pessoa marcou p/ lembrar */}
       {!loading && reminders.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <SectionLabel color="#C9A84C"><span className="inline-flex items-center gap-1.5"><Bell size={12} /> Lembretes</span></SectionLabel>
+          <SectionLabel color="#22D3EE"><span className="inline-flex items-center gap-1.5"><Bell size={12} /> Lembretes</span></SectionLabel>
           {reminders.map(c => (
             <CompactCard key={c.id}
               time={reminderLabel(c.daysUntil, c.reminderDate)}
-              tag="Lembrete" tagColor="#C9A84C"
+              tag="Lembrete" tagColor="#22D3EE"
               name={c.contact_name} company={c.company_name}
               sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
               onClick={() => setSelected(c)}
