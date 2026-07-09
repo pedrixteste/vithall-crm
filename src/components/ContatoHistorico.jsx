@@ -17,7 +17,9 @@ const VISITA_COLOR = '#A78BFA'
 
 function fmt(x) {
   if (!x) return '—'
-  const d = new Date(x)
+  // datas só-data (visit_date = YYYY-MM-DD) viram meio-dia local p/ não perder 1 dia no fuso
+  const iso = typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x + 'T12:00:00' : x
+  const d = new Date(iso)
   return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
