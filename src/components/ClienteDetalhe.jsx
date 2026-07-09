@@ -1004,7 +1004,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                     className="flex items-center rounded-lg transition-all active:scale-95"
                     style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
                     <Phone size={12} />
-                    <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount}</sup>
+                    <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
                   </button>
                 )}
               </div>
