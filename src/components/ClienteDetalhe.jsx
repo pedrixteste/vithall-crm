@@ -6,6 +6,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
+import ContatoHistorico from './ContatoHistorico'
 
 const TRAININGS          = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
@@ -313,6 +314,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
   const [creator, setCreator]             = useState(null) // quem marcou a visita (created_by)
+  const [phoneCount, setPhoneCount]       = useState(1)    // registros com o mesmo telefone
+  const [showHistorico, setShowHistorico] = useState(false) // pop-up do histórico do contato
+  const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
@@ -331,11 +335,26 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const visitFinalTranscriptRef = useRef('')
 
   useEffect(() => {
-    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator()
-    // Busca perfil fresco para garantir tokens do Google atualizados
+    // Busca perfil fresco para garantir tokens do Google atualizados (uma vez)
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [])
+
+  // Recarrega os dados do registro exibido — refaz ao trocar de cliente
+  // (usado pelo histórico do contato, que troca o registro internamente)
+  useEffect(() => {
+    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentClient.id])
+
+  // Após trocar de registro pedindo a estrela, abre-a quando as visitas carregam
+  useEffect(() => {
+    if (pendingStar && visits.length) {
+      openRatingPanel(pendingStar.visitId)
+      setPendingStar(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visits, pendingStar])
 
   // Trava scroll da página + previne touchmove fora do container de scroll do painel
   const ratingScrollRef = useRef(null)
@@ -359,35 +378,56 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // ── Fetches ────────────────────────────────────────────────────
 
   async function fetchAssigned() {
-    if (!client.assigned_to) return
-    const { data } = await supabase.from('profiles').select('name').eq('id', client.assigned_to).single()
+    if (!currentClient.assigned_to) return
+    const { data } = await supabase.from('profiles').select('name').eq('id', currentClient.assigned_to).single()
     if (data) setAssignedName(data.name || 'Vendedor')
   }
 
   async function fetchCreator() {
-    if (!client.created_by) return
-    const { data } = await supabase.from('profiles').select('name, role').eq('id', client.created_by).single()
+    if (!currentClient.created_by) return
+    const { data } = await supabase.from('profiles').select('name, role').eq('id', currentClient.created_by).single()
     if (data) setCreator(data)
+  }
+
+  // Conta quantos registros existem com o mesmo telefone (histórico do contato)
+  async function fetchPhoneCount() {
+    if (!currentClient.phone) { setPhoneCount(1); return }
+    const { count } = await supabase
+      .from('clients')
+      .select('id', { count: 'exact', head: true })
+      .eq('phone', currentClient.phone)
+    setPhoneCount(count || 1)
+  }
+
+  // Troca o registro exibido (item do histórico do contato), sem sair da ficha
+  function switchToClient(record, { openStar = false, visitId = null } = {}) {
+    setShowHistorico(false)
+    setShowRating(false); setShowEdit(false); setShowHistory(false); setEditingStage(false)
+    setTab('visitas')
+    setNotesValue(record.notes || '')
+    setVisits([]); setTasks([])
+    setPendingStar(openStar ? { visitId } : null)
+    setCurrentClient(record) // dispara o efeito [currentClient.id] que recarrega tudo
   }
 
   async function fetchVisits() {
     const { data } = await supabase
       .from('visits')
       .select('*')
-      .eq('client_id', client.id)
+      .eq('client_id', currentClient.id)
       .order('visit_date', { ascending: false })
     let fetched = data || []
 
     // Após a data da visita agendada passar, criar o registro automaticamente
-    if (client.visit_scheduled_at) {
-      const scheduledDate = new Date(client.visit_scheduled_at)
+    if (currentClient.visit_scheduled_at) {
+      const scheduledDate = new Date(currentClient.visit_scheduled_at)
       if (scheduledDate < new Date()) {
         const dateStr = scheduledDate.toISOString().split('T')[0]
         const alreadyExists = fetched.some(v => v.visit_date === dateStr)
         if (!alreadyExists) {
           const { data: inserted } = await supabase
             .from('visits')
-            .insert({ client_id: client.id, visit_date: dateStr })
+            .insert({ client_id: currentClient.id, visit_date: dateStr })
             .select()
             .single()
           if (inserted) {
@@ -403,7 +443,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   }
 
   async function fetchTasks() {
-    const { data } = await supabase.from('tasks').select('*').eq('client_id', client.id).order('due_date')
+    const { data } = await supabase.from('tasks').select('*').eq('client_id', currentClient.id).order('due_date')
     setTasks(data || [])
   }
 
@@ -411,14 +451,14 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const { data } = await supabase
       .from('client_history')
       .select('*')
-      .eq('client_id', client.id)
+      .eq('client_id', currentClient.id)
       .order('created_at', { ascending: false })
     setHistory(data || [])
   }
 
   async function logEvent(event_type, event_data = {}) {
     await supabase.from('client_history').insert({
-      client_id:  client.id,
+      client_id:  currentClient.id,
       user_id:    user?.id,
       user_name:  profile?.name || null,
       event_type,
@@ -431,7 +471,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function saveNotes() {
     if (notesValue === currentClient.notes) return
     setSavingNotes(true)
-    await supabase.from('clients').update({ notes: notesValue }).eq('id', client.id)
+    await supabase.from('clients').update({ notes: notesValue }).eq('id', currentClient.id)
     setCurrentClient(c => ({ ...c, notes: notesValue }))
     setSavingNotes(false)
     setNotesSaved(true)
@@ -454,7 +494,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const today = new Date().toISOString().split('T')[0]
     const { data: newVisit } = await supabase
       .from('visits')
-      .insert({ client_id: client.id, visit_date: today })
+      .insert({ client_id: currentClient.id, visit_date: today })
       .select()
       .single()
     await logEvent('visit', { date: today })
@@ -483,7 +523,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     await supabase.from('clients').update({
       matricula_stage: 'pediu_ligar',
       call_back_at:    callBackDate || null,
-    }).eq('id', client.id)
+    }).eq('id', currentClient.id)
     await logEvent('stage_change', { from: oldStage, to: 'pediu_ligar' })
     setCurrentClient(c => ({ ...c, matricula_stage: 'pediu_ligar', call_back_at: callBackDate || null }))
     setEditingStage(false)
@@ -494,7 +534,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const dueDate = callBackDate ? callBackDate.split('T')[0] : null
     await supabase.from('tasks').insert({
       title:     'Ligar para ' + clientLabel,
-      client_id: client.id,
+      client_id: currentClient.id,
       seller_id: user.id,
       completed: false,
       priority:  'alta',
@@ -512,7 +552,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function updateStage(newStage) {
     const oldStage = currentClient.matricula_stage
     if (oldStage === newStage) { setEditingStage(false); return }
-    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', client.id)
+    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', currentClient.id)
     await logEvent('stage_change', { from: oldStage, to: newStage })
     setCurrentClient(c => ({ ...c, matricula_stage: newStage }))
     setEditingStage(false)
@@ -522,7 +562,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (newStage === 'cancelado') {
       try {
         const [{ data: freshClient }, { data: freshProfile }] = await Promise.all([
-          supabase.from('clients').select('google_calendar_event_id').eq('id', client.id).single(),
+          supabase.from('clients').select('google_calendar_event_id').eq('id', currentClient.id).single(),
           supabase.from('profiles').select('*').eq('id', user.id).single(),
         ])
         const eventId = freshClient?.google_calendar_event_id
@@ -540,7 +580,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
         )
         if (res.status === 204 || res.status === 404) {
-          await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', client.id)
+          await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
           setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
         } else {
           const err = await res.json().catch(() => ({}))
@@ -564,7 +604,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         clientName:    currentClient.contact_name || currentClient.company_name || 'Cliente',
         visitDateTime: currentClient.visit_scheduled_at,
       })
-      await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', client.id)
+      await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', currentClient.id)
       setCurrentClient(c => ({ ...c, google_calendar_event_id: eventId }))
     } catch (e) {
       alert(`Erro ao sincronizar: ${e.message}`)
@@ -585,7 +625,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const updated = current.includes(training)
       ? current.filter(t => t !== training)
       : [...current, training]
-    await supabase.from('clients').update({ treinamentos_interesse: updated }).eq('id', client.id)
+    await supabase.from('clients').update({ treinamentos_interesse: updated }).eq('id', currentClient.id)
     setCurrentClient(c => ({ ...c, treinamentos_interesse: updated }))
   }
 
@@ -593,7 +633,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const current = currentClient.matriculas || []
     const isRemoving = current.includes(training)
     const updated = isRemoving ? current.filter(t => t !== training) : [...current, training]
-    await supabase.from('clients').update({ matriculas: updated }).eq('id', client.id)
+    await supabase.from('clients').update({ matriculas: updated }).eq('id', currentClient.id)
     await logEvent(isRemoving ? 'matricula_removed' : 'matricula_added', { training })
     setCurrentClient(c => ({ ...c, matriculas: updated }))
     fetchHistory()
@@ -682,7 +722,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setListeningVisitId(null)
   }
 
-  function openRatingPanel() {
+  function openRatingPanel(targetVisitId = null) {
     const initial  = {}
     const collapsed = new Set()
     visits.forEach((v, i) => {
@@ -698,7 +738,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         visit_possibilities:     customPoss ? [...stdPoss, 'outros_eventos'] : stdPoss,
         outros_eventos_text:     customPoss || '',
       }
-      if (i > 0) collapsed.add(v.id) // só a mais recente começa expandida
+      // expande a visita alvo (vinda do histórico) ou, sem alvo, só a mais recente
+      const expand = targetVisitId ? v.id === targetVisitId : i === 0
+      if (!expand) collapsed.add(v.id)
     })
     // Visitas já completamente salvas no banco começam "verdes"
     const alreadySaved = new Set(
@@ -748,7 +790,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         await supabase.from('clients').update({
           matriculas:      updated,
           matricula_stage: 'matriculado',
-        }).eq('id', client.id)
+        }).eq('id', currentClient.id)
         for (const t of toAdd) {
           await logEvent('matricula_added', { training: t })
         }
@@ -766,7 +808,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       await supabase.from('clients').update({
         visit_scheduled_at:       iso,
         google_calendar_event_id: null,
-      }).eq('id', client.id)
+      }).eq('id', currentClient.id)
       setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null }))
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
     }
@@ -780,7 +822,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const dueDate = edit.outcome_followup_datetime.split('T')[0]
       await supabase.from('tasks').insert({
         title:     'Follow-up — ' + clientLabel,
-        client_id: client.id,
+        client_id: currentClient.id,
         seller_id: user.id,
         completed: false,
         priority:  edit.visit_outcome === 'grandes_chances' ? 'alta' : 'media',
@@ -794,7 +836,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
       await supabase.from('tasks').insert({
         title:     'Remarcar visita — ' + clientLabel,
-        client_id: client.id,
+        client_id: currentClient.id,
         seller_id: user.id,
         completed: false,
         priority:  'alta',
@@ -950,11 +992,22 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           {/* Infos de contato */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {currentClient.phone && (
-              <a href={`tel:${currentClient.phone}`} className="flex items-center gap-2.5 text-sm"
-                style={{ color: '#6B6560' }}>
-                <Phone size={14} style={{ color: '#C9A84C' }} />
-                {currentClient.phone}
-              </a>
+              <div className="flex items-center gap-2.5">
+                <a href={`tel:${currentClient.phone}`} className="flex items-center gap-2.5 text-sm"
+                  style={{ color: '#6B6560' }}>
+                  <Phone size={14} style={{ color: '#C9A84C' }} />
+                  {currentClient.phone}
+                </a>
+                {phoneCount > 1 && (
+                  <button onClick={() => setShowHistorico(true)}
+                    title="Contato já registrado antes — ver histórico"
+                    className="flex items-center rounded-lg transition-all active:scale-95"
+                    style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
+                    <Phone size={12} />
+                    <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount}</sup>
+                  </button>
+                )}
+              </div>
             )}
             {(currentClient.city || currentClient.address_street) && (() => {
               const parts = [
@@ -1947,7 +2000,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {showEdit && (
         <ClienteForm initialData={currentClient} onClose={() => setShowEdit(false)}
           onSaved={async () => {
-            const { data } = await supabase.from('clients').select('*').eq('id', client.id).single()
+            const { data } = await supabase.from('clients').select('*').eq('id', currentClient.id).single()
             setCurrentClient(data)
             setNotesValue(data?.notes || '')
             setShowEdit(false)
@@ -1955,8 +2008,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           }} />
       )}
       {showTarefaForm && (
-        <TarefaForm clientId={client.id} onClose={() => setShowTarefaForm(false)}
+        <TarefaForm clientId={currentClient.id} onClose={() => setShowTarefaForm(false)}
           onSaved={() => { setShowTarefaForm(false); fetchTasks() }} />
+      )}
+      {showHistorico && (
+        <ContatoHistorico
+          phone={currentClient.phone}
+          currentClientId={currentClient.id}
+          onOpenClient={(record, opts) => switchToClient(record, opts)}
+          onClose={() => setShowHistorico(false)}
+        />
       )}
     </div>
   )
