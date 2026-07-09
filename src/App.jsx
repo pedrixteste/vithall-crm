@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { RatingsGateProvider, useRatingsGate } from './contexts/RatingsGateContext'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import ClientesPage from './pages/ClientesPage'
@@ -13,14 +14,31 @@ import VisitasHojePage from './pages/VisitasHojePage'
 import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import Layout from './components/Layout'
 
-function PrivateRoute({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
+      <div className="w-7 h-7 rounded-full border-2 animate-spin" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
     </div>
   )
-  return user ? children : <Navigate to="/login" replace />
+}
+
+// Trava global: com visitas pendentes de avaliação, só a aba Hoje (/agenda)
+// é acessível — a ficha do cliente pra avaliar abre dentro dela. Qualquer
+// outra rota é redirecionada para /agenda.
+function RatingsGate({ children }) {
+  const location = useLocation()
+  const { pending, loading } = useRatingsGate()
+  if (location.pathname === '/agenda') return children
+  if (loading) return <Spinner />
+  if (pending.length > 0) return <Navigate to="/agenda" replace />
+  return children
+}
+
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  return <RatingsGate>{children}</RatingsGate>
 }
 
 function AppRoutes() {
@@ -85,7 +103,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <RatingsGateProvider>
+          <AppRoutes />
+        </RatingsGateProvider>
       </AuthProvider>
     </BrowserRouter>
   )

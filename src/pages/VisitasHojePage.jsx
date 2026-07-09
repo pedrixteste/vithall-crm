@@ -6,10 +6,11 @@ import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
-  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay, fetchPendingRatings,
+  fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
   fetchAnsweredVisitsForDay, fetchUpcomingReminders, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
+import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
 const STAGE_ACTIONS = [
@@ -114,7 +115,7 @@ export default function VisitasHojePage() {
   const [todayCalls, setTodayCalls]     = useState([])
   const [tomVisits, setTomVisits]       = useState([])
   const [tomCalls, setTomCalls]         = useState([])
-  const [pendingRatings, setPendingRatings] = useState([]) // visitas passadas sem avaliar
+  const { pending: pendingRatings, loading: gateLoading, refresh: refreshGate } = useRatingsGate()
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
 
@@ -127,13 +128,6 @@ export default function VisitasHojePage() {
   async function fetchData() {
     if (!user?.id) return
     const role = profile?.role
-
-    // Bloqueio: visitas passadas sem avaliar (só quem faz visita)
-    if (isVisitor) {
-      const pend = await fetchPendingRatings(user.id)
-      setPendingRatings(pend)
-      if (pend.length > 0) { setLoading(false); return } // trava a aba até avaliar
-    }
 
     const [confirm, tv, tc, mv, mc, rem] = await Promise.all([
       fetchVisitsToConfirm(user.id),
@@ -175,13 +169,13 @@ export default function VisitasHojePage() {
   if (selected) return (
     <ClienteDetalhe
       client={selected}
-      onBack={() => { setSelected(null); fetchData() }}
-      onUpdated={() => { setSelected(null); fetchData() }}
+      onBack={() => { setSelected(null); refreshGate(); fetchData() }}
+      onUpdated={() => { setSelected(null); refreshGate(); fetchData() }}
     />
   )
 
-  // 🔒 Bloqueio: aba Hoje travada até avaliar todas as visitas passadas
-  if (!loading && isVisitor && pendingRatings.length > 0) {
+  // 🔒 Bloqueio: com visitas pendentes, o app inteiro trava aqui até avaliar
+  if (!gateLoading && isVisitor && pendingRatings.length > 0) {
     const total = pendingRatings.reduce((s, c) => s + c.pendingCount, 0)
     return (
       <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -192,7 +186,7 @@ export default function VisitasHojePage() {
           </div>
           <p className="text-sm" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
             Você tem <b style={{ color: '#E8834A' }}>{total} {total === 1 ? 'visita realizada' : 'visitas realizadas'}</b> sem avaliação completa.
-            Preencha a <b>estrela</b> (nota, resultado, possibilidade e anotações) de cada uma para liberar sua agenda de hoje.
+            Preencha a <b>estrela</b> (nota, resultado, possibilidade e anotações) de cada uma para liberar o acesso ao app.
           </p>
         </div>
 
