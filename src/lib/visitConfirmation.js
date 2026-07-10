@@ -4,12 +4,13 @@ import { supabase } from './supabase'
 export function getDayRange(offset = 0) {
   const d = new Date()
   d.setDate(d.getDate() + offset)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
+  // Limites do dia LOCAL convertidos p/ ISO (UTC) — o Postgres compara
+  // timestamptz em UTC, então mandar string sem fuso deslocava a janela em 3h
+  const start = new Date(d); start.setHours(0, 0, 0, 0)
+  const end   = new Date(d); end.setHours(23, 59, 59, 999)
   return {
-    start: `${y}-${m}-${day}T00:00:00`,
-    end:   `${y}-${m}-${day}T23:59:59`,
+    start: start.toISOString(),
+    end:   end.toISOString(),
     label: d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }),
   }
 }

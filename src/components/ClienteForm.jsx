@@ -52,6 +52,16 @@ const WEEK_DAYS = [
 
 const PRESET_TIMES = ['07:00', '08:00', '09:00', '12:00', '14:00', '17:00', '18:00', '19:00']
 
+// Converte timestamp UTC (como vem do Supabase) para o formato local do
+// input datetime-local ("YYYY-MM-DDTHH:mm"), sem deslocar o horário.
+function toLocalInputValue(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
+
 export default function ClienteForm({ onClose, onSaved, initialData }) {
   const { user, profile } = useAuth()
   const [form, setForm] = useState({
@@ -87,7 +97,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const rc = initialData?.reminder_config
   const [reminderType, setReminderType]     = useState(rc?.type    || '')
   const [reminderDays, setReminderDays]     = useState(rc?.days    || [])
-  const [reminderDate, setReminderDate]     = useState(rc?.date ? rc.date.slice(0, 16) : '')
+  const [reminderDate, setReminderDate]     = useState(toLocalInputValue(rc?.date))
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
 
@@ -96,7 +106,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   )
 
   const [visitScheduledAt, setVisitScheduledAt] = useState(
-    initialData?.visit_scheduled_at ? initialData.visit_scheduled_at.slice(0, 16) : ''
+    toLocalInputValue(initialData?.visit_scheduled_at)
   )
 
   const [saving, setSaving]       = useState(false)
@@ -231,14 +241,14 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     const payload = {
       ...form,
       assigned_to: form.assigned_to || null,
-      created_by: user.id,
       reminder_config,
       visit_scheduled_at: visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null,
       treinamentos_interesse: treinamentosInteresse,
     }
+    // created_by só no cadastro — editar não pode trocar quem marcou
     const res = initialData?.id
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
-      : await supabase.from('clients').insert(payload)
+      : await supabase.from('clients').insert({ ...payload, created_by: user.id })
 
     if (res.error) {
       setError('Erro ao salvar. Tente novamente.')

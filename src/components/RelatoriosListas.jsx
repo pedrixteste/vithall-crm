@@ -190,7 +190,8 @@ export default function RelatoriosListas({ clients = [], profiles = [], role }) 
       if (f.from || f.to) {
         const raw = f.dateField === 'visita' ? latestVisit(c)?.visit_date : c.created_at
         if (!raw) return false
-        const d = new Date(raw)
+        // visit_date é só-data (YYYY-MM-DD): parseia como meio-dia local p/ não perder 1 dia no fuso
+        const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T12:00:00' : raw)
         if (f.from && d < new Date(f.from + 'T00:00:00')) return false
         if (f.to && d > new Date(f.to + 'T23:59:59')) return false
       }

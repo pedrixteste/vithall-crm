@@ -18,14 +18,22 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
   const [activeKind, setActiveKind] = useState(null) // 'nao_confirmada' | 'tentativa'
   const [note, setNote]         = useState('')
   const [saving, setSaving]     = useState(false)
+  const [saveError, setSaveError] = useState(null) // id da visita que falhou ao salvar
 
   async function save(clientId, status, confirmationNote) {
     setSaving(true)
-    await supabase
+    setSaveError(null)
+    const { error } = await supabase
       .from('clients')
       .update({ visit_confirmation: status, visit_confirmation_note: confirmationNote || null })
       .eq('id', clientId)
     setSaving(false)
+
+    if (error) {
+      // Não remove o card — a resposta NÃO foi salva (provável falta de internet)
+      setSaveError(clientId)
+      return
+    }
 
     const rest = pending.filter(v => v.id !== clientId)
     setPending(rest)
@@ -56,6 +64,12 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
         return (
           <div key={v.id} className="rounded-2xl"
             style={{ background: '#161616', border: '1px solid #252525', padding: '16px' }}>
+            {saveError === v.id && (
+              <p className="text-[11px] font-semibold rounded-xl mb-3"
+                style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                Não foi possível salvar — verifique sua internet e tente de novo.
+              </p>
+            )}
             {/* Cliente */}
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">

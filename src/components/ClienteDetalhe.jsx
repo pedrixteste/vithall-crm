@@ -418,8 +418,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       .order('visit_date', { ascending: false })
     let fetched = data || []
 
-    // Após a data da visita agendada passar, criar o registro automaticamente
-    if (currentClient.visit_scheduled_at) {
+    // Após a data da visita agendada passar, criar o registro automaticamente.
+    // Visita "não confirmada" não aconteceu — não cria registro nem cobra estrela.
+    if (currentClient.visit_scheduled_at && currentClient.visit_confirmation !== 'nao_confirmada') {
       const scheduledDate = new Date(currentClient.visit_scheduled_at)
       if (scheduledDate < new Date()) {
         const dateStr = scheduledDate.toISOString().split('T')[0]
