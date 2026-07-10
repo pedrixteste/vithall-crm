@@ -1,13 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, Users, GitBranch, CheckSquare, UserCircle, Users2, BarChart2, Phone, CalendarDays } from 'lucide-react'
+import { LayoutDashboard, Users, CheckSquare, UserCircle, Users2, BarChart2, Phone, CalendarDays, CalendarClock } from 'lucide-react'
 
 // "Hoje" fica em 2ª posição (ao lado do Dashboard) para todos os perfis
 const BASE_NAV = [
   { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
   { to: '/agenda',     label: 'Hoje',       icon: CalendarDays },
   { to: '/clientes',   label: 'Clientes',   icon: Users },
-  { to: '/pipeline',   label: 'Funil',      icon: GitBranch },
+  { to: '/agendas',    label: 'Agenda',     icon: CalendarClock },
   { to: '/relatorios', label: 'Relatorios', icon: BarChart2 },
   { to: '/ligacoes',   label: 'Ligacoes',   icon: Phone },
   { to: '/tarefas',    label: 'Tarefas',    icon: CheckSquare,   mobileHide: true },
