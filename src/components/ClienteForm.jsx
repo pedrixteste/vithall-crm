@@ -238,12 +238,21 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       }
     }
 
+    const newVisitIso = visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null
     const payload = {
       ...form,
       assigned_to: form.assigned_to || null,
       reminder_config,
-      visit_scheduled_at: visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null,
+      visit_scheduled_at: newVisitIso,
       treinamentos_interesse: treinamentosInteresse,
+    }
+    // Visita remarcada (data mudou) → confirmação antiga não vale mais
+    if (initialData?.id) {
+      const oldVisitIso = initialData.visit_scheduled_at ? new Date(initialData.visit_scheduled_at).toISOString() : null
+      if (newVisitIso !== oldVisitIso) {
+        payload.visit_confirmation = null
+        payload.visit_confirmation_note = null
+      }
     }
     // created_by só no cadastro — editar não pode trocar quem marcou
     const res = initialData?.id
