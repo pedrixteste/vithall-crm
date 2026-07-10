@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Plus, Search, ChevronRight, X, SlidersHorizontal } from 'lucide-react'
+import { Plus, Search, ChevronRight, X, SlidersHorizontal, Phone } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { Card } from '../components/ui/Card'
@@ -62,6 +62,7 @@ export default function ClientesPage() {
   const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
   const [filterOutcome, setFilterOutcome]   = useState(() => searchParams.get('outcome') || '')
   const [preVendasIds, setPreVendasIds]     = useState(new Set())
+  const [phoneCounts, setPhoneCounts]       = useState({}) // telefone → nº de registros (todos os usuários)
 
   // Abre painel de filtros automaticamente se vier com filtro pela URL
   useEffect(() => {
@@ -89,6 +90,12 @@ export default function ClientesPage() {
     const { data } = await query
     setClients(data || [])
     setLoading(false)
+
+    // Conta registros por telefone (base toda, igual ao histórico do contato 📞ˣ)
+    const { data: phones } = await supabase.from('clients').select('phone')
+    const counts = {}
+    for (const p of phones || []) if (p.phone) counts[p.phone] = (counts[p.phone] || 0) + 1
+    setPhoneCounts(counts)
   }
 
   function clearFilters() {
@@ -122,10 +129,14 @@ export default function ClientesPage() {
     return [...map.values()].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
   })()
 
+  const q = search.trim().toLowerCase()
+  const qDigits = q.replace(/\D/g, '') // busca por telefone ignora formatação
+
   const filtered = clients.filter(c => {
-    const matchesSearch = !search ||
-      c.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.contact_name?.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch = !q ||
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_name?.toLowerCase().includes(q) ||
+      (qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits))
 
     const matchesStage   = !filterStage || c.matricula_stage === filterStage
     const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
@@ -192,7 +203,7 @@ export default function ClientesPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar empresa ou contato..."
+              placeholder="Buscar contato, empresa ou telefone..."
               className="w-full pl-11 pr-10 rounded-xl text-sm outline-none transition-all"
               style={{ padding: '12px 12px 12px 40px', background: '#161616', border: '1px solid #303030', color: '#EFEFEF' }}
               onFocus={e => e.target.style.borderColor = '#C9A84C'}
@@ -498,6 +509,13 @@ export default function ClientesPage() {
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
                       {client.contact_name || client.company_name}
                     </p>
+                    {(phoneCounts[client.phone] || 0) > 1 && (
+                      <span title={`Contato registrado outras ${phoneCounts[client.phone] - 1}x`}
+                        className="inline-flex items-center flex-shrink-0 rounded-full"
+                        style={{ padding: '2px 7px', gap: '1px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: '10px', fontWeight: 700 }}>
+                        <Phone size={10} /><sup>{phoneCounts[client.phone] - 1}</sup>
+                      </span>
+                    )}
                     {!client.assigned_to && profile?.role === 'pre_vendas' && (
                       <span title="Nao atribuido a nenhum vendedor" style={{ fontSize: '14px', flexShrink: 0 }}>⚠️</span>
                     )}
@@ -507,7 +525,12 @@ export default function ClientesPage() {
                       {client.company_name}{client.contact_role ? ` · ${client.contact_role}` : ''}
                     </p>
                   )}
-                  <div style={{ marginTop: '10px' }}>
+                  {client.phone && (
+                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#555050' }}>
+                      <Phone size={10} style={{ flexShrink: 0 }} /> {client.phone}
+                    </p>
+                  )}
+                  <div style={{ marginTop: '6px' }}>
                     {client.matricula_stage === 'matriculado' && client.matriculas?.length > 0 ? (
                       <div className="flex flex-wrap" style={{ gap: '4px' }}>
                         {client.matriculas.map(t => (
