@@ -806,14 +806,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       && edit.outcome_return_datetime
     ) {
       const iso = new Date(edit.outcome_return_datetime).toISOString()
-      // Data nova → confirmação antiga não vale mais; quem marcou confirma de novo
+      // Data nova → confirmação antiga não vale mais; o retorno foi marcado
+      // por quem preencheu a estrela (vendedor), então ele que confirma
       await supabase.from('clients').update({
         visit_scheduled_at:       iso,
         google_calendar_event_id: null,
         visit_confirmation:       null,
         visit_confirmation_note:  null,
+        visit_scheduled_by:       user.id,
       }).eq('id', currentClient.id)
-      setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null, visit_confirmation: null, visit_confirmation_note: null }))
+      setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null, visit_confirmation: null, visit_confirmation_note: null, visit_scheduled_by: user.id }))
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
     }
 

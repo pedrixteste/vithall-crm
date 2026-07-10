@@ -170,7 +170,12 @@ export async function fetchUpcomingReminders(userId, withinDays = 3) {
   return out
 }
 
-// Visitas de um dia que o usuário MARCOU (created_by) e JÁ respondeu
+// Filtro "quem marcou a visita atual": visit_scheduled_by; registros antigos
+// (coluna nula) caem no fallback created_by — quem cadastrou foi quem marcou.
+const scheduledByMe = (userId) =>
+  `visit_scheduled_by.eq.${userId},and(visit_scheduled_by.is.null,created_by.eq.${userId})`
+
+// Visitas de um dia que o usuário MARCOU e JÁ respondeu
 // (visit_confirmation preenchido). Usado para o pré-vendas ver, na aba Hoje,
 // as visitas do dia que ele já tratou no pop-up — coloridas pelo status.
 export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
@@ -179,7 +184,7 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
   const { data } = await supabase
     .from('clients')
     .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, visit_confirmation_note')
-    .eq('created_by', userId)
+    .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .not('visit_confirmation', 'is', null)
     .gte('visit_scheduled_at', start)
@@ -188,9 +193,9 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
   return data || []
 }
 
-// Visitas que o usuário MARCOU (created_by) e ainda não confirmou,
-// agendadas para HOJE ou AMANHÃ. Mesma fonte usada pelo pop-up (Dashboard)
-// e pela aba "Hoje" — assim os dois mostram sempre o mesmo conteúdo.
+// Visitas que o usuário MARCOU (visit_scheduled_by, fallback created_by)
+// e ainda não confirmou, agendadas para HOJE ou AMANHÃ. Mesma fonte usada
+// pelo pop-up (Dashboard) e pela aba "Hoje" — os dois mostram o mesmo.
 export async function fetchVisitsToConfirm(userId) {
   if (!userId) return []
 
@@ -203,7 +208,7 @@ export async function fetchVisitsToConfirm(userId) {
   const { data } = await supabase
     .from('clients')
     .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation')
-    .eq('created_by', userId)
+    .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .is('visit_confirmation', null)
     .gte('visit_scheduled_at', start.toISOString())
