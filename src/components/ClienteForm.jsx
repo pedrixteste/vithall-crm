@@ -4,9 +4,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
-import { Clock, Plus, X, Mic, MicOff } from 'lucide-react'
+import { Clock, Plus, X, Mic, MicOff, Calendar } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
+import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
@@ -113,6 +114,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [listening, setListening] = useState(false)
+  // Pop-up "adicionar no Google Agenda?" após salvar marcação feita
+  const [calendarPrompt, setCalendarPrompt] = useState(null) // { clientId, name, phone, visitIso }
+  const [calSaving, setCalSaving] = useState(false)
+  const [calDone, setCalDone]     = useState(false)
   const recognitionRef    = useRef(null)
   const notesBaseRef      = useRef('')
   const finalTranscriptRef = useRef('')
@@ -262,7 +267,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     // created_by só no cadastro — editar não pode trocar quem marcou
     const res = initialData?.id
       ? await supabase.from('clients').update(payload).eq('id', initialData.id)
-      : await supabase.from('clients').insert({ ...payload, created_by: user.id })
+      : await supabase.from('clients').insert({ ...payload, created_by: user.id }).select('id').single()
 
     if (res.error) {
       setError('Erro ao salvar. Tente novamente.')
@@ -296,12 +301,45 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           },
         })
       }
-      onSaved()
+      // Cadastro novo com marcação feita + Google Agenda conectado →
+      // oferece adicionar a visita no Google Agenda antes de fechar
+      if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id && profile?.google_refresh_token) {
+        setCalendarPrompt({
+          clientId: res.data.id,
+          name:     form.contact_name || form.company_name || 'Cliente',
+          phone:    form.phone,
+          visitIso: newVisitIso,
+        })
+      } else {
+        onSaved()
+      }
     }
     setSaving(false)
   }
 
+  // Botão do pop-up — mesma engrenagem do "Adicionar ao Google Agenda" da ficha
+  async function addToCalendar() {
+    setCalSaving(true)
+    try {
+      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const token = await getValidToken(fresh)
+      if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      const eventId = await createCalendarEvent(token, {
+        clientName:    calendarPrompt.name,
+        visitDateTime: calendarPrompt.visitIso,
+      })
+      await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', calendarPrompt.clientId)
+      setCalDone(true)
+      setTimeout(() => onSaved(), 1000)
+    } catch (e) {
+      alert(`Erro ao adicionar: ${e.message}`)
+    } finally {
+      setCalSaving(false)
+    }
+  }
+
   return (
+    <>
     <Sheet open onClose={onClose} title={initialData ? 'Editar cliente' : 'Novo cliente'}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '4px' }}>
 
@@ -675,5 +713,46 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         </div>
       </form>
     </Sheet>
+
+    {/* Pop-up: adicionar a marcação no Google Agenda? */}
+    {calendarPrompt && (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center px-6"
+        style={{ background: 'rgba(0,0,0,0.85)' }}>
+        <div className="w-full max-w-sm rounded-2xl animate-in"
+          style={{ background: '#1A1A1A', border: '1px solid #303030', padding: '24px', textAlign: 'center' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)' }}>
+            <Calendar size={20} style={{ color: '#C9A84C' }} />
+          </div>
+          {calDone ? (
+            <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>✓ Adicionado ao Google Agenda!</p>
+          ) : (
+            <>
+              <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>Adicionar no Google Agenda?</h2>
+              <p className="text-sm mb-1" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+                Quer adicionar <b style={{ color: '#EFEFEF' }}>"{calendarPrompt.name}"</b>
+                {calendarPrompt.phone ? <> ({calendarPrompt.phone})</> : null} no Google Agenda?
+              </p>
+              <p className="text-xs mb-5" style={{ color: '#6B6560' }}>
+                Visita: {new Date(calendarPrompt.visitIso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}
+                {' às '}
+                {new Date(calendarPrompt.visitIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <button type="button" onClick={addToCalendar} disabled={calSaving}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] mb-2"
+                style={{ background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)', color: '#F0EAD6', border: 'none', boxShadow: '0 2px 12px rgba(201,168,76,0.2)' }}>
+                <span className="inline-flex items-center gap-2"><Calendar size={14} /> {calSaving ? 'Adicionando...' : 'Adicionar ao Google Agenda'}</span>
+              </button>
+              <button type="button" onClick={onSaved} disabled={calSaving}
+                className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                style={{ background: 'transparent', color: '#6B6560' }}>
+                Agora não
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
