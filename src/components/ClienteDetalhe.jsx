@@ -616,6 +616,24 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     }
   }
 
+  async function removeCalendarEvent() {
+    if (!currentClient.google_calendar_event_id) return
+    if (!confirm('Remover esta visita do Google Agenda?')) return
+    setSyncingCalendar(true)
+    try {
+      const { data: freshProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const token = await getValidToken(freshProfile)
+      if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      await deleteCalendarEvent(token, currentClient.google_calendar_event_id)
+      await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
+      setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+    } catch (e) {
+      alert(`Erro ao remover: ${e.message}`)
+    } finally {
+      setSyncingCalendar(false)
+    }
+  }
+
   async function updateVisitDate(visitId, newDate) {
     if (!newDate) return
     await supabase.from('visits').update({ visit_date: newDate }).eq('id', visitId)
@@ -1217,11 +1235,23 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             {profile?.google_refresh_token && (
               <div style={{ marginTop: '10px' }}>
                 {currentClient.google_calendar_event_id ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Calendar size={12} style={{ color: '#4ADE80' }} />
-                    <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: 600 }}>
-                      Salvo no Google Agenda
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={12} style={{ color: '#4ADE80' }} />
+                      <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: 600 }}>
+                        Salvo no Google Agenda
+                      </span>
+                    </div>
+                    <button onClick={removeCalendarEvent} disabled={syncingCalendar}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        padding: '5px 10px', borderRadius: '9px', cursor: 'pointer',
+                        background: 'rgba(232,85,85,0.08)', color: '#E85555',
+                        border: '1px solid rgba(232,85,85,0.2)',
+                        fontSize: '11px', fontWeight: 600,
+                      }}>
+                      {syncingCalendar ? 'Removendo...' : 'Remover da agenda'}
+                    </button>
                   </div>
                 ) : (
                   <button onClick={syncCalendarEvent} disabled={syncingCalendar}
