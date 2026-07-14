@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
-import { CheckCircle2, XCircle, PhoneCall, MapPin } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { getValidToken, deleteCalendarEvent } from '../lib/googleCalendar'
+import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar } from 'lucide-react'
 
 // Lista reutilizável de visitas de amanhã para confirmar, com o fluxo de 3 botões:
 //   ✓ Confirmado      → visit_confirmation = 'confirmada'  (verde)
@@ -13,12 +16,18 @@ const NOTE_CONFIG = {
 }
 
 export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) {
+  const { user, profile } = useAuth()
   const [pending, setPending]   = useState(visits)
   const [activeId, setActiveId] = useState(null)     // visita aberta para digitar nota
   const [activeKind, setActiveKind] = useState(null) // 'nao_confirmada' | 'tentativa'
   const [note, setNote]         = useState('')
   const [saving, setSaving]     = useState(false)
   const [saveError, setSaveError] = useState(null) // id da visita que falhou ao salvar
+  // Pop-up "remover do Google Agenda?" após marcar "não confirmada"
+  const [removePrompt, setRemovePrompt] = useState(null) // { clientId, eventId, name }
+  const [removeSaving, setRemoveSaving] = useState(false)
+  const [removeDone, setRemoveDone]     = useState(false)
+  const pendingEmptyRef = useRef(false) // segura o onEmpty até o pop-up fechar
 
   async function save(clientId, status, confirmationNote) {
     setSaving(true)
@@ -35,13 +44,48 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
       return
     }
 
-    const rest = pending.filter(v => v.id !== clientId)
+    const v = pending.find(x => x.id === clientId)
+    const rest = pending.filter(x => x.id !== clientId)
     setPending(rest)
     setActiveId(null)
     setActiveKind(null)
     setNote('')
+
+    // Não confirmada + visita no Google Agenda → oferece remover de lá
+    const needPrompt = status === 'nao_confirmada' && v?.google_calendar_event_id && profile?.google_refresh_token
+    if (needPrompt) {
+      setRemovePrompt({ clientId, eventId: v.google_calendar_event_id, name: v.contact_name || v.company_name || 'Cliente' })
+    }
+
     onConfirmed?.()
-    if (rest.length === 0) onEmpty?.()
+    if (rest.length === 0) {
+      if (needPrompt) pendingEmptyRef.current = true // fecha só depois do pop-up
+      else onEmpty?.()
+    }
+  }
+
+  function closeRemovePrompt() {
+    setRemovePrompt(null)
+    setRemoveDone(false)
+    if (pendingEmptyRef.current) { pendingEmptyRef.current = false; onEmpty?.() }
+  }
+
+  // Mesma engrenagem do botão "Remover da agenda" da ficha do cliente
+  async function removeFromCalendar() {
+    setRemoveSaving(true)
+    try {
+      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const token = await getValidToken(fresh)
+      if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      await deleteCalendarEvent(token, removePrompt.eventId)
+      await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', removePrompt.clientId)
+      setRemoveDone(true)
+      setTimeout(closeRemovePrompt, 1000)
+    } catch (e) {
+      alert(`Erro ao remover: ${e.message}`)
+    } finally {
+      setRemoveSaving(false)
+    }
   }
 
   function openNote(clientId, kind) {
@@ -50,9 +94,11 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
     setNote('')
   }
 
-  if (pending.length === 0) return null
+  // segue montado enquanto o pop-up de remoção estiver aberto
+  if (pending.length === 0 && !removePrompt) return null
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {pending.map(v => {
         const dt = new Date(v.visit_scheduled_at)
@@ -147,5 +193,42 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
         )
       })}
     </div>
+
+    {/* Pop-up: visita não confirmada → remover do Google Agenda? */}
+    {removePrompt && createPortal(
+      <div className="fixed inset-0 z-[90] flex items-center justify-center px-6"
+        style={{ background: 'rgba(0,0,0,0.85)' }}>
+        <div className="w-full max-w-sm rounded-2xl animate-in"
+          style={{ background: '#1A1A1A', border: '1px solid #303030', padding: '24px', textAlign: 'center' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.25)' }}>
+            <Calendar size={20} style={{ color: '#E85555' }} />
+          </div>
+          {removeDone ? (
+            <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>✓ Removida do Google Agenda!</p>
+          ) : (
+            <>
+              <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>Remover esta visita do Google Agenda?</h2>
+              <p className="text-sm mb-5" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+                A visita de <b style={{ color: '#EFEFEF' }}>"{removePrompt.name}"</b> não foi confirmada
+                e ainda está no seu Google Agenda.
+              </p>
+              <button type="button" onClick={removeFromCalendar} disabled={removeSaving}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] mb-2"
+                style={{ background: 'rgba(232,85,85,0.12)', border: '1px solid rgba(232,85,85,0.4)', color: '#E85555' }}>
+                <span className="inline-flex items-center gap-2"><Calendar size={14} /> {removeSaving ? 'Removendo...' : 'Remover do Google Agenda'}</span>
+              </button>
+              <button type="button" onClick={closeRemovePrompt} disabled={removeSaving}
+                className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                style={{ background: 'transparent', color: '#6B6560' }}>
+                Manter na agenda
+              </button>
+            </>
+          )}
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   )
 }

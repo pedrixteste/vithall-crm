@@ -215,7 +215,7 @@ export async function fetchVisitsToConfirm(userId) {
 
   const { data } = await supabase
     .from('clients')
-    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation')
+    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, google_calendar_event_id')
     .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .is('visit_confirmation', null)
