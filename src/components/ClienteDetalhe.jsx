@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
+import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -557,6 +558,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (oldStage === newStage) { setEditingStage(false); return }
     await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', currentClient.id)
     await logEvent('stage_change', { from: oldStage, to: newStage })
+    // Crédito de matrícula p/ comissão de quem marcou a visita atual
+    if (newStage === 'matriculado')      await creditMatricula(currentClient, user.id)
+    else if (oldStage === 'matriculado') await removeMatriculaCredit(currentClient.id)
     setCurrentClient(c => ({ ...c, matricula_stage: newStage }))
     setEditingStage(false)
     fetchHistory()
@@ -816,6 +820,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           await logEvent('matricula_added', { training: t })
         }
         await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'matriculado' })
+        await creditMatricula(currentClient, user.id)
         setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado' }))
       }
     }

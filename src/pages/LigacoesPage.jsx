@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Phone, PhoneIncoming, MapPin } from 'lucide-react'
+import { Phone, PhoneIncoming, MapPin, GraduationCap } from 'lucide-react'
 
 const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-// Metadados das 3 métricas do registro diário
+// Metadados das métricas: 3 manuais (daily_logs) + matrículas (automática,
+// vem de matricula_credits — créditos de quem marcou a visita do cliente)
 const METRICS = {
-  calls:        { label: 'Ligações',  Icon: Phone,         color: '#60A5FA', rgb: '96,165,250'  },
-  answered:     { label: 'Atendidas', Icon: PhoneIncoming, color: '#4ADE80', rgb: '74,222,128'  },
-  appointments: { label: 'Marcações', Icon: MapPin,        color: '#A78BFA', rgb: '167,139,250' },
+  calls:        { label: 'Ligações',   Icon: Phone,         color: '#60A5FA', rgb: '96,165,250'  },
+  answered:     { label: 'Atendidas',  Icon: PhoneIncoming, color: '#4ADE80', rgb: '74,222,128'  },
+  appointments: { label: 'Marcações',  Icon: MapPin,        color: '#A78BFA', rgb: '167,139,250' },
+  matriculas:   { label: 'Matrículas', Icon: GraduationCap, color: '#C9A84C', rgb: '201,168,76'  },
 }
 const metricVal = (log, metric) => (log ? log[metric] : 0) || 0
 
@@ -21,6 +23,7 @@ export default function LigacoesPage() {
   const [saving, setSaving]                   = useState(false)
   const [saved, setSaved]                     = useState(false)
   const [allLogs, setAllLogs]                 = useState([])
+  const [credits, setCredits]                 = useState([]) // matrículas creditadas ao usuário
   const [calView, setCalView]                 = useState('month') // 'month' | 'week'
   const [calMetric, setCalMetric]             = useState('calls') // 'calls' | 'answered' | 'appointments'
 
@@ -30,8 +33,17 @@ export default function LigacoesPage() {
     if (user) {
       fetchTodayLog()
       fetchAllLogs()
+      fetchCredits()
     }
   }, [user])
+
+  async function fetchCredits() {
+    const { data } = await supabase
+      .from('matricula_credits')
+      .select('credit_date')
+      .eq('credited_to', user.id)
+    setCredits(data || [])
+  }
 
   async function fetchTodayLog() {
     const { data } = await supabase
@@ -78,6 +90,19 @@ export default function LigacoesPage() {
     return map
   }, [allLogs])
 
+  // date → nº de matrículas creditadas
+  const creditsByDate = useMemo(() => {
+    const map = {}
+    credits.forEach(c => { map[c.credit_date] = (map[c.credit_date] || 0) + 1 })
+    return map
+  }, [credits])
+
+  // Valor de qualquer métrica num dia (matrículas vêm de outra fonte)
+  const valFor = (dateStr, metric) =>
+    metric === 'matriculas' ? (creditsByDate[dateStr] || 0) : metricVal(logsByDate[dateStr], metric)
+
+  const todayCredits = creditsByDate[today] || 0
+
   // Yesterday
   const yesterdayDate = new Date()
   yesterdayDate.setDate(yesterdayDate.getDate() - 1)
@@ -88,6 +113,8 @@ export default function LigacoesPage() {
   const recordCalls    = allLogs.length ? Math.max(...allLogs.map(l => l.calls))         : 0
   const recordAnswered = allLogs.length ? Math.max(...allLogs.map(l => l.answered || 0)) : 0
   const recordAppts    = allLogs.length ? Math.max(...allLogs.map(l => l.appointments))  : 0
+  const creditCounts   = Object.values(creditsByDate)
+  const recordCredits  = creditCounts.length ? Math.max(...creditCounts) : 0
 
   // Calendar days array
   const calDays = useMemo(() => {
@@ -118,9 +145,10 @@ export default function LigacoesPage() {
   const maxVal = useMemo(() => {
     const vals = calDays
       .filter(Boolean)
-      .map(d => metricVal(logsByDate[d], calMetric))
+      .map(d => valFor(d, calMetric))
     return Math.max(1, ...vals)
-  }, [calDays, logsByDate, calMetric])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calDays, logsByDate, creditsByDate, calMetric])
 
   const now = new Date()
   const monthLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -262,6 +290,24 @@ export default function LigacoesPage() {
           </div>
         </div>
 
+        {/* Matrículas creditadas hoje — automático, não editável */}
+        <div className="flex items-center justify-between rounded-xl"
+          style={{ marginBottom: '24px', padding: '14px 16px', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.18)' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)' }}>
+              <GraduationCap size={14} style={{ color: '#C9A84C' }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Matrículas</p>
+              <p className="text-xs" style={{ color: '#6B6560' }}>De clientes marcados por você · automático</p>
+            </div>
+          </div>
+          <span className="text-2xl font-bold tabular-nums" style={{ color: '#C9A84C', letterSpacing: '-1px' }}>
+            {todayCredits}
+          </span>
+        </div>
+
         <button onClick={saveLog} disabled={saving}
           className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
           style={{
@@ -327,8 +373,7 @@ export default function LigacoesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
             {calDays.map((dateStr, idx) => {
               if (!dateStr) return <div key={`pad-${idx}`} />
-              const log  = logsByDate[dateStr]
-              const val  = metricVal(log, calMetric)
+              const val  = valFor(dateStr, calMetric)
               const isToday  = dateStr === today
               const isFuture = dateStr > today
               const dayNum   = parseInt(dateStr.split('-')[2])
@@ -369,7 +414,8 @@ export default function LigacoesPage() {
               const calls  = log?.calls        || 0
               const answ   = log?.answered     || 0
               const appts  = log?.appointments || 0
-              const val    = metricVal(log, calMetric)
+              const mats   = creditsByDate[dateStr] || 0
+              const val    = valFor(dateStr, calMetric)
               const isToday  = dateStr === today
               const isFuture = dateStr > today
               const d = new Date(dateStr + 'T12:00:00')
@@ -420,6 +466,17 @@ export default function LigacoesPage() {
                       {appts || '—'}
                     </span>
                   </div>
+                  {/* Matrículas creditadas */}
+                  <div className="flex flex-col items-center" style={{ gap: '2px' }}>
+                    <GraduationCap size={8} style={{ color: mats > 0 ? '#C9A84C' : '#222' }} />
+                    <span style={{
+                      fontSize: '13px', fontWeight: 800, lineHeight: 1,
+                      color: mats > 0 ? '#C9A84C' : '#222',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {mats || '—'}
+                    </span>
+                  </div>
                 </div>
               )
             })}
@@ -465,6 +522,16 @@ export default function LigacoesPage() {
                 {yesterdayLog?.appointments ?? '—'}
               </span>
             </div>
+            <div style={{ height: '1px', background: '#1C1C1C' }} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <GraduationCap size={10} style={{ color: '#C9A84C' }} />
+                <span style={{ fontSize: '11px', color: '#6B6560' }}>Matr.</span>
+              </div>
+              <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#C9A84C', letterSpacing: '-0.5px' }}>
+                {creditsByDate[yesterdayStr] || '—'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -501,6 +568,16 @@ export default function LigacoesPage() {
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#A78BFA', letterSpacing: '-0.5px' }}>
                 {allLogs.length ? recordAppts : '—'}
+              </span>
+            </div>
+            <div style={{ height: '1px', background: '#1C1C1C' }} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <GraduationCap size={10} style={{ color: '#C9A84C' }} />
+                <span style={{ fontSize: '11px', color: '#6B6560' }}>Matr.</span>
+              </div>
+              <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#C9A84C', letterSpacing: '-0.5px' }}>
+                {recordCredits || '—'}
               </span>
             </div>
           </div>

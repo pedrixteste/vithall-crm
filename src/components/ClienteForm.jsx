@@ -6,6 +6,7 @@ import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
 import { Clock, Plus, X, Mic, MicOff } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
+import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
@@ -266,6 +267,14 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (res.error) {
       setError('Erro ao salvar. Tente novamente.')
     } else {
+      // Crédito de matrícula p/ comissão quando a edição muda o estágio
+      if (initialData?.id && form.matricula_stage !== initialData.matricula_stage) {
+        if (form.matricula_stage === 'matriculado') {
+          creditMatricula({ ...initialData, ...payload, id: initialData.id }, user.id)
+        } else if (initialData.matricula_stage === 'matriculado') {
+          removeMatriculaCredit(initialData.id)
+        }
+      }
       if (reminder_config) {
         const name = form.contact_name || form.company_name
         scheduleClientReminder({

@@ -163,7 +163,7 @@ export default function VisitasHojePage() {
     const oldStage = visit.matricula_stage
     if (oldStage === newStage) return
     setTodayVisits(vs => vs.map(x => x.id === visit.id ? { ...x, matricula_stage: newStage } : x))
-    await updateClientStage({ clientId: visit.id, newStage, oldStage, userId: user.id, userName: profile?.name })
+    await updateClientStage({ client: visit, newStage, oldStage, userId: user.id, userName: profile?.name })
   }
 
   if (selected) return (
