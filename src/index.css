@@ -50,6 +50,17 @@ body {
 
 #root { min-height: 100vh; }
 
+/* Shell do app: altura REAL da tela no celular. 100vh fixo estoura quando a
+   barra de endereço do navegador está visível e corta o fim das páginas
+   (o scroll é interno ao <main>); 100dvh acompanha a barra. */
+.app-shell { height: 100vh; }
+@supports (height: 100dvh) {
+  .app-shell { height: 100dvh; }
+}
+
+/* Área segura inferior (barra de gestos do celular) — usada no bottom nav */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
 /* Tipografia */
 h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2; }
 h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }

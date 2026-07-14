@@ -26,7 +26,7 @@ export default function Layout({ children }) {
   const isActive = (to) => location.pathname === to
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0A0A0A' }}>
+    <div className="app-shell flex flex-col" style={{ background: '#0A0A0A' }}>
 
       {/* Header */}
       <header className="flex items-center justify-between h-14 border-b flex-shrink-0 sticky top-0 z-40"
@@ -91,7 +91,7 @@ export default function Layout({ children }) {
         </aside>
 
         {/* Conteúdo */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 sm:pb-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-32 sm:pb-8">
           <div className="w-full max-w-lg mx-auto" style={{ paddingLeft: '24px', paddingRight: '24px', paddingTop: '32px' }}>
             {children}
           </div>
