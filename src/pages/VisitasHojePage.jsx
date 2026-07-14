@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, Star, AlertTriangle, Bell } from 'lucide-react'
+import { MapPin, Clock, User, Phone, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
@@ -118,6 +118,10 @@ export default function VisitasHojePage() {
   const { pending: pendingRatings, loading: gateLoading, refresh: refreshGate } = useRatingsGate()
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
+  const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
+  const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
+  const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
+  const [prod, setProd]                     = useState(null)        // { marcacoes, visitas, matriculas } | null = carregando
 
   const today    = getDayRange(0)
   const tomorrow = getDayRange(1)
@@ -150,12 +154,56 @@ export default function VisitasHojePage() {
     if (isVisitor) {
       const { data: profs } = await supabase.from('profiles').select('id, name, role')
       setProfilesMap(Object.fromEntries((profs || []).map(p => [p.id, p])))
+      setProfilesList((profs || []).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR')))
     } else {
       // Pré-vendas: visitas de hoje que ele já respondeu no pop-up (coloridas)
       setAnsweredToday(await fetchAnsweredVisitsForDay(user.id, 0))
     }
 
     setLoading(false)
+  }
+
+  // ── Produzido hoje ──────────────────────────────────────────────
+  // Marcações (clientes novos com visita, criados hoje pela pessoa),
+  // visitas feitas (estágio → recebeu_visita/matriculado dado hoje por ela)
+  // e matrículas (créditos de comissão do dia — quem marcou a visita atual).
+  const personId = prodPerson || user?.id
+
+  useEffect(() => {
+    if (view === 'produzido' && personId) fetchProduzido(personId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, personId])
+
+  async function fetchProduzido(pid) {
+    setProd(null)
+    const { start, end } = getDayRange(0)
+    const todayUtc = new Date().toISOString().split('T')[0]
+    const [marc, hist, mats] = await Promise.all([
+      supabase.from('clients').select('*')
+        .eq('created_by', pid)
+        .not('visit_scheduled_at', 'is', null)
+        .gte('created_at', start).lte('created_at', end)
+        .order('created_at', { ascending: true }),
+      supabase.from('client_history').select('*, clients(*)')
+        .eq('user_id', pid)
+        .eq('event_type', 'stage_change')
+        .gte('created_at', start).lte('created_at', end)
+        .order('created_at', { ascending: true }),
+      supabase.from('matricula_credits').select('*, clients(*)')
+        .eq('credited_to', pid)
+        .eq('credit_date', todayUtc),
+    ])
+    // visitas feitas: 1 por cliente, estágio final recebeu_visita/matriculado
+    const visitas = []
+    const seen = new Set()
+    for (const h of hist.data || []) {
+      const to = h.event_data?.to
+      if ((to === 'recebeu_visita' || to === 'matriculado') && h.clients && !seen.has(h.client_id)) {
+        seen.add(h.client_id)
+        visitas.push(h)
+      }
+    }
+    setProd({ marcacoes: marc.data || [], visitas, matriculas: mats.data || [] })
   }
 
   // Clicou num botão de resultado → muda o estágio automaticamente (otimista)
@@ -230,6 +278,23 @@ export default function VisitasHojePage() {
         </p>
         <h1 style={{ color: '#EFEFEF' }}>{isVisitor ? 'Visitas de Hoje' : 'Sua agenda'}</h1>
       </div>
+
+      {/* Seletor: Lembretes | Produzido hoje */}
+      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #252525' }}>
+        {[['lembretes', 'Lembretes'], ['produzido', 'Produzido hoje']].map(([v, label], i) => (
+          <button key={v} onClick={() => setView(v)}
+            className="flex-1 py-2.5 text-xs font-bold transition-all"
+            style={{
+              background: view === v ? 'rgba(201,168,76,0.14)' : '#111',
+              color: view === v ? '#C9A84C' : '#6B6560',
+              borderRight: i === 0 ? '1px solid #252525' : 'none',
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'lembretes' && (<>
 
       {/* Confirmar visitas (hoje + amanhã) — destaque dourado */}
       {!loading && showConfirm && (
@@ -409,6 +474,115 @@ export default function VisitasHojePage() {
                 />
               ))}
             </div>
+          )}
+        </>
+      )}
+
+      </>)}
+
+      {/* ── PRODUZIDO HOJE ── */}
+      {view === 'produzido' && (
+        <>
+          {/* Gerente: escolher de quem ver a produção */}
+          {profile?.role === 'gerente' && profilesList.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: '6px' }}>
+              {profilesList.map(p => {
+                const active = p.id === personId
+                return (
+                  <button key={p.id} onClick={() => setProdPerson(p.id)}
+                    className="text-xs font-semibold rounded-full transition-all"
+                    style={{
+                      padding: '6px 13px',
+                      background: active ? 'rgba(201,168,76,0.14)' : '#161616',
+                      border: `1px solid ${active ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
+                      color: active ? '#C9A84C' : '#6B6560',
+                    }}>
+                    {active ? '✓ ' : ''}{p.name?.split(' ')[0] || '—'}{p.id === user?.id ? ' (você)' : ''}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {prod === null ? (
+            <div className="flex items-center justify-center" style={{ paddingTop: '60px' }}>
+              <div className="w-7 h-7 rounded-full border-2 animate-spin" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
+            </div>
+          ) : (
+            <>
+              {/* Resumo do dia */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                {[
+                  { label: 'Marcações',  value: prod.marcacoes.length,  color: '#60A5FA', Icon: CalendarPlus },
+                  { label: 'Visitas',    value: prod.visitas.length,    color: '#A78BFA', Icon: Handshake },
+                  { label: 'Matrículas', value: prod.matriculas.length, color: '#C9A84C', Icon: GraduationCap },
+                ].map(({ label, value, color, Icon }) => (
+                  <div key={label} className="rounded-2xl text-center" style={{ background: '#161616', border: '1px solid #252525', padding: '14px 8px' }}>
+                    <Icon size={14} style={{ color, margin: '0 auto 6px' }} />
+                    <p className="text-xl font-bold tabular-nums" style={{ color }}>{value}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#6B6560' }}>{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Marcações feitas hoje */}
+              {prod.marcacoes.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <SectionLabel color="#60A5FA">Marcações de hoje</SectionLabel>
+                  {prod.marcacoes.map(c => (
+                    <CompactCard key={c.id}
+                      time={timeOf(c.visit_scheduled_at)}
+                      tag="Marcação" tagColor="#60A5FA"
+                      name={c.contact_name} company={c.company_name}
+                      sub={c.city ? <><MapPin size={10} /> {c.city}</> : null}
+                      onClick={() => setSelected(c)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Visitas feitas hoje */}
+              {prod.visitas.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <SectionLabel color="#A78BFA">Visitas feitas hoje</SectionLabel>
+                  {prod.visitas.map(h => (
+                    <CompactCard key={h.id}
+                      time={timeOf(h.created_at)}
+                      tag={h.event_data?.to === 'matriculado' ? 'Visita → Matrícula' : 'Visita recebida'}
+                      tagColor="#A78BFA"
+                      name={h.clients?.contact_name} company={h.clients?.company_name}
+                      sub={h.clients?.city ? <><MapPin size={10} /> {h.clients.city}</> : null}
+                      onClick={() => h.clients && setSelected(h.clients)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Matrículas do dia (créditos de comissão) */}
+              {prod.matriculas.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <SectionLabel color="#C9A84C">🎓 Matrículas do dia</SectionLabel>
+                  {prod.matriculas.map(m => (
+                    <CompactCard key={m.id}
+                      time={timeOf(m.created_at)}
+                      tag="Matrícula" tagColor="#C9A84C"
+                      name={m.clients?.contact_name} company={m.clients?.company_name}
+                      sub={m.clients?.city ? <><MapPin size={10} /> {m.clients.city}</> : null}
+                      onClick={() => m.clients && setSelected(m.clients)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {prod.marcacoes.length === 0 && prod.visitas.length === 0 && prod.matriculas.length === 0 && (
+                <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
+                  <p style={{ fontSize: '3rem' }}>📊</p>
+                  <p className="text-sm font-medium" style={{ color: '#333030' }}>
+                    Nada produzido hoje ainda
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
