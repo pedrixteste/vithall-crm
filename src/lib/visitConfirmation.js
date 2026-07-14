@@ -17,8 +17,14 @@ export function getDayRange(offset = 0) {
 
 export const getTodayRange = () => getDayRange(0)
 
+// Visita "tratada" por quem marcou: confirmada ou tentativa. Sem resposta
+// (null) ou nao_confirmada → NÃO aparece na agenda do vendedor/gerente.
+export const isVisitTreated = (c) =>
+  c.visit_confirmation === 'confirmada' || c.visit_confirmation === 'tentativa'
+
 // Visitas agendadas para um dia (offset). Só para quem FAZ visita:
 // vendedor (atribuídas a ele) e gerente (todas). Pré-vendas → [].
+// Só retorna visitas TRATADAS (confirmada/tentativa) — ver isVisitTreated.
 export async function fetchVisitsForDay(role, userId, offset = 0) {
   if (role !== 'vendedor' && role !== 'gerente') return []
   const { start, end } = getDayRange(offset)
@@ -26,6 +32,7 @@ export async function fetchVisitsForDay(role, userId, offset = 0) {
     .from('clients')
     .select('*')
     .not('visit_scheduled_at', 'is', null)
+    .in('visit_confirmation', ['confirmada', 'tentativa'])
     .gte('visit_scheduled_at', start)
     .lte('visit_scheduled_at', end)
     .order('visit_scheduled_at', { ascending: true })
@@ -101,10 +108,11 @@ export async function fetchPendingRatings(userId) {
     // registros de visita passados com estrela incompleta
     const incompletePast = cv.filter(v => v.visit_date && v.visit_date < todayStr && !isVisitRated(v))
     // visita agendada que já passou e ainda nem tem registro (nunca foi aberta).
-    // Não cobra se a marcação foi "não confirmada" (a visita não aconteceu).
+    // Só cobra visitas TRATADAS (confirmada/tentativa) — sem resposta ou
+    // "não confirmada" a visita nem apareceu na agenda, então não cobra.
     let missingScheduled = false
     let schedDate = null
-    if (c.visit_scheduled_at && c.visit_confirmation !== 'nao_confirmada') {
+    if (c.visit_scheduled_at && isVisitTreated(c)) {
       schedDate = utcDateStr(c.visit_scheduled_at)
       if (schedDate < todayStr && !cv.some(v => v.visit_date === schedDate)) missingScheduled = true
     }

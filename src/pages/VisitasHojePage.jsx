@@ -138,13 +138,13 @@ export default function VisitasHojePage() {
       fetchUpcomingReminders(user.id, 1),
     ])
     setReminders(rem)
-    // Visitas "não confirmadas" (por quem marcou) não aparecem na agenda
-    const visible = arr => arr.filter(v => v.visit_confirmation !== 'nao_confirmada')
+    // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
+    // sem resposta ou "não confirmada" não aparecem na agenda
     setToConfirm(confirm)
     setConfirmHidden(false)
-    setTodayVisits(visible(tv))
+    setTodayVisits(tv)
     setTodayCalls(tc)
-    setTomVisits(visible(mv))
+    setTomVisits(mv)
     setTomCalls(mc)
 
     if (isVisitor) {

@@ -170,7 +170,14 @@ export default function Dashboard() {
         .order('visit_scheduled_at', { ascending: true })
       if (profile?.role === 'vendedor') svq = svq.eq('assigned_to', user.id)
       const { data: sv } = await svq
-      setScheduledVisits(sv || [])
+      // Dentro da janela de confirmação (hoje+amanhã), só visita TRATADA
+      // (confirmada/tentativa) aparece; de depois de amanhã em diante mostra
+      // normal (ainda nem entrou no pop-up de confirmação).
+      const windowEnd = new Date()
+      windowEnd.setDate(windowEnd.getDate() + 1)
+      windowEnd.setHours(23, 59, 59, 999)
+      const treated = c => c.visit_confirmation === 'confirmada' || c.visit_confirmation === 'tentativa'
+      setScheduledVisits((sv || []).filter(c => new Date(c.visit_scheduled_at) > windowEnd || treated(c)))
     }
 
     setLoading(false)
