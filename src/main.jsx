@@ -11,6 +11,14 @@ if ('serviceWorker' in navigator) {
     .catch(() => {})
 }
 
+// Instalação como app (manifest, SEM service worker): o Chrome/Android dispara
+// beforeinstallprompt cedo — guardamos o evento p/ o botão do Perfil usar.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  window.__installPrompt = e
+  window.dispatchEvent(new Event('installprompt-ready'))
+})
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

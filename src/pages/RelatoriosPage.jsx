@@ -321,7 +321,8 @@ export default function RelatoriosPage() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportScope, setExportScope]         = useState('all')
   const [exportPersonId, setExportPersonId]   = useState(null)
-  const [visibleSeries, setVisibleSeries]     = useState({ calls: true, marcacoes: true, visitas: true, matriculas: false })
+  const [visibleSeries, setVisibleSeries]     = useState({ calls: true, atendidas: false, marcacoes: true, visitas: true, matriculas: false })
+  const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
   const [view, setView]                       = useState('graficos') // graficos | listas
 
   useEffect(() => { fetchData() }, [profile])
@@ -339,10 +340,16 @@ export default function RelatoriosPage() {
     const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
     setProfiles(profilesData || [])
 
-    let logsQuery = supabase.from('daily_logs').select('calls, appointments, log_date, user_id')
+    let logsQuery = supabase.from('daily_logs').select('calls, answered, appointments, log_date, user_id')
     if (profile?.role !== 'gerente') logsQuery = logsQuery.eq('user_id', user.id)
     const { data: logsData } = await logsQuery
     setDailyLogs(logsData || [])
+
+    // Créditos de matrícula (comissão de quem marcou a visita)
+    let credQuery = supabase.from('matricula_credits').select('credited_to, enrolled_by, credit_date, client_id')
+    if (profile?.role !== 'gerente') credQuery = credQuery.eq('credited_to', user.id)
+    const { data: credData } = await credQuery
+    setCredits(credData || [])
     setLoading(false)
   }
 
@@ -400,6 +407,23 @@ export default function RelatoriosPage() {
     .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
     .reduce((s, l) => s + (l.calls || 0), 0)
   const hasCalls = totalCallsPeriod > 0
+  const totalAnsweredPeriod = filteredLogs
+    .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
+    .reduce((s, l) => s + (l.answered || 0), 0)
+  const answerRate = totalCallsPeriod > 0 && totalAnsweredPeriod > 0
+    ? Math.round((totalAnsweredPeriod / totalCallsPeriod) * 100) : null
+
+  // Créditos de matrícula no período (comissão de quem marcou a visita)
+  const creditsInPeriod = credits.filter(cr => inRange(new Date(cr.credit_date + 'T12:00:00')))
+  const filteredCredits = profile?.role === 'gerente' && selectedPerson !== 'all'
+    ? creditsInPeriod.filter(cr => cr.credited_to === selectedPerson)
+    : creditsInPeriod
+  // Contagem por pessoa (visão de comissões do gerente)
+  const creditsByPerson = (() => {
+    const map = {}
+    creditsInPeriod.forEach(cr => { map[cr.credited_to] = (map[cr.credited_to] || 0) + 1 })
+    return map
+  })()
 
   // ── All-time ─────────────────────────────────────────────────────
 
@@ -449,6 +473,7 @@ export default function RelatoriosPage() {
           marcacoes:  filteredClients.filter(c => c.created_at && localDateStr(c.created_at).startsWith(m)).length,
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
+          atendidas:  filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
           matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at).startsWith(m)).length,
         }
       })
@@ -470,6 +495,7 @@ export default function RelatoriosPage() {
         marcacoes:  filteredClients.filter(c => c.created_at && localDateStr(c.created_at) === ds).length,
         visitas:    allVisits.filter(v => v.visit_date === ds).length,
         calls:      filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
+        atendidas:  filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.answered || 0), 0),
         matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at) === ds).length,
       }
     })
@@ -479,6 +505,7 @@ export default function RelatoriosPage() {
 
   const ALL_SERIES = [
     { key: 'calls',      label: 'Ligações',   color: '#E8834A', data: trendData.map(d => d.calls) },
+    { key: 'atendidas',  label: 'Atendidas',  color: '#22D3EE', data: trendData.map(d => d.atendidas) },
     { key: 'marcacoes',  label: 'Marcações',  color: '#60A5FA', data: trendData.map(d => d.marcacoes) },
     { key: 'visitas',    label: 'Visitas',    color: '#A78BFA', data: trendData.map(d => d.visitas) },
     { key: 'matriculas', label: 'Matrículas', color: '#4ADE80', data: trendData.map(d => d.matriculas) },
@@ -539,9 +566,9 @@ export default function RelatoriosPage() {
       const inPeriod   = mc.filter(c => inRange(new Date(c.created_at)))
       const visits     = mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
       const matriculas = mc.filter(c => c.matricula_stage === 'matriculado')
-      const calls      = dailyLogs
-        .filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
-        .reduce((s, l) => s + (l.calls || 0), 0)
+      const logsInRange = dailyLogs.filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
+      const calls      = logsInRange.reduce((s, l) => s + (l.calls || 0), 0)
+      const atendidas  = logsInRange.reduce((s, l) => s + (l.answered || 0), 0)
       const withV = matriculas.filter(c => (c.visits || []).length > 0)
       const avgV  = withV.length > 0
         ? (withV.reduce((s, c) => s + c.visits.length, 0) / withV.length).toFixed(1)
@@ -552,6 +579,8 @@ export default function RelatoriosPage() {
         visitas:    visits.length,
         matriculas: matriculas.length,
         ligacoes:   calls,
+        atendidas,
+        creditos:   creditsByPerson[p.id] || 0, // matrículas de clientes marcados por ela (comissão)
         avgVisits:  avgV,
         convRate:   visits.length > 0 ? Math.round((matriculas.length / visits.length) * 100) : null,
       }
@@ -578,7 +607,9 @@ export default function RelatoriosPage() {
         ? clients.filter(c => c.created_by === p.id)
         : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
       const logs = dailyLogs.filter(l => l.user_id === p.id)
-      return { ...p, memberClients, logs }
+      // matrículas de clientes que a pessoa marcou (comissão), no período
+      const creditos = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00'))).length
+      return { ...p, memberClients, logs, creditos }
     })
 
     const fmtDate = (s) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
@@ -806,6 +837,10 @@ export default function RelatoriosPage() {
             <FunnelStep label="Ligacoes feitas" value={totalCallsPeriod} color="#E8834A"
               rateLabel={callsPerBooking ? `${callsPerBooking} lig. por marcacao` : null} />
           )}
+          {totalAnsweredPeriod > 0 && (
+            <FunnelStep label="Ligacoes atendidas" value={totalAnsweredPeriod} color="#22D3EE"
+              rateLabel={answerRate !== null ? `${answerRate}% das ligacoes` : null} />
+          )}
           <FunnelStep label="Marcacoes feitas" value={clientsInPeriod.length} color="#60A5FA"
             rateLabel={bookingShowRate !== null ? `${bookingShowRate}% compareceram` : null} />
           <FunnelStep label="Visitas realizadas" value={visitsInPeriod.length} color="#A78BFA"
@@ -813,6 +848,51 @@ export default function RelatoriosPage() {
           <FunnelStep label="Matriculas fechadas" value={enrolledInPeriod.length} color="#4ADE80" isLast />
         </div>
       </div>
+
+      {/* ── Comissões: matrículas por quem marcou a visita ── */}
+      {profile?.role === 'gerente' ? (
+        creditsInPeriod.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030' }}>
+                🎓 Comissoes — matriculas por marcador
+              </p>
+              <p style={{ fontSize: '10px', color: '#2A2A2A' }}>periodo selecionado</p>
+            </div>
+            <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {(() => {
+                const rows = Object.entries(creditsByPerson)
+                  .map(([pid, count]) => ({ p: profiles.find(x => x.id === pid), count }))
+                  .filter(r => r.p)
+                  .sort((a, b) => b.count - a.count)
+                const maxC = Math.max(...rows.map(r => r.count), 1)
+                return rows.map(({ p, count }) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ width: '90px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: '#B0A99F' }} className="truncate">
+                      {p.name?.split(' ')[0] || '—'}
+                    </span>
+                    <div style={{ flex: 1, height: '8px', borderRadius: '99px', background: '#111' }}>
+                      <div style={{ width: `${Math.round((count / maxC) * 100)}%`, height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7B1C3A, #C9A84C)' }} />
+                    </div>
+                    <span style={{ width: '28px', textAlign: 'right', fontSize: '15px', fontWeight: 800, color: '#C9A84C' }} className="tabular-nums">{count}</span>
+                  </div>
+                ))
+              })()}
+              <p style={{ fontSize: '10px', color: '#444040', marginTop: '2px' }}>
+                Matrícula conta para quem marcou a visita atual do cliente (remarcou → de quem remarcou).
+              </p>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="rounded-2xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.18)', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>🎓 Matrículas das suas marcações</p>
+            <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>clientes que você marcou e matricularam · período selecionado</p>
+          </div>
+          <span className="tabular-nums" style={{ fontSize: '26px', fontWeight: 800, color: '#C9A84C' }}>{filteredCredits.length}</span>
+        </div>
+      )}
 
       {/* ── Eficiência ── */}
       {(avgVisitsPerEnrollment || callsPerEnrollment || noShowsInPeriod.length > 0) && (
@@ -1132,24 +1212,26 @@ export default function RelatoriosPage() {
                 </div>
 
                 {/* Mini trend de matrículas para o membro */}
-                <div style={{ display: 'grid', gridTemplateColumns: m.ligacoes > 0 ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: '6px', marginBottom: 8 }}>
-                  {m.ligacoes > 0 && (
-                    <div style={{ borderRadius: '10px', textAlign: 'center', background: '#111', padding: '9px 4px' }}>
-                      <p style={{ fontSize: '18px', fontWeight: 800, color: '#E8834A', lineHeight: 1 }}>{m.ligacoes}</p>
-                      <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#333030', marginTop: '3px' }}>Lig.</p>
+                {(() => {
+                  const tiles = [
+                    ...(m.ligacoes  > 0 ? [{ l: 'Lig.',   v: m.ligacoes,  c: '#E8834A' }] : []),
+                    ...(m.atendidas > 0 ? [{ l: 'Atend.', v: m.atendidas, c: '#22D3EE' }] : []),
+                    { l: 'Marc.',  v: m.marcacoes,  c: '#60A5FA' },
+                    { l: 'Vis.',   v: m.visitas,    c: '#A78BFA' },
+                    { l: 'Mat.',   v: m.matriculas, c: '#4ADE80' },
+                    ...(m.creditos > 0 ? [{ l: 'Comis.', v: m.creditos, c: '#C9A84C' }] : []),
+                  ]
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, 1fr)`, gap: '6px', marginBottom: 8 }}>
+                      {tiles.map(s => (
+                        <div key={s.l} style={{ borderRadius: '10px', textAlign: 'center', background: '#111', padding: '9px 4px' }}>
+                          <p style={{ fontSize: '18px', fontWeight: 800, color: s.c, lineHeight: 1 }}>{s.v}</p>
+                          <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#333030', marginTop: '3px' }}>{s.l}</p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {[
-                    { l: 'Marc.', v: m.marcacoes,  c: '#60A5FA' },
-                    { l: 'Vis.',  v: m.visitas,    c: '#A78BFA' },
-                    { l: 'Mat.',  v: m.matriculas, c: '#4ADE80' },
-                  ].map(s => (
-                    <div key={s.l} style={{ borderRadius: '10px', textAlign: 'center', background: '#111', padding: '9px 4px' }}>
-                      <p style={{ fontSize: '18px', fontWeight: 800, color: s.c, lineHeight: 1 }}>{s.v}</p>
-                      <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#333030', marginTop: '3px' }}>{s.l}</p>
-                    </div>
-                  ))}
-                </div>
+                  )
+                })()}
 
                 <p style={{ fontSize: '10px', fontWeight: 500, color: '#2A2A2A', textAlign: 'center' }}>
                   {m.avgVisits

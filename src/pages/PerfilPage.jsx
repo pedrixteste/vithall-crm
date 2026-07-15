@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { User, LogOut, Check, Calendar, Unlink } from 'lucide-react'
+import { User, LogOut, Check, Calendar, Unlink, Smartphone } from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -15,12 +15,35 @@ export default function PerfilPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [disconnecting, setDisconnecting] = useState(false)
+  // Instalar como app (manifest, sem service worker)
+  const [canInstall, setCanInstall] = useState(() => !!window.__installPrompt)
+  const [installed, setInstalled]   = useState(false)
+  const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
 
   useEffect(() => {
     if (!user?.id) return
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [user?.id])
+
+  useEffect(() => {
+    const onReady = () => setCanInstall(true)
+    window.addEventListener('installprompt-ready', onReady)
+    return () => window.removeEventListener('installprompt-ready', onReady)
+  }, [])
+
+  async function handleInstall() {
+    const prompt = window.__installPrompt
+    if (!prompt) return
+    prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    if (outcome === 'accepted') {
+      setInstalled(true)
+      window.__installPrompt = null
+      setCanInstall(false)
+    }
+  }
 
   const profile = freshProfile
   const isGoogleConnected = !!freshProfile?.google_refresh_token
@@ -171,6 +194,53 @@ export default function PerfilPage() {
               Ao conectar, visitas agendadas aparecem automaticamente no Google Agenda.
               Quando o cliente cancelar, o evento é removido sozinho.
             </p>
+          )}
+        </div>
+      </Card>
+
+      {/* Instalar como app na tela inicial */}
+      <Card>
+        <div className="p-6" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0,
+              background: (isStandalone || installed) ? 'rgba(74,222,128,0.1)' : 'rgba(201,168,76,0.08)',
+              border: `1px solid ${(isStandalone || installed) ? 'rgba(74,222,128,0.25)' : 'rgba(201,168,76,0.2)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Smartphone size={18} style={{ color: (isStandalone || installed) ? '#4ADE80' : '#C9A84C' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 600, color: '#EFEFEF' }}>App na tela inicial</p>
+              <p style={{ fontSize: '11px', color: (isStandalone || installed) ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+                {isStandalone || installed
+                  ? 'Instalado — você já está usando como app'
+                  : 'Use o Vithall CRM como um aplicativo de verdade'}
+              </p>
+            </div>
+          </div>
+
+          {!isStandalone && !installed && (
+            canInstall ? (
+              <button onClick={handleInstall}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: '14px',
+                  fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                  background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)', color: '#F0EAD6',
+                  border: 'none', boxShadow: '0 2px 12px rgba(201,168,76,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                }}>
+                <Smartphone size={15} /> Adicionar à tela inicial
+              </button>
+            ) : (
+              <div className="rounded-xl" style={{ padding: '12px 14px', background: '#111', border: '1px solid #1C1C1C' }}>
+                <p style={{ fontSize: '12px', color: '#B0A99F', lineHeight: 1.6 }}>
+                  {isIOS
+                    ? <>No iPhone: toque em <b style={{ color: '#EFEFEF' }}>Compartilhar</b> (quadrado com seta ↑) e depois em <b style={{ color: '#EFEFEF' }}>"Adicionar à Tela de Início"</b>.</>
+                    : <>No menu do navegador (⋮), toque em <b style={{ color: '#EFEFEF' }}>"Adicionar à tela inicial"</b> ou <b style={{ color: '#EFEFEF' }}>"Instalar app"</b>.</>}
+                </p>
+              </div>
+            )
           )}
         </div>
       </Card>

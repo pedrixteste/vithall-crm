@@ -29,9 +29,9 @@ function calcMetrics(memberClients, logs, periodStart) {
   const enrolled   = inPeriod.filter(c => c.matricula_stage === 'matriculado')
   const noShow     = inPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const canceled   = inPeriod.filter(c => c.matricula_stage === 'cancelado')
-  const calls      = logs
-    .filter(l => new Date(l.log_date + 'T12:00:00') >= periodStart)
-    .reduce((s, l) => s + (l.calls || 0), 0)
+  const logsInPeriod = logs.filter(l => new Date(l.log_date + 'T12:00:00') >= periodStart)
+  const calls    = logsInPeriod.reduce((s, l) => s + (l.calls || 0), 0)
+  const answered = logsInPeriod.reduce((s, l) => s + (l.answered || 0), 0)
 
   const trainings = TRAININGS.map(t => ({
     label: t, count: allEnrolled.filter(c => (c.matriculas || []).includes(t)).length
@@ -47,6 +47,8 @@ function calcMetrics(memberClients, logs, periodStart) {
     noShow:     noShow.length,
     canceled:   canceled.length,
     calls,
+    answered,
+    answerRate: pct(answered, calls),
     convMV:     pct(visits.length, inPeriod.length),
     convVE:     pct(enrolled.length, visits.length),
     trainings,
@@ -65,9 +67,11 @@ function memberRow(m, bg) {
         <span style="font-size:10px;font-weight:400;color:#888;text-transform:uppercase;letter-spacing:.06em">${ROLE_LABELS[m.role] || m.role}</span>
       </td>
       <td style="padding:10px 14px;text-align:center;color:#555;border-bottom:1px solid #E8E8E8">${fmt(m.calls || 0)}</td>
+      <td style="padding:10px 14px;text-align:center;color:#0E7490;border-bottom:1px solid #E8E8E8">${fmt(m.answered || 0)}</td>
       <td style="padding:10px 14px;text-align:center;color:#555;border-bottom:1px solid #E8E8E8">${fmt(m.marcacoes)}</td>
       <td style="padding:10px 14px;text-align:center;color:#555;border-bottom:1px solid #E8E8E8">${fmt(m.visitas)}</td>
       <td style="padding:10px 14px;text-align:center;font-weight:700;color:#1A7F4B;border-bottom:1px solid #E8E8E8">${fmt(m.matriculas)}</td>
+      <td style="padding:10px 14px;text-align:center;font-weight:700;color:#8C6D1F;border-bottom:1px solid #E8E8E8">${fmt(m.creditos || 0)}</td>
       <td style="padding:10px 14px;text-align:center;color:#C0392B;border-bottom:1px solid #E8E8E8">${fmt(m.noShow)}</td>
       <td style="padding:10px 14px;text-align:center;color:#E67E22;border-bottom:1px solid #E8E8E8">${fmt(m.canceled)}</td>
       <td style="padding:10px 14px;text-align:center;font-weight:700;color:${m.convVE >= 50 ? '#1A7F4B' : m.convVE >= 25 ? '#E67E22' : '#C0392B'};border-bottom:1px solid #E8E8E8">${conv}</td>
@@ -162,14 +166,17 @@ export function generateReportHTML({
     name: scope === 'individual' ? membersWithMetrics[0]?.name : 'Total da equipe',
     role: membersWithMetrics[0]?.role,
     calls:      membersWithMetrics.reduce((s, m) => s + (m.calls || 0), 0),
+    answered:   membersWithMetrics.reduce((s, m) => s + (m.answered || 0), 0),
     marcacoes:  membersWithMetrics.reduce((s, m) => s + m.marcacoes, 0),
     visitas:    membersWithMetrics.reduce((s, m) => s + m.visitas, 0),
     matriculas: membersWithMetrics.reduce((s, m) => s + m.matriculas, 0),
+    creditos:   membersWithMetrics.reduce((s, m) => s + (m.creditos || 0), 0),
     noShow:     membersWithMetrics.reduce((s, m) => s + m.noShow, 0),
     canceled:   membersWithMetrics.reduce((s, m) => s + m.canceled, 0),
   }
-  totals.convMV  = pct(totals.visitas, totals.marcacoes)
-  totals.convVE  = pct(totals.matriculas, totals.visitas)
+  totals.convMV     = pct(totals.visitas, totals.marcacoes)
+  totals.convVE     = pct(totals.matriculas, totals.visitas)
+  totals.answerRate = pct(totals.answered, totals.calls)
 
   // Trainings e origins do total
   const totalTrainings = TRAININGS.map((t, i) => ({
@@ -281,9 +288,11 @@ export function generateReportHTML({
     <div class="section-title">Resumo do Período</div>
     <div class="card-grid">
       ${metricCard('Ligações',  fmt(totals.calls),      null,                              '#E8834A')}
+      ${metricCard('Atendidas', fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`, '#22D3EE')}
       ${metricCard('Marcações', fmt(totals.marcacoes),  null,                              '#60A5FA')}
       ${metricCard('Visitas',   fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações`, '#A78BFA')}
       ${metricCard('Matrículas',fmt(totals.matriculas), `${fmtPct(totals.convVE)} das visitas`,   '#4ADE80')}
+      ${metricCard('Matr. de marcações', fmt(totals.creditos), 'comissões — por quem marcou a visita', '#C9A84C')}
     </div>
 
     <!-- Alertas -->
@@ -304,6 +313,7 @@ export function generateReportHTML({
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#999;margin-bottom:14px">Funil de Conversão</div>
     ${[
       { label: 'Ligações',  val: totals.calls,      color: '#E8834A' },
+      { label: 'Atendidas', val: totals.answered,   color: '#0E7490' },
       { label: 'Marcações', val: totals.marcacoes,  color: '#60A5FA' },
       { label: 'Visitas',   val: totals.visitas,    color: '#A78BFA' },
       { label: 'Matrículas',val: totals.matriculas, color: '#4ADE80' },
@@ -330,9 +340,11 @@ export function generateReportHTML({
         <tr>
           <th style="text-align:left">Pessoa</th>
           <th>Ligações</th>
+          <th>Atendidas</th>
           <th>Marcações</th>
           <th>Visitas</th>
           <th>Matrículas</th>
+          <th>Matr. de marcações</th>
           <th>Não apareceu</th>
           <th>Cancelamentos</th>
           <th>Conv. V→M</th>
@@ -348,9 +360,11 @@ export function generateReportHTML({
             ∑ Total
           </td>
           <td style="padding:10px 14px;text-align:center;font-weight:800">${totals.calls}</td>
+          <td style="padding:10px 14px;text-align:center;font-weight:800;color:#0E7490">${totals.answered}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800">${totals.marcacoes}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800">${totals.visitas}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800;color:#1A7F4B">${totals.matriculas}</td>
+          <td style="padding:10px 14px;text-align:center;font-weight:800;color:#8C6D1F">${totals.creditos}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800;color:#C0392B">${totals.noShow}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800;color:#E67E22">${totals.canceled}</td>
           <td style="padding:10px 14px;text-align:center;font-weight:800">${fmtPct(totals.convVE)}</td>
