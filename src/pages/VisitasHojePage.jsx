@@ -171,7 +171,6 @@ export default function VisitasHojePage() {
 
   useEffect(() => {
     if (view === 'produzido' && personId) fetchProduzido(personId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, personId])
 
   async function fetchProduzido(pid) {

@@ -660,6 +660,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const updated = isRemoving ? current.filter(t => t !== training) : [...current, training]
     await supabase.from('clients').update({ matriculas: updated }).eq('id', currentClient.id)
     await logEvent(isRemoving ? 'matricula_removed' : 'matricula_added', { training })
+    // Crédito de comissão: matricular por aqui também conta (1 por cliente);
+    // tirar a última matrícula (sem estágio matriculado) desfaz o crédito
+    if (!isRemoving) {
+      await creditMatricula(currentClient, user.id)
+    } else if (updated.length === 0 && currentClient.matricula_stage !== 'matriculado') {
+      await removeMatriculaCredit(currentClient.id)
+    }
     setCurrentClient(c => ({ ...c, matriculas: updated }))
     fetchHistory()
   }
