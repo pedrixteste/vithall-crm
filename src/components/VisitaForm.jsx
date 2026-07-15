@@ -5,6 +5,7 @@ import { Sheet } from './ui/Sheet'
 import { Input, Textarea, Select } from './ui/Input'
 import { Button } from './ui/Button'
 import { Plus } from 'lucide-react'
+import { localDateStr } from '../lib/utils'
 
 const EXEMPLOS_SUGERIDOS = [
   'Case de sucesso', 'ROI demonstrado', 'Produto ao vivo', 'Depoimento de cliente',
@@ -21,7 +22,7 @@ const LOCATIONS = [
 export default function VisitaForm({ clientId, onClose, onSaved }) {
   const { user } = useAuth()
   const [form, setForm] = useState({
-    visit_date: new Date().toISOString().split('T')[0],
+    visit_date: localDateStr(),
     visit_location: '',
     outcome: '',
     next_step: '',

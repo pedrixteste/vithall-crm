@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { localDateStr } from './utils'
 
 // Faixa de um dia (local) + label amigável. offset 0 = hoje, 1 = amanhã, etc.
 export function getDayRange(offset = 0) {
@@ -78,9 +79,9 @@ export function isVisitRated(v) {
   )
 }
 
-// Data (UTC) no formato YYYY-MM-DD — mesmo formato que a tabela visits usa
-// (visit_date é criado via toISOString().split('T')[0]).
-const utcDateStr = (d = new Date()) => new Date(d).toISOString().split('T')[0]
+// Data LOCAL YYYY-MM-DD — mesma convenção usada ao gravar visits.visit_date
+// (desde 15/07/2026; antes usava dia UTC, que virava "amanhã" a partir das 21h)
+const utcDateStr = (d = new Date()) => localDateStr(d)
 
 // Visitas REALIZADAS (de ontem para trás) que ainda não foram avaliadas por
 // completo, dos clientes atribuídos ao usuário. Enquanto houver alguma, a aba

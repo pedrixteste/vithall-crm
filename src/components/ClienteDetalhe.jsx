@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
+import { localDateStr } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -426,7 +427,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         (currentClient.visit_confirmation === 'confirmada' || currentClient.visit_confirmation === 'tentativa')) {
       const scheduledDate = new Date(currentClient.visit_scheduled_at)
       if (scheduledDate < new Date()) {
-        const dateStr = scheduledDate.toISOString().split('T')[0]
+        const dateStr = localDateStr(scheduledDate)
         const alreadyExists = fetched.some(v => v.visit_date === dateStr)
         if (!alreadyExists) {
           const { data: inserted } = await supabase
@@ -495,7 +496,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
   async function addVisit() {
     setAddingVisit(true)
-    const today = new Date().toISOString().split('T')[0]
+    const today = localDateStr()
     const { data: newVisit } = await supabase
       .from('visits')
       .insert({ client_id: currentClient.id, visit_date: today })

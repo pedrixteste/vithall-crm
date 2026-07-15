@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { localDateStr } from '../lib/utils'
 import { Phone, PhoneIncoming, MapPin, GraduationCap } from 'lucide-react'
 
 const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -27,7 +28,7 @@ export default function LigacoesPage() {
   const [calView, setCalView]                 = useState('month') // 'month' | 'week'
   const [calMetric, setCalMetric]             = useState('calls') // 'calls' | 'answered' | 'appointments'
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr() // dia LOCAL — às 21h+ o toISOString já virava "amanhã" (UTC)
 
   useEffect(() => {
     if (user) {
@@ -106,7 +107,7 @@ export default function LigacoesPage() {
   // Yesterday
   const yesterdayDate = new Date()
   yesterdayDate.setDate(yesterdayDate.getDate() - 1)
-  const yesterdayStr = yesterdayDate.toISOString().split('T')[0]
+  const yesterdayStr = localDateStr(yesterdayDate)
   const yesterdayLog = logsByDate[yesterdayStr]
 
   // All-time records
@@ -126,7 +127,7 @@ export default function LigacoesPage() {
       return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(mon)
         d.setDate(mon.getDate() + i)
-        return d.toISOString().split('T')[0]
+        return localDateStr(d)
       })
     }
     // Month

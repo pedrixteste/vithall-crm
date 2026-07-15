@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
+import { localDateStr } from './utils'
 
-const todayStr = () => new Date().toISOString().split('T')[0]
+const todayStr = () => localDateStr()
 
 // Crédito de matrícula p/ comissão: vai para quem marcou a visita ATUAL
 // (visit_scheduled_by; se remarcada, é quem remarcou), fallback created_by.

@@ -10,6 +10,7 @@ import {
   fetchAnsweredVisitsForDay, fetchUpcomingReminders, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
+import { localDateStr } from '../lib/utils'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
@@ -176,7 +177,7 @@ export default function VisitasHojePage() {
   async function fetchProduzido(pid) {
     setProd(null)
     const { start, end } = getDayRange(0)
-    const todayUtc = new Date().toISOString().split('T')[0]
+    const todayLocal = localDateStr()
     const [marc, hist, mats] = await Promise.all([
       supabase.from('clients').select('*')
         .eq('created_by', pid)
@@ -190,7 +191,7 @@ export default function VisitasHojePage() {
         .order('created_at', { ascending: true }),
       supabase.from('matricula_credits').select('*, clients(*)')
         .eq('credited_to', pid)
-        .eq('credit_date', todayUtc),
+        .eq('credit_date', todayLocal),
     ])
     // visitas feitas: 1 por cliente, estágio final recebeu_visita/matriculado
     const visitas = []

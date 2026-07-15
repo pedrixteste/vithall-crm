@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { generateReportHTML } from '../lib/reportExport'
+import { localDateStr } from '../lib/utils'
 import RelatoriosListas from '../components/RelatoriosListas'
 
 // ── Constantes ─────────────────────────────────────────────────────
@@ -444,10 +445,11 @@ export default function RelatoriosPage() {
           : d.toLocaleDateString('pt-BR', { month: 'short' })
         return {
           label:      yr,
-          marcacoes:  filteredClients.filter(c => c.created_at?.startsWith(m)).length,
+          // created_at é timestamp UTC — agrupa pelo dia LOCAL p/ não deslocar registros feitos à noite
+          marcacoes:  filteredClients.filter(c => c.created_at && localDateStr(c.created_at).startsWith(m)).length,
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
-          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(m)).length,
+          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at).startsWith(m)).length,
         }
       })
     }
@@ -458,16 +460,17 @@ export default function RelatoriosPage() {
     const endD = new Date(periodEnd);  endD.setHours(23, 59, 59, 999)
     while (cur <= endD) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1) }
     return days.map(d => {
-      const ds    = d.toISOString().split('T')[0]
+      const ds    = localDateStr(d)
       const label = periodDays <= 7
         ? d.toLocaleDateString('pt-BR', { weekday: 'short' })
         : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
       return {
         label,
-        marcacoes:  filteredClients.filter(c => c.created_at?.startsWith(ds)).length,
+        // created_at é timestamp UTC — agrupa pelo dia LOCAL p/ não deslocar registros feitos à noite
+        marcacoes:  filteredClients.filter(c => c.created_at && localDateStr(c.created_at) === ds).length,
         visitas:    allVisits.filter(v => v.visit_date === ds).length,
         calls:      filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
-        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at?.startsWith(ds)).length,
+        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at) === ds).length,
       }
     })
   })()
