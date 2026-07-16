@@ -230,9 +230,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (!form.address_reference.trim())       { setError('Ponto de referencia e obrigatorio.'); return }
     if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
     if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
-    if (!form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
+    // Vendedor só é obrigatório com marcação feita — sem agendamento ainda,
+    // não dá para saber a disponibilidade de quem vai visitar
     if (form.matricula_stage === 'nao_visitado') {
-      if (!visitScheduledAt) { setError('Informe a data e hora da visita.'); return }
+      if (!form.assigned_to)  { setError('Atribuir a um vendedor e obrigatorio na marcacao feita.'); return }
+      if (!visitScheduledAt)  { setError('Informe a data e hora da visita.'); return }
     }
     setSaving(true)
     setError('')
@@ -468,10 +470,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           value={form.matricula_stage}
           onChange={e => {
             set('matricula_stage', e.target.value)
-            if (e.target.value !== 'nao_visitado') {
-              set('assigned_to', '')
-              setVisitScheduledAt('')
-            }
+            // Saiu de "marcação feita": limpa a data da visita, mas MANTÉM o
+            // vendedor atribuído (editar cliente não pode desatribuir sozinho)
+            if (e.target.value !== 'nao_visitado') setVisitScheduledAt('')
           }}
         >
           {(!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES).map(s => (
@@ -479,8 +480,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ))}
         </Select>
 
-        {/* pre_vendas: atribuir vendedor — sempre visível */}
-        {profile?.role === 'pre_vendas' && vendedores.length > 0 && (
+        {/* pre_vendas: atribuir vendedor — só com marcação feita */}
+        {profile?.role === 'pre_vendas' && form.matricula_stage === 'nao_visitado' && vendedores.length > 0 && (
           <Select
             label="Atribuir para vendedor *"
             value={form.assigned_to}
@@ -561,10 +562,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           )}
         </div>
 
-        {/* ---- ATRIBUICAO (vendedor/gerente only — pre_vendas tem campo proprio no bloco "Marcacao feita") ---- */}
+        {/* ---- ATRIBUICAO (vendedor/gerente only — obrigatória só na marcação feita) ---- */}
         {profile?.role !== 'pre_vendas' && vendedores.length > 0 && (
           <Select
-            label="Atribuir para vendedor *"
+            label={form.matricula_stage === 'nao_visitado' ? 'Atribuir para vendedor *' : 'Atribuir para vendedor'}
             value={form.assigned_to}
             onChange={e => set('assigned_to', e.target.value)}
           >
