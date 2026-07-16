@@ -812,7 +812,21 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       visit_possibilities:   poss,
       outcome_enrolled_name: edit.outcome_enrolled_name?.trim() || null,
       outcome_sale_value:    edit.outcome_sale_value?.trim()    || null,
+      rated_at:              new Date().toISOString(), // quando o feedback foi preenchido
     }).eq('id', visitId)
+
+    // Avisa quem marcou a visita que o feedback foi preenchido (push, fire-and-forget)
+    const bookerId = currentClient.visit_scheduled_by || currentClient.created_by
+    if (bookerId && bookerId !== user.id) {
+      supabase.functions.invoke('notify-star', {
+        body: {
+          recipientId: bookerId,
+          clientName:  currentClient.contact_name || currentClient.company_name || 'Cliente',
+          outcome:     edit.visit_outcome || null,
+          raterName:   profile?.name || null,
+        },
+      })
+    }
 
     // Matriculada → adiciona treinamentos + atualiza estágio
     if (edit.visit_outcome === 'matriculada' && trainingsArr.length > 0) {
@@ -892,7 +906,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
   }
 
-  const canRate = user.id === currentClient.assigned_to || user.id === currentClient.created_by
+  // A estrela é o feedback de quem FAZ a visita: só vendedor/gerente editam.
+  // Pré-vendas abre o painel apenas para visualizar o que foi preenchido.
+  const canRate = profile?.role === 'vendedor' || profile?.role === 'gerente'
 
   // ── Timeline montada (histórico + visitas derivadas + criação) ──
 
@@ -1668,7 +1684,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <div>
                 <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Avaliação da Visita</p>
                 <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
-                  {canRate ? 'Preencha resultado, possibilidade e nota' : 'Somente o responsável pode avaliar'}
+                  {canRate ? 'Preencha resultado, possibilidade e nota' : 'Feedback do vendedor — somente visualização'}
                 </p>
               </div>
               <button onClick={() => { stopVisitListening(); setShowRating(false); setSyncAfterSave(null) }}

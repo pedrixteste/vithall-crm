@@ -7,7 +7,7 @@ import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
-  fetchAnsweredVisitsForDay, fetchUpcomingReminders, getDayRange,
+  fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks, getDayRange,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 import { localDateStr } from '../lib/utils'
@@ -24,6 +24,13 @@ const STAGE_ACTIONS = [
 function timeOf(ts) {
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
+
+// Labels do feedback (estrela) preenchido pelo vendedor
+const FEEDBACK_OUTCOMES = {
+  matriculada: 'Matriculada 🎉', grandes_chances: 'Grandes chances', chance_futura: 'Chance futura',
+  sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno por ligação', remarcar: 'Remarcar',
+}
+const RATING_LABELS = { pessima: 'Péssima', razoavel: 'Razoável', boa: 'Boa', otima: 'Ótima' }
 
 function reminderLabel(daysUntil, ts) {
   if (daysUntil === 0) return 'Hoje'
@@ -119,6 +126,7 @@ export default function VisitasHojePage() {
   const { pending: pendingRatings, loading: gateLoading, refresh: refreshGate } = useRatingsGate()
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
+  const [feedbacks, setFeedbacks]           = useState([]) // estrelas preenchidas hoje (visitas que marquei)
   const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
   const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
   const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
@@ -158,7 +166,13 @@ export default function VisitasHojePage() {
       setProfilesList((profs || []).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR')))
     } else {
       // Pré-vendas: visitas de hoje que ele já respondeu no pop-up (coloridas)
-      setAnsweredToday(await fetchAnsweredVisitsForDay(user.id, 0))
+      // + estrelas preenchidas hoje pelas visitas que ele marcou (aviso)
+      const [answered, fb] = await Promise.all([
+        fetchAnsweredVisitsForDay(user.id, 0),
+        fetchTodayFeedbacks(user.id),
+      ])
+      setAnsweredToday(answered)
+      setFeedbacks(fb)
     }
 
     setLoading(false)
@@ -266,7 +280,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -419,6 +433,28 @@ export default function VisitasHojePage() {
               name={c.contact_name} company={c.company_name}
               sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
               onClick={() => setSelected(c)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pré-vendas: estrelas preenchidas hoje nas visitas que ele marcou (aviso) */}
+      {!loading && !isVisitor && feedbacks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color="#F472B6"><span className="inline-flex items-center gap-1.5"><Star size={12} /> Feedbacks de visitas</span></SectionLabel>
+          <p className="text-xs -mt-1" style={{ color: '#6B6560' }}>
+            O vendedor preencheu a avaliação — toque para ver como foi a visita.
+          </p>
+          {feedbacks.map(v => (
+            <CompactCard key={v.id}
+              time={timeOf(v.rated_at)}
+              tag="Feedback" tagColor="#F472B6"
+              name={v.clients?.contact_name} company={v.clients?.company_name}
+              sub={<>
+                ⭐ {FEEDBACK_OUTCOMES[v.visit_outcome] || v.visit_outcome || '—'}
+                {v.rating ? ` · nota ${RATING_LABELS[v.rating] || v.rating}` : ''}
+              </>}
+              onClick={() => v.clients && setSelected(v.clients)}
             />
           ))}
         </div>

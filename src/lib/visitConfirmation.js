@@ -202,6 +202,21 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
   return data || []
 }
 
+// Estrelas preenchidas HOJE (rated_at) de clientes que o usuário marcou —
+// aviso na aba Hoje do pré-vendas p/ ele conferir o feedback da visita.
+export async function fetchTodayFeedbacks(userId) {
+  if (!userId) return []
+  const { start, end } = getDayRange(0)
+  const { data } = await supabase
+    .from('visits')
+    .select('*, clients!inner(*)')
+    .gte('rated_at', start)
+    .lte('rated_at', end)
+    .or(scheduledByMe(userId), { referencedTable: 'clients' })
+    .order('rated_at', { ascending: false })
+  return data || []
+}
+
 // Visitas que o usuário MARCOU (visit_scheduled_by, fallback created_by)
 // e ainda não confirmou, agendadas para HOJE ou AMANHÃ. Mesma fonte usada
 // pelo pop-up (Dashboard) e pela aba "Hoje" — os dois mostram o mesmo.
