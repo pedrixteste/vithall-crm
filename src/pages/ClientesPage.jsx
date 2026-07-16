@@ -136,7 +136,8 @@ export default function ClientesPage() {
     const matchesSearch = !q ||
       c.company_name?.toLowerCase().includes(q) ||
       c.contact_name?.toLowerCase().includes(q) ||
-      (qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits))
+      (qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits)) ||
+      (qDigits && (c.phone2 || '').replace(/\D/g, '').includes(qDigits))
 
     const matchesStage   = !filterStage || c.matricula_stage === filterStage
     const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
@@ -527,7 +528,7 @@ export default function ClientesPage() {
                   )}
                   {client.phone && (
                     <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#555050' }}>
-                      <Phone size={10} style={{ flexShrink: 0 }} /> {client.phone}
+                      <Phone size={10} style={{ flexShrink: 0 }} /> {client.phone}{client.phone2 ? ` · ${client.phone2}` : ''}
                     </p>
                   )}
                   <div style={{ marginTop: '6px' }}>

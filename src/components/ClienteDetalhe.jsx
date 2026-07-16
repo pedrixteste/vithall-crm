@@ -1046,24 +1046,53 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
           {/* Infos de contato */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {currentClient.phone && (
-              <div className="flex items-center gap-2.5">
-                <a href={`tel:${currentClient.phone}`} className="flex items-center gap-2.5 text-sm"
-                  style={{ color: '#6B6560' }}>
-                  <Phone size={14} style={{ color: '#C9A84C' }} />
-                  {currentClient.phone}
-                </a>
-                {phoneCount > 1 && (
-                  <button onClick={() => setShowHistorico(true)}
-                    title="Contato já registrado antes — ver histórico"
-                    className="flex items-center rounded-lg transition-all active:scale-95"
-                    style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
-                    <Phone size={12} />
-                    <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
-                  </button>
-                )}
-              </div>
-            )}
+            {currentClient.phone && (() => {
+              // Telefone principal + o do outro tipo (vazio até ser preenchido no ✏️)
+              const primaryType = currentClient.phone_type === 'empresa' ? 'Empresa' : 'Pessoal'
+              const otherType   = currentClient.phone_type === 'empresa' ? 'Pessoal' : 'Empresa'
+              const typeTag = (label) => (
+                <span className="text-[9px] font-bold uppercase tracking-wide rounded-full flex-shrink-0"
+                  style={{ padding: '2px 8px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', color: '#C9A84C' }}>
+                  {label}
+                </span>
+              )
+              return (
+                <>
+                  <div className="flex items-center gap-2.5">
+                    <a href={`tel:${currentClient.phone}`} className="flex items-center gap-2.5 text-sm"
+                      style={{ color: '#6B6560' }}>
+                      <Phone size={14} style={{ color: '#C9A84C' }} />
+                      {currentClient.phone}
+                    </a>
+                    {typeTag(primaryType)}
+                    {phoneCount > 1 && (
+                      <button onClick={() => setShowHistorico(true)}
+                        title="Contato já registrado antes — ver histórico"
+                        className="flex items-center rounded-lg transition-all active:scale-95"
+                        style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
+                        <Phone size={12} />
+                        <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    {currentClient.phone2 ? (
+                      <a href={`tel:${currentClient.phone2}`} className="flex items-center gap-2.5 text-sm"
+                        style={{ color: '#6B6560' }}>
+                        <Phone size={14} style={{ color: '#6B6560' }} />
+                        {currentClient.phone2}
+                      </a>
+                    ) : (
+                      <span className="flex items-center gap-2.5 text-sm" style={{ color: '#3A3A3A' }}>
+                        <Phone size={14} style={{ color: '#3A3A3A' }} />
+                        — sem número (adicione no ✏️)
+                      </span>
+                    )}
+                    {typeTag(otherType)}
+                  </div>
+                </>
+              )
+            })()}
             {(currentClient.city || currentClient.address_street) && (() => {
               const parts = [
                 currentClient.address_street,

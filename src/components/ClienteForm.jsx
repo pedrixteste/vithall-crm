@@ -77,6 +77,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     address_reference: initialData?.address_reference || '',
     instagram:       initialData?.instagram       || '',
     phone:           initialData?.phone           || '',
+    phone_type:      initialData?.phone_type      || 'pessoal',
+    phone2:          initialData?.phone2          || '',
     origin:          initialData?.origin          || '',
     indicado_por:    initialData?.indicado_por    || '',
     matricula_stage: initialData?.matricula_stage || 'nao_marcou',
@@ -423,6 +425,36 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             placeholder="(00) 00000-0000"
           />
         </div>
+
+        {/* Tipo do telefone + segundo número (do outro tipo) */}
+        {form.phone.trim() && (
+          <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                Esse número é...
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']].map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => set('phone_type', k)}
+                    className="text-xs font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                    style={{
+                      background: form.phone_type === k ? 'rgba(201,168,76,0.12)' : '#161616',
+                      border: `1px solid ${form.phone_type === k ? 'rgba(201,168,76,0.4)' : '#252525'}`,
+                      color: form.phone_type === k ? '#C9A84C' : '#6B6560',
+                    }}>
+                    {form.phone_type === k ? '✓ ' : ''}{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Input
+              label={form.phone_type === 'empresa' ? 'Telefone pessoal (opcional)' : 'Telefone empresa (opcional)'}
+              value={form.phone2}
+              onChange={e => set('phone2', e.target.value)}
+              placeholder="Se o cliente passar outro número na ligação"
+            />
+          </div>
+        )}
 
         <Select
           label="Como surgiu? *"
