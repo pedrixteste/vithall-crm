@@ -7,7 +7,8 @@ import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
-  fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks, getDayRange,
+  fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks,
+  getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 import { localDateStr } from '../lib/utils'
@@ -148,7 +149,7 @@ export default function VisitasHojePage() {
       fetchCallbacksForDay(role, user.id, 0),
       fetchVisitsForDay(role, user.id, 1),
       fetchCallbacksForDay(role, user.id, 1),
-      fetchUpcomingReminders(user.id, 1),
+      fetchUpcomingReminders(user.id, daysAheadWindow()), // sexta alcança segunda
     ])
     setReminders(rem)
     // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
@@ -315,7 +316,7 @@ export default function VisitasHojePage() {
         <div className="rounded-2xl" style={{ background: '#15140F', border: '1px solid rgba(201,168,76,0.22)', padding: '16px' }}>
           <SectionLabel color="#C9A84C">Confirmar visitas</SectionLabel>
           <p className="text-xs mt-1 mb-4" style={{ color: '#6B6560' }}>
-            {toConfirm.length} {toConfirm.length === 1 ? 'visita marcada' : 'visitas marcadas'} por você (hoje e amanhã).
+            {toConfirm.length} {toConfirm.length === 1 ? 'visita marcada' : 'visitas marcadas'} por você até o próximo dia útil.
           </p>
           <VisitConfirmationList visits={toConfirm} onEmpty={() => setConfirmHidden(true)} />
         </div>

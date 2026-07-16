@@ -18,6 +18,16 @@ export function getDayRange(offset = 0) {
 
 export const getTodayRange = () => getDayRange(0)
 
+// Quantos dias à frente o "amanhã útil" alcança. Ninguém trabalha no fim de
+// semana, então na SEXTA a janela vai até segunda (3 dias); sábado → 2; resto → 1.
+// Usado nas confirmações de visita e nos lembretes da aba Hoje.
+export function daysAheadWindow(d = new Date()) {
+  const dow = d.getDay() // 0=dom, 5=sex, 6=sáb
+  if (dow === 5) return 3
+  if (dow === 6) return 2
+  return 1
+}
+
 // Visita "tratada" por quem marcou: confirmada ou tentativa. Sem resposta
 // (null) ou nao_confirmada → NÃO aparece na agenda do vendedor/gerente.
 export const isVisitTreated = (c) =>
@@ -218,16 +228,18 @@ export async function fetchTodayFeedbacks(userId) {
 }
 
 // Visitas que o usuário MARCOU (visit_scheduled_by, fallback created_by)
-// e ainda não confirmou, agendadas para HOJE ou AMANHÃ. Mesma fonte usada
-// pelo pop-up (Dashboard) e pela aba "Hoje" — os dois mostram o mesmo.
+// e ainda não confirmou, agendadas para HOJE até o próximo dia ÚTIL
+// (na sexta inclui sábado, domingo e segunda — confirmação de segunda é na
+// sexta, ninguém trabalha no fim de semana). Mesma fonte usada pelo pop-up
+// (Dashboard) e pela aba "Hoje" — os dois mostram o mesmo.
 export async function fetchVisitsToConfirm(userId) {
   if (!userId) return []
 
   const start = new Date()
   start.setHours(0, 0, 0, 0) // hoje 00:00
   const end = new Date()
-  end.setDate(end.getDate() + 1)
-  end.setHours(23, 59, 59, 999) // amanhã 23:59
+  end.setDate(end.getDate() + daysAheadWindow())
+  end.setHours(23, 59, 59, 999) // fim do próximo dia útil
 
   const { data } = await supabase
     .from('clients')

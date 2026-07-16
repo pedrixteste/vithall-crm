@@ -26,7 +26,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
           </div>
           <p className="text-xs" style={{ color: '#6B6560' }}>
             {showConfirm
-              ? `Você tem ${visits.length} ${visits.length === 1 ? 'visita marcada' : 'visitas marcadas'} (hoje e amanhã) para confirmar.`
+              ? `Você tem ${visits.length} ${visits.length === 1 ? 'visita marcada' : 'visitas marcadas'} para confirmar até o próximo dia útil.`
               : hasToday ? 'Suas visitas agendadas para hoje.' : 'Tudo certo por aqui.'}
           </p>
         </div>
