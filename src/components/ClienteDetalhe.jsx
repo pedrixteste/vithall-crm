@@ -29,7 +29,7 @@ const ORIGIN_LABELS = {
   'frias listas':      { label: 'Frias listas',      color: '#38BDF8' },
   'lead campanha':     { label: 'Lead campanha',       color: '#C9A84C' },
   'lead organico':     { label: 'Lead orgânico',       color: '#EAB308' },
-  'feiras':            { label: 'Feira',              color: '#A78BFA' },
+  'feiras':            { label: 'Evento',             color: '#A78BFA' },
   'indicacao':         { label: 'Indicacao',          color: '#4ADE80' },
 }
 

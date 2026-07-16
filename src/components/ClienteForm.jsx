@@ -17,7 +17,7 @@ const ORIGIN_LABELS = {
   'frias listas':      'Frias listas',
   'lead campanha':     'Lead campanha',
   'lead organico':     'Lead orgânico',
-  'feiras':            'Feiras',
+  'feiras':            'Eventos',
   'indicacao':         'Indicacao',
 }
 

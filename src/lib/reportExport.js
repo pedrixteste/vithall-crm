@@ -11,7 +11,7 @@ const ORIGINS = [
   { key: 'frias listas',      label: 'Frias listas' },
   { key: 'lead campanha',     label: 'Lead campanha' },
   { key: 'lead organico',    label: 'Lead orgânico' },
-  { key: 'feiras',            label: 'Feiras' },
+  { key: 'feiras',            label: 'Eventos' },
   { key: 'indicacao',         label: 'Indicação' },
 ]
 const ROLE_LABELS = { pre_vendas: 'Pré-vendas', vendedor: 'Vendedor', gerente: 'Gerente' }
