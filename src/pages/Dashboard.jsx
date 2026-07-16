@@ -13,6 +13,7 @@ import { requestNotificationPermission, scheduleTodayReminders } from '../lib/re
 import { initOneSignal } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 import { fetchVisitsToConfirm, fetchTodayVisits } from '../lib/visitConfirmation'
+import { localDateStr } from '../lib/utils'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [freshProfile, setFreshProfile] = useState(authProfile)
   const profile = freshProfile
-  const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0 })
+  const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0, marcacoes: 0, callsToday: 0 })
   const [recentVisits, setRecentVisits] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -148,15 +149,21 @@ export default function Dashboard() {
       return q.in('client_id', ids)
     }
 
-    const [ret, v, t, cl, rv, pt] = await Promise.all([
+    const [ret, v, t, cl, rv, pt, mc, dl] = await Promise.all([
       applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),
       applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
       applyClientFilter(supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false)),
       applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado')), 'created_at'),
       applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
       applyClientFilter(supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4)),
+      // pré-vendas: marcações (clientes registrados no período) + ligações de hoje
+      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' })), 'created_at'),
+      supabase.from('daily_logs').select('calls').eq('user_id', user.id).eq('log_date', localDateStr()).maybeSingle(),
     ])
-    setStats({ retornos: ret.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0 })
+    setStats({
+      retornos: ret.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0,
+      marcacoes: mc.count || 0, callsToday: dl.data?.calls || 0,
+    })
     setRecentVisits(rv.data || [])
     setPendingTasks(pt.data || [])
 
@@ -197,12 +204,20 @@ export default function Dashboard() {
 
   const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
 
-  const statCards = [
-    { label: 'Retornos', value: stats.retornos, icon: RotateCcw, accent: '#60A5FA', to: '/clientes?outcome=retorno' },
-    { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
-    { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
-    { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
-  ]
+  // Pré-vendas produz ligações e marcações; vendedor/gerente, retornos e visitas
+  const statCards = profile?.role === 'pre_vendas'
+    ? [
+      { label: 'Ligações hoje', value: stats.callsToday, icon: PhoneCall, accent: '#60A5FA', to: '/ligacoes' },
+      { label: 'Marcações', value: stats.marcacoes, icon: CalendarCheck, accent: '#A78BFA', to: '/clientes' },
+      { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
+      { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
+    ]
+    : [
+      { label: 'Retornos', value: stats.retornos, icon: RotateCcw, accent: '#60A5FA', to: '/clientes?outcome=retorno' },
+      { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
+      { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
+      { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
+    ]
 
   if (selectedCliente) return (
     <ClienteDetalhe
