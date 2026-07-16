@@ -17,8 +17,16 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else { setProfile(null); setLoading(false) }
+      if (session?.user) {
+        // NUNCA chamar o supabase direto aqui dentro: o cliente segura um lock
+        // interno durante este callback e a query trava (spinner infinito ao
+        // voltar pro app após o refresh do token). setTimeout(0) sai do lock.
+        const uid = session.user.id
+        setTimeout(() => fetchProfile(uid), 0)
+      } else {
+        setProfile(null)
+        setLoading(false)
+      }
     })
 
     return () => subscription.unsubscribe()
