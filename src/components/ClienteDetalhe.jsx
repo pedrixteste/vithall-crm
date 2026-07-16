@@ -1067,6 +1067,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 </a>
               )
             })()}
+            {currentClient.address_reference && (
+              <p className="text-xs" style={{ color: '#6B6560', paddingLeft: '26px', marginTop: '-8px' }}>
+                Ref.: {currentClient.address_reference}
+              </p>
+            )}
             {currentClient.instagram && (
               <a href={`https://instagram.com/${currentClient.instagram.replace('@', '')}`}
                 target="_blank" rel="noopener noreferrer"

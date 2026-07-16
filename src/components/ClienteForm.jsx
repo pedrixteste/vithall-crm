@@ -74,6 +74,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     address_street:  initialData?.address_street  || '',
     address_number:  initialData?.address_number  || '',
     address_neighborhood: initialData?.address_neighborhood || '',
+    address_reference: initialData?.address_reference || '',
     instagram:       initialData?.instagram       || '',
     phone:           initialData?.phone           || '',
     origin:          initialData?.origin          || '',
@@ -219,11 +220,14 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.contact_name.trim())            { setError('Nome e obrigatorio.'); return }
+    if (!form.company_name.trim())            { setError('Empresa e obrigatoria.'); return }
+    if (!form.contact_role.trim())            { setError('Cargo e obrigatorio.'); return }
     if (!form.phone.trim())                   { setError('Telefone e obrigatorio.'); return }
     if (!form.city.trim())                    { setError('Cidade e obrigatoria.'); return }
     if (!form.address_street.trim())          { setError('Rua e obrigatoria.'); return }
     if (!form.address_number.trim())          { setError('Numero e obrigatorio.'); return }
     if (!form.address_neighborhood.trim())    { setError('Bairro e obrigatorio.'); return }
+    if (!form.address_reference.trim())       { setError('Ponto de referencia e obrigatorio.'); return }
     if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
     if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
     if (!form.assigned_to) { setError('Atribuir a um vendedor e obrigatorio.'); return }
@@ -353,13 +357,13 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <Input
-            label="Empresa"
+            label="Empresa *"
             value={form.company_name}
             onChange={e => set('company_name', titleCase(e.target.value))}
             placeholder="Nome da empresa"
           />
           <Input
-            label="Cargo"
+            label="Cargo *"
             value={form.contact_role}
             onChange={e => set('contact_role', titleCase(e.target.value))}
             placeholder="Ex: Dono, Gerente"
@@ -394,6 +398,12 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             value={form.address_neighborhood}
             onChange={e => set('address_neighborhood', titleCase(e.target.value))}
             placeholder="Ex: Centro"
+          />
+          <Input
+            label="Ponto de referencia *"
+            value={form.address_reference}
+            onChange={e => set('address_reference', e.target.value)}
+            placeholder="Ex: Em frente a praca, ao lado do mercado X"
           />
         </div>
 

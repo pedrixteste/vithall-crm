@@ -131,7 +131,7 @@ export default function RelatoriosListas({ clients = [], profiles = [], role }) 
     { key: 'cargo',       label: 'Cargo',                get: c => c.contact_role },
     { key: 'telefone',    label: 'Telefone',             get: c => c.phone },
     { key: 'email',       label: 'Email',                get: c => c.email },
-    { key: 'endereco',    label: 'Endereço',             get: c => [c.address_street, c.address_number, c.address_neighborhood].filter(Boolean).join(', ') },
+    { key: 'endereco',    label: 'Endereço',             get: c => [c.address_street, c.address_number, c.address_neighborhood, c.address_reference && `Ref.: ${c.address_reference}`].filter(Boolean).join(', ') },
     { key: 'cidade',      label: 'Cidade',               get: c => c.city },
     { key: 'instagram',   label: 'Instagram',            get: c => c.instagram },
     { key: 'origem',      label: 'Origem',               get: c => c.origin },
