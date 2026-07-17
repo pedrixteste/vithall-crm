@@ -344,8 +344,8 @@ export default function LigacoesPage() {
           </div>
         </div>
 
-        {/* Toggle métrica */}
-        <div className="flex gap-2" style={{ marginBottom: '14px' }}>
+        {/* Toggle métrica — 4 opções, quebram p/ a linha de baixo no celular */}
+        <div className="flex flex-wrap gap-2" style={{ marginBottom: '14px' }}>
           {Object.entries(METRICS).map(([key, { label, Icon, color, rgb }]) => (
             <button key={key} onClick={() => setCalMetric(key)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
