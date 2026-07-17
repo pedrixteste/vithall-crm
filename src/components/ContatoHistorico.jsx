@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { phoneDigits } from '../lib/utils'
 import { Phone, Calendar, Star, X, ChevronRight } from 'lucide-react'
 
 // Histórico de um contato (telefone) que foi registrado mais de uma vez.
@@ -23,14 +24,21 @@ function fmt(x) {
   return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export default function ContatoHistorico({ phone, currentClientId, onOpenClient, onClose }) {
+export default function ContatoHistorico({ phone, phones, currentClientId, onOpenClient, onClose }) {
   const [groups, setGroups] = useState(null) // null = carregando
 
   useEffect(() => {
     let active = true
     ;(async () => {
-      const { data } = await supabase.from('clients').select('*, visits(*)').eq('phone', phone)
+      // Junta registros do MESMO contato: compara por dígitos (ignora
+      // formatação) nos dois telefones (principal e secundário) de cada registro
+      const keys = (phones || [phone]).map(phoneDigits).filter(k => k.length >= 8)
+      const { data: all } = await supabase.from('clients').select('*, visits(*)')
       if (!active) return
+      const data = (all || []).filter(c => {
+        const ck = [phoneDigits(c.phone), phoneDigits(c.phone2)].filter(k => k.length >= 8)
+        return ck.some(k => keys.includes(k))
+      })
       const g = (data || []).map(c => ({
         record: c,
         marcacaoDate: c.visit_scheduled_at || c.created_at,

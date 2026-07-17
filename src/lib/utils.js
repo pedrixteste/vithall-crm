@@ -5,6 +5,11 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
+// Só os dígitos de um telefone — comparação de repetição ignora formatação
+// ("(51) 99754-5182" e "51997545182" são o MESMO contato). Chaves com menos
+// de 8 dígitos são descartadas pelo chamador (evita lixo de dados de teste).
+export const phoneDigits = (p) => (p || '').replace(/\D/g, '')
+
 // Data LOCAL no formato YYYY-MM-DD. NÃO usar toISOString() para isso: ele
 // converte p/ UTC e, entre 21h e meia-noite (Brasil), cai no dia seguinte.
 export function localDateStr(d = new Date()) {

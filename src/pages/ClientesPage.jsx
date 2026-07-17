@@ -8,6 +8,7 @@ import { Card } from '../components/ui/Card'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
+import { phoneDigits } from '../lib/utils'
 
 const OUTCOME_OPTIONS = [
   { key: 'matriculada',          label: 'Matriculada',        icon: '✅', color: '#4ADE80' },
@@ -43,7 +44,7 @@ function normalizeCity(city) {
 
 export default function ClientesPage() {
   const { profile, user } = useAuth()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [clients, setClients]       = useState([])
   const [search, setSearch]         = useState('')
@@ -79,6 +80,20 @@ export default function ClientesPage() {
 
   useEffect(() => { fetchClients() }, [profile])
 
+  // /clientes?open=<id> abre a ficha do cliente direto (usado pelo pop-up de
+  // "número já registrado" do cadastro)
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (openId && clients.length) {
+      const c = clients.find(x => x.id === openId)
+      if (c) {
+        setSelected(c)
+        setSearchParams({}, { replace: true })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, searchParams])
+
   async function fetchClients() {
     let query = supabase.from('clients').select('*, visits(id, rating, visit_outcome)').order('created_at', { ascending: false })
     if (profile?.role === 'pre_vendas') {
@@ -91,10 +106,18 @@ export default function ClientesPage() {
     setClients(data || [])
     setLoading(false)
 
-    // Conta registros por telefone (base toda, igual ao histórico do contato 📞ˣ)
-    const { data: phones } = await supabase.from('clients').select('phone')
+    // Registros do mesmo contato (base toda): compara por DÍGITOS e considera
+    // os dois telefones (principal e secundário) — contagem por id do cliente
+    const { data: phones } = await supabase.from('clients').select('id, phone, phone2')
+    const keysOf = (r) => [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
+    const idx = {}
+    for (const r of phones || []) for (const k of keysOf(r)) (idx[k] ||= new Set()).add(r.id)
     const counts = {}
-    for (const p of phones || []) if (p.phone) counts[p.phone] = (counts[p.phone] || 0) + 1
+    for (const r of phones || []) {
+      const ids = new Set()
+      for (const k of keysOf(r)) idx[k].forEach(id => ids.add(id))
+      counts[r.id] = ids.size
+    }
     setPhoneCounts(counts)
   }
 

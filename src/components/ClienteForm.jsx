@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { phoneDigits } from '../lib/utils'
 import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
@@ -117,10 +119,25 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [listening, setListening] = useState(false)
+  const navigate = useNavigate()
   // Pop-up "adicionar no Google Agenda?" após salvar marcação feita
   const [calendarPrompt, setCalendarPrompt] = useState(null) // { clientId, name, phone, visitIso }
   const [calSaving, setCalSaving] = useState(false)
   const [calDone, setCalDone]     = useState(false)
+  // Pop-up "número já registrado antes" — último da cadeia
+  const [dupPrompt, setDupPrompt] = useState(null) // { clientId }
+  const dupPendingRef = useRef(null) // segura o dup até o pop-up da agenda fechar
+
+  // Fim do pop-up do Google Agenda → mostra o de número repetido (se houver)
+  function finishAfterCalendar() {
+    if (dupPendingRef.current) {
+      setCalendarPrompt(null)
+      setDupPrompt(dupPendingRef.current)
+      dupPendingRef.current = null
+    } else {
+      onSaved()
+    }
+  }
   const recognitionRef    = useRef(null)
   const notesBaseRef      = useRef('')
   const finalTranscriptRef = useRef('')
@@ -309,15 +326,34 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           },
         })
       }
+      // Cadastro novo: o telefone já existe em outro registro? (por dígitos,
+      // considerando principal e secundário dos dois lados)
+      let dup = null
+      if (!initialData?.id && res.data?.id) {
+        const keys = [phoneDigits(form.phone), phoneDigits(form.phone2)].filter(k => k.length >= 8)
+        if (keys.length) {
+          const { data: phones } = await supabase.from('clients').select('id, phone, phone2')
+          const repeated = (phones || []).some(r => {
+            if (r.id === res.data.id) return false
+            const rk = [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
+            return rk.some(k => keys.includes(k))
+          })
+          if (repeated) dup = { clientId: res.data.id }
+        }
+      }
+
       // Cadastro novo com marcação feita + Google Agenda conectado →
       // oferece adicionar a visita no Google Agenda antes de fechar
       if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id && profile?.google_refresh_token) {
+        dupPendingRef.current = dup // o pop-up do número repetido vem DEPOIS
         setCalendarPrompt({
           clientId: res.data.id,
           name:     form.contact_name || form.company_name || 'Cliente',
           phone:    form.phone,
           visitIso: newVisitIso,
         })
+      } else if (dup) {
+        setDupPrompt(dup)
       } else {
         onSaved()
       }
@@ -338,7 +374,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       })
       await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', calendarPrompt.clientId)
       setCalDone(true)
-      setTimeout(() => onSaved(), 1000)
+      setTimeout(finishAfterCalendar, 1000)
     } catch (e) {
       alert(`Erro ao adicionar: ${e.message}`)
     } finally {
@@ -786,13 +822,43 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                 style={{ background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)', color: '#F0EAD6', border: 'none', boxShadow: '0 2px 12px rgba(201,168,76,0.2)' }}>
                 <span className="inline-flex items-center gap-2"><Calendar size={14} /> {calSaving ? 'Adicionando...' : 'Adicionar ao Google Agenda'}</span>
               </button>
-              <button type="button" onClick={onSaved} disabled={calSaving}
+              <button type="button" onClick={finishAfterCalendar} disabled={calSaving}
                 className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
                 style={{ background: 'transparent', color: '#6B6560' }}>
                 Agora não
               </button>
             </>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Pop-up: esse número já foi registrado antes */}
+    {dupPrompt && (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center px-6"
+        style={{ background: 'rgba(0,0,0,0.85)' }}>
+        <div className="w-full max-w-sm rounded-2xl animate-in"
+          style={{ background: '#1A1A1A', border: '1px solid #303030', padding: '24px', textAlign: 'center' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)' }}>
+            <span style={{ fontSize: '20px' }}>📞</span>
+          </div>
+          <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>Contato já conhecido</h2>
+          <p className="text-sm mb-5" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+            Esse número já foi registrado no nosso banco antes.
+            Quer ver como foi das outras vezes?
+          </p>
+          <button type="button"
+            onClick={() => { const id = dupPrompt.clientId; setDupPrompt(null); onSaved(); navigate(`/clientes?open=${id}`) }}
+            className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] mb-2"
+            style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.4)', color: '#60A5FA' }}>
+            Sim, ver histórico
+          </button>
+          <button type="button" onClick={() => { setDupPrompt(null); onSaved() }}
+            className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+            style={{ background: 'transparent', color: '#6B6560' }}>
+            Não, continuar
+          </button>
         </div>
       </div>
     )}

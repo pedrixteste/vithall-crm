@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
-import { localDateStr } from '../lib/utils'
+import { localDateStr, phoneDigits } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -391,14 +391,18 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (data) setCreator(data)
   }
 
-  // Conta quantos registros existem com o mesmo telefone (histórico do contato)
+  // Conta quantos registros existem do mesmo contato — por DÍGITOS (ignora
+  // formatação) e considerando os dois telefones (principal e secundário)
   async function fetchPhoneCount() {
-    if (!currentClient.phone) { setPhoneCount(1); return }
-    const { count } = await supabase
-      .from('clients')
-      .select('id', { count: 'exact', head: true })
-      .eq('phone', currentClient.phone)
-    setPhoneCount(count || 1)
+    const keys = [phoneDigits(currentClient.phone), phoneDigits(currentClient.phone2)].filter(k => k.length >= 8)
+    if (!keys.length) { setPhoneCount(1); return }
+    const { data } = await supabase.from('clients').select('id, phone, phone2')
+    const ids = new Set()
+    for (const r of data || []) {
+      const rk = [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
+      if (rk.some(k => keys.includes(k))) ids.add(r.id)
+    }
+    setPhoneCount(ids.size || 1)
   }
 
   // Troca o registro exibido (item do histórico do contato), sem sair da ficha
@@ -2115,6 +2119,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {showHistorico && (
         <ContatoHistorico
           phone={currentClient.phone}
+          phones={[currentClient.phone, currentClient.phone2]}
           currentClientId={currentClient.id}
           onOpenClient={(record, opts) => switchToClient(record, opts)}
           onClose={() => setShowHistorico(false)}
