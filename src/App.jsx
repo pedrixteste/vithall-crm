@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import ClientesPage from './pages/ClientesPage'
 import PipelinePage from './pages/PipelinePage'
-import TarefasPage from './pages/TarefasPage'
 import PerfilPage from './pages/PerfilPage'
 import EquipePage from './pages/EquipePage'
 import RelatoriosPage from './pages/RelatoriosPage'
@@ -61,11 +60,6 @@ function AppRoutes() {
       <Route path="/pipeline" element={
         <PrivateRoute>
           <Layout><PipelinePage /></Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/tarefas" element={
-        <PrivateRoute>
-          <Layout><TarefasPage /></Layout>
         </PrivateRoute>
       } />
       <Route path="/perfil" element={

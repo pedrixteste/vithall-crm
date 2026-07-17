@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall } from 'lucide-react'
+import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
-import { Badge } from '../components/ui/Badge'
 import ClienteForm from '../components/ClienteForm'
-import TarefaForm from '../components/TarefaForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
@@ -50,10 +48,8 @@ export default function Dashboard() {
   const profile = freshProfile
   const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0, marcacoes: 0, callsToday: 0 })
   const [recentVisits, setRecentVisits] = useState([])
-  const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm]     = useState(false)
-  const [showTarefaForm, setShowTarefaForm]       = useState(false)
   const [selectedCliente, setSelectedCliente]     = useState(null)
   const [period, setPeriod]           = useState('max')
   const [customFrom, setCustomFrom]   = useState('')
@@ -149,13 +145,13 @@ export default function Dashboard() {
       return q.in('client_id', ids)
     }
 
-    const [ret, v, t, cl, rv, pt, mc, dl] = await Promise.all([
+    const [ret, v, t, cl, rv, mc, dl] = await Promise.all([
       applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),
       applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
-      applyClientFilter(supabase.from('tasks').select('id', { count: 'exact' }).eq('completed', false)),
+      // "A fazer": tarefas abertas (follow-ups) do usuário — agora vivem no Hoje
+      supabase.from('tasks').select('id', { count: 'exact' }).eq('seller_id', user.id).eq('completed', false),
       applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado')), 'created_at'),
       applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
-      applyClientFilter(supabase.from('tasks').select('*, clients(company_name)').eq('completed', false).order('due_date').limit(4)),
       // pré-vendas: marcações (clientes registrados no período) + ligações de hoje
       applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' })), 'created_at'),
       supabase.from('daily_logs').select('calls').eq('user_id', user.id).eq('log_date', localDateStr()).maybeSingle(),
@@ -165,7 +161,6 @@ export default function Dashboard() {
       marcacoes: mc.count || 0, callsToday: dl.data?.calls || 0,
     })
     setRecentVisits(rv.data || [])
-    setPendingTasks(pt.data || [])
 
     // Visitas agendadas — apenas para vendedor/gerente
     if (profile?.role !== 'pre_vendas') {
@@ -209,13 +204,13 @@ export default function Dashboard() {
     ? [
       { label: 'Ligações hoje', value: stats.callsToday, icon: PhoneCall, accent: '#60A5FA', to: '/ligacoes' },
       { label: 'Marcações', value: stats.marcacoes, icon: CalendarCheck, accent: '#A78BFA', to: '/clientes' },
-      { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
+      { label: 'A fazer', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
       { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
     ]
     : [
       { label: 'Retornos', value: stats.retornos, icon: RotateCcw, accent: '#60A5FA', to: '/clientes?outcome=retorno' },
       { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
-      { label: 'Pendentes', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/tarefas' },
+      { label: 'A fazer', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
       { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
     ]
 
@@ -478,57 +473,6 @@ export default function Dashboard() {
           )}
         </Card>
 
-        {/* Tarefas pendentes */}
-        <Card>
-          <CardHeader>
-            <Link to="/tarefas" className="flex items-center gap-2.5" style={{ textDecoration: 'none' }}>
-              <CheckSquare size={14} style={{ color: '#E8834A' }} />
-              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas pendentes</span>
-              <ExternalLink size={11} style={{ color: '#444040' }} />
-            </Link>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowTarefaForm(true)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                style={{ background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.2)', color: '#E8834A' }}>
-                <Plus size={13} />
-              </button>
-              <Link to="/tarefas" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
-            </div>
-          </CardHeader>
-          {pendingTasks.length === 0 ? (
-            <div className="text-center" style={{ padding: '48px 0' }}>
-              <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🎉</p>
-              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
-            </div>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
-              {pendingTasks.map(t => {
-                const prioColors = { alta: '#E85555', media: '#E8834A', baixa: '#4ADE80' }
-                const prioColor  = prioColors[t.priority] || '#E8834A'
-                return (
-                  <li key={t.id} className="flex items-center justify-between gap-3"
-                    style={{ padding: '16px 20px' }}>
-                    <Link to="/tarefas" className="flex items-start gap-2.5 min-w-0 flex-1" style={{ textDecoration: 'none' }}>
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: prioColor }} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
-                        {t.clients?.company_name && (
-                          <p className="text-xs mt-0.5 truncate" style={{ color: '#6B6560' }}>{t.clients.company_name}</p>
-                        )}
-                      </div>
-                    </Link>
-                    {t.due_date && (
-                      <Badge variant="orange">
-                        {new Date(t.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                      </Badge>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Card>
-
       </div>
 
       {/* FAB - Novo Cliente */}
@@ -560,13 +504,6 @@ export default function Dashboard() {
         <ClienteForm
           onClose={() => setShowClienteForm(false)}
           onSaved={() => { setShowClienteForm(false); fetchData() }}
-        />
-      )}
-
-      {showTarefaForm && (
-        <TarefaForm
-          onClose={() => setShowTarefaForm(false)}
-          onSaved={() => { setShowTarefaForm(false); fetchData() }}
         />
       )}
 

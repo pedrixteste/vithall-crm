@@ -8,7 +8,7 @@ import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
   fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks,
-  getDayRange, daysAheadWindow,
+  fetchOpenTasks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 import { localDateStr } from '../lib/utils'
@@ -128,6 +128,7 @@ export default function VisitasHojePage() {
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
   const [feedbacks, setFeedbacks]           = useState([]) // estrelas preenchidas hoje (visitas que marquei)
+  const [tasks, setTasks]                   = useState([]) // "A fazer": tarefas/follow-ups em aberto
   const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
   const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
   const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
@@ -143,15 +144,17 @@ export default function VisitasHojePage() {
     if (!user?.id) return
     const role = profile?.role
 
-    const [confirm, tv, tc, mv, mc, rem] = await Promise.all([
+    const [confirm, tv, tc, mv, mc, rem, tsk] = await Promise.all([
       fetchVisitsToConfirm(user.id),
       fetchVisitsForDay(role, user.id, 0),
       fetchCallbacksForDay(role, user.id, 0),
       fetchVisitsForDay(role, user.id, 1),
       fetchCallbacksForDay(role, user.id, 1),
       fetchUpcomingReminders(user.id, daysAheadWindow()), // sexta alcança segunda
+      fetchOpenTasks(user.id),
     ])
     setReminders(rem)
+    setTasks(tsk)
     // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
     // sem resposta ou "não confirmada" não aparecem na agenda
     setToConfirm(confirm)
@@ -221,6 +224,12 @@ export default function VisitasHojePage() {
     setProd({ marcacoes: marc.data || [], visitas, matriculas: mats.data || [] })
   }
 
+  // Concluir uma tarefa/follow-up direto da aba Hoje
+  async function completeTask(taskId) {
+    setTasks(ts => ts.filter(t => t.id !== taskId)) // otimista
+    await supabase.from('tasks').update({ completed: true }).eq('id', taskId)
+  }
+
   // Clicou num botão de resultado → muda o estágio automaticamente (otimista)
   async function handleStageChange(visit, newStage) {
     const oldStage = visit.matricula_stage
@@ -281,7 +290,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0 && tasks.length === 0
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -436,6 +445,37 @@ export default function VisitasHojePage() {
               onClick={() => setSelected(c)}
             />
           ))}
+        </div>
+      )}
+
+      {/* A fazer — tarefas/follow-ups em aberto (substitui a aba Tarefas) */}
+      {!loading && tasks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5">✓ A fazer</span></SectionLabel>
+          {tasks.map(t => {
+            const overdue = t.due_date && t.due_date < localDateStr()
+            return (
+              <div key={t.id} className="rounded-2xl flex items-center gap-3"
+                style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
+                <button onClick={() => t.clients && setSelected(t.clients)} className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                  {(t.clients?.contact_name || t.clients?.company_name) && (
+                    <p className="text-xs truncate" style={{ color: '#6B6560' }}>{t.clients.contact_name || t.clients.company_name}</p>
+                  )}
+                  {t.due_date && (
+                    <p className="text-[11px] mt-0.5" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
+                      {overdue ? '⚠ venceu ' : 'até '}{new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </p>
+                  )}
+                </button>
+                <button onClick={() => completeTask(t.id)} title="Concluir"
+                  className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                  style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
+                  ✓
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
 

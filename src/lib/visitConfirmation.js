@@ -212,6 +212,21 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
   return data || []
 }
 
+// Tarefas em aberto do usuário (follow-ups criados na estrela + manuais) que
+// já venceram, não têm prazo, ou vencem até o próximo dia útil. Aparecem na
+// aba Hoje ("A fazer") — a página global de Tarefas foi removida.
+export async function fetchOpenTasks(userId) {
+  if (!userId) return []
+  const cutoff = localDateStr(new Date(Date.now() + daysAheadWindow() * 86400000))
+  const { data } = await supabase
+    .from('tasks')
+    .select('*, clients(contact_name, company_name, city)')
+    .eq('seller_id', userId)
+    .eq('completed', false)
+    .order('due_date', { ascending: true })
+  return (data || []).filter(t => !t.due_date || t.due_date <= cutoff)
+}
+
 // Estrelas preenchidas HOJE (rated_at) de clientes que o usuário marcou —
 // aviso na aba Hoje do pré-vendas p/ ele conferir o feedback da visita.
 export async function fetchTodayFeedbacks(userId) {
