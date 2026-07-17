@@ -13,6 +13,12 @@ import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
+// Dias úteis em que o cliente está livre para receber visita (opcional)
+const DIAS_LIVRES = [
+  { key: 'seg', label: 'Seg' }, { key: 'ter', label: 'Ter' }, { key: 'qua', label: 'Qua' },
+  { key: 'qui', label: 'Qui' }, { key: 'sex', label: 'Sex' },
+]
+
 const ORIGINS = ['frias contatinhos', 'frias listas', 'lead campanha', 'lead organico', 'feiras', 'indicacao']
 const ORIGIN_LABELS = {
   'frias contatinhos': 'Frias contatinhos',
@@ -111,6 +117,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [treinamentosInteresse, setTreinamentosInteresse] = useState(
     initialData?.treinamentos_interesse || []
   )
+  const [diasLivres, setDiasLivres] = useState(initialData?.dias_livres || [])
+  const toggleDiaLivre = (d) =>
+    setDiasLivres(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
 
   const [visitScheduledAt, setVisitScheduledAt] = useState(
     toLocalInputValue(initialData?.visit_scheduled_at)
@@ -167,6 +176,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       notes:                c.notes || '',
     }))
     setTreinamentosInteresse(c.treinamentos_interesse || [])
+    setDiasLivres(c.dias_livres || [])
     setPhoneSuggestions([])
     setSuggestDismissed(true)
   }
@@ -327,6 +337,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       reminder_config,
       visit_scheduled_at: newVisitIso,
       treinamentos_interesse: treinamentosInteresse,
+      dias_livres: diasLivres,
     }
     // Visita remarcada (data mudou) → confirmação antiga não vale mais e
     // quem mudou a data passa a ser o responsável por confirmar
@@ -602,6 +613,27 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   color: treinamentosInteresse.includes(t) ? '#C9A84C' : '#6B6560',
                 }}>
                 {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dias livres do cliente (opcional) */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+            Dias livres do cliente
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+            {DIAS_LIVRES.map(d => (
+              <button key={d.key} type="button" onClick={() => toggleDiaLivre(d.key)}
+                className="text-xs font-semibold rounded-xl transition-all"
+                style={{
+                  padding: '10px 4px',
+                  background: diasLivres.includes(d.key) ? 'rgba(201,168,76,0.12)' : '#111',
+                  border: `1px solid ${diasLivres.includes(d.key) ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                  color: diasLivres.includes(d.key) ? '#C9A84C' : '#6B6560',
+                }}>
+                {d.label}
               </button>
             ))}
           </div>

@@ -11,6 +11,7 @@ import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
 
 const TRAININGS          = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
+const DIAS_LIVRES_LABEL  = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' }
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
 const STAGES = {
@@ -1137,6 +1138,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                     — por <span style={{ color: '#C9A84C', fontWeight: 600 }}>{currentClient.indicado_por}</span>
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* Dias livres do cliente */}
+            {(currentClient.dias_livres || []).length > 0 && (
+              <div className="flex items-center gap-2.5 text-sm flex-wrap">
+                <Calendar size={14} style={{ color: '#C9A84C', flexShrink: 0 }} />
+                <span style={{ color: '#6B6560' }}>Dias livres: </span>
+                {currentClient.dias_livres.map(d => (
+                  <span key={d} className="text-xs font-semibold rounded-full"
+                    style={{ padding: '3px 10px', background: 'rgba(96,165,250,0.1)', color: '#60A5FA', border: '1px solid rgba(96,165,250,0.25)' }}>
+                    {DIAS_LIVRES_LABEL[d] || d}
+                  </span>
+                ))}
               </div>
             )}
 

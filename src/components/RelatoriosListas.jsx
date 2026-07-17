@@ -137,6 +137,7 @@ export default function RelatoriosListas({ clients = [], profiles = [], role }) 
     { key: 'origem',      label: 'Origem',               get: c => c.origin },
     { key: 'estagio',     label: 'Estágio',              get: c => STAGES[c.matricula_stage] || c.matricula_stage },
     { key: 'treinos',     label: 'Treinos de interesse', get: c => (c.treinamentos_interesse || []).join(', ') },
+    { key: 'dias_livres', label: 'Dias livres',          get: c => (c.dias_livres || []).map(d => ({ seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' }[d] || d)).join(', ') },
     { key: 'matriculas',  label: 'Matrículas',           get: c => (c.matriculas || []).join(', ') },
     { key: 'registro',    label: 'Data de registro',     get: c => fmtDate(c.created_at) },
     { key: 'marcacao',    label: 'Data de marcação',     get: c => fmtDateTime(c.visit_scheduled_at) },
