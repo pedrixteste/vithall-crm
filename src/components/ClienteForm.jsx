@@ -395,7 +395,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
       // Cadastro novo com marcação feita + Google Agenda conectado →
       // oferece adicionar a visita no Google Agenda antes de fechar
-      if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id && profile?.google_refresh_token) {
+      if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id && profile?.google_connected) {
         dupPendingRef.current = dup // o pop-up do número repetido vem DEPOIS
         setCalendarPrompt({
           clientId: res.data.id,
@@ -416,8 +416,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   async function addToCalendar() {
     setCalSaving(true)
     try {
-      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(fresh)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, {
         clientName:    calendarPrompt.name,

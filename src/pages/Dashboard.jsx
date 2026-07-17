@@ -408,14 +408,13 @@ export default function Dashboard() {
                             style={{ padding: '8px 12px', background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ADE80' }}>
                             <CalendarCheck size={11} /> Agendado
                           </span>
-                        ) : profile?.google_refresh_token ? (
+                        ) : profile?.google_connected ? (
                           <button
                             disabled={syncingId === v.id}
                             onClick={async () => {
                               setSyncingId(v.id)
                               try {
-                                const { data: fp } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-                                const token = await getValidToken(fp)
+                                const token = await getValidToken(user.id)
                                 if (!token) { alert('Conecte o Google Agenda no Perfil primeiro.'); return }
                                 const eventId = await createCalendarEvent(token, {
                                   clientName: v.contact_name || v.company_name || 'Cliente',

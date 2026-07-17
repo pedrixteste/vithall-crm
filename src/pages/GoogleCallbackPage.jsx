@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { saveGoogleTokens } from '../lib/googleCalendar'
 
 export default function GoogleCallbackPage() {
   const navigate = useNavigate()
@@ -39,13 +40,12 @@ export default function GoogleCallbackPage() {
         const uid = authData?.user?.id
         if (!uid) throw new Error('Usuário não autenticado')
 
-        const { error: updateError } = await supabase.from('profiles').update({
-          google_access_token:  data.access_token,
-          google_refresh_token: data.refresh_token || null,
-          google_token_expiry:  Date.now() + (data.expires_in || 3600) * 1000,
-        }).eq('id', uid)
-
-        if (updateError) throw new Error(`Salvar perfil: ${updateError.message}`)
+        // Tokens vão para google_tokens (só o dono lê), não em profiles
+        await saveGoogleTokens(uid, {
+          access_token:  data.access_token,
+          refresh_token: data.refresh_token || null,
+          token_expiry:  Date.now() + (data.expires_in || 3600) * 1000,
+        })
 
         setStatus('Google Agenda conectado! ✅')
         setTimeout(() => navigate('/perfil'), 1800)

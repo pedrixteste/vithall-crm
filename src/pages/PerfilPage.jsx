@@ -5,7 +5,7 @@ import { User, LogOut, Check, Calendar, Unlink, Smartphone } from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { getGoogleAuthUrl } from '../lib/googleCalendar'
+import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
 
 export default function PerfilPage() {
   const { profile: authProfile, signOut, user } = useAuth()
@@ -46,16 +46,12 @@ export default function PerfilPage() {
   }
 
   const profile = freshProfile
-  const isGoogleConnected = !!freshProfile?.google_refresh_token
+  const isGoogleConnected = !!freshProfile?.google_connected
 
   async function handleDisconnectGoogle() {
     if (!confirm('Desconectar o Google Agenda? Os eventos já criados não serão afetados.')) return
     setDisconnecting(true)
-    await supabase.from('profiles').update({
-      google_access_token:  null,
-      google_refresh_token: null,
-      google_token_expiry:  null,
-    }).eq('id', user.id)
+    await clearGoogleTokens(user.id)
     setDisconnecting(false)
     window.location.reload()
   }

@@ -573,16 +573,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Se cancelou → remove evento do Google Agenda automaticamente
     if (newStage === 'cancelado') {
       try {
-        const [{ data: freshClient }, { data: freshProfile }] = await Promise.all([
-          supabase.from('clients').select('google_calendar_event_id').eq('id', currentClient.id).single(),
-          supabase.from('profiles').select('*').eq('id', user.id).single(),
-        ])
+        const { data: freshClient } = await supabase.from('clients').select('google_calendar_event_id').eq('id', currentClient.id).single()
         const eventId = freshClient?.google_calendar_event_id
         if (!eventId) {
           // Nenhum evento registrado — nada a deletar
           return
         }
-        const token = await getValidToken(freshProfile)
+        const token = await getValidToken(user.id)
         if (!token) {
           alert('Visita cancelada! Mas não foi possível remover do Google Agenda (token inválido). Remova manualmente.')
           return
@@ -609,8 +606,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setSyncingCalendar(true)
     try {
       // Busca perfil fresco para garantir tokens atualizados
-      const { data: freshProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(freshProfile)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, {
         clientName:    currentClient.contact_name || currentClient.company_name || 'Cliente',
@@ -630,8 +626,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!confirm('Remover esta visita do Google Agenda?')) return
     setSyncingCalendar(true)
     try {
-      const { data: freshProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(freshProfile)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       await deleteCalendarEvent(token, currentClient.google_calendar_event_id)
       await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
@@ -1299,7 +1294,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </p>
 
             {/* Botão de sincronização com Google Agenda */}
-            {profile?.google_refresh_token && (
+            {profile?.google_connected && (
               <div style={{ marginTop: '10px' }}>
                 {currentClient.google_calendar_event_id ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1934,7 +1929,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             <input type="datetime-local" value={edit.outcome_return_datetime} disabled={!canRate}
                               onChange={e => setEdit({ outcome_return_datetime: e.target.value })}
                               style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
-                            {justSaved && isPresencial && profile?.google_refresh_token && (
+                            {justSaved && isPresencial && profile?.google_connected && (
                               <button onClick={syncCalendarEvent} disabled={syncingCalendar}
                                 style={{ marginTop: '10px', width: '100%', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', cursor: 'pointer', background: 'rgba(201,168,76,0.08)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)', fontSize: '13px', fontWeight: 600 }}>
                                 <Calendar size={14} />{syncingCalendar ? 'Adicionando...' : 'Adicionar ao Google Agenda'}

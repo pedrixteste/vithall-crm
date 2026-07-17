@@ -20,6 +20,14 @@ function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : null }
 function fmt(n)    { return n ?? '—' }
 function fmtPct(n) { return n != null ? `${n}%` : '—' }
 
+// Escapa texto controlado pelo usuário (nomes) antes de entrar no HTML do
+// relatório — evita que um nome com código execute ao abrir o relatório
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+}
+
 /** Calcula métricas de um conjunto de clientes/logs */
 function calcMetrics(memberClients, logs, periodStart) {
   const inPeriod   = memberClients.filter(c => new Date(c.created_at) >= periodStart)
@@ -63,7 +71,7 @@ function memberRow(m, bg) {
   return `
     <tr style="background:${bg}">
       <td style="padding:10px 14px;font-weight:600;color:#111;border-bottom:1px solid #E8E8E8">
-        ${m.name}<br>
+        ${esc(m.name)}<br>
         <span style="font-size:10px;font-weight:400;color:#888;text-transform:uppercase;letter-spacing:.06em">${ROLE_LABELS[m.role] || m.role}</span>
       </td>
       <td style="padding:10px 14px;text-align:center;color:#555;border-bottom:1px solid #E8E8E8">${fmt(m.calls || 0)}</td>
@@ -149,7 +157,7 @@ export function generateReportHTML({
   })
 
   const scopeLabel = {
-    individual:  `Individual — ${members[0]?.name}`,
+    individual:  `Individual — ${esc(members[0]?.name)}`,
     pre_vendas:  'Equipe de Pré-Vendas',
     vendedores:  'Equipe de Vendedores',
     all:         'Equipe Completa',
@@ -276,7 +284,7 @@ export function generateReportHTML({
       <div class="header-meta">
         <div class="period">Período: <strong style="color:#C9A84C">${periodLabel}</strong></div>
         <div class="date">Gerado em ${now}</div>
-        <div class="date" style="margin-top:2px">por ${exportedBy}</div>
+        <div class="date" style="margin-top:2px">por ${esc(exportedBy)}</div>
       </div>
     </div>
     <h1>Relatório de Desempenho</h1>
@@ -394,7 +402,7 @@ export function generateReportHTML({
         <div style="border:1px solid #E8E8E8;border-radius:12px;overflow:hidden">
           <div style="padding:14px 16px;background:#F8F8F8;border-bottom:1px solid #E8E8E8;display:flex;justify-content:space-between;align-items:center">
             <div>
-              <div style="font-weight:700;font-size:14px;color:#111">${m.name}</div>
+              <div style="font-weight:700;font-size:14px;color:#111">${esc(m.name)}</div>
               <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">${ROLE_LABELS[m.role] || m.role}</div>
             </div>
             <div style="font-size:22px;font-weight:800;color:#1A7F4B">${m.matriculas}</div>

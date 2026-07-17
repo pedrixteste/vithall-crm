@@ -68,7 +68,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
     setNote('')
 
     // Não confirmada + visita no Google Agenda → oferece remover de lá
-    const needPrompt = status === 'nao_confirmada' && v?.google_calendar_event_id && profile?.google_refresh_token
+    const needPrompt = status === 'nao_confirmada' && v?.google_calendar_event_id && profile?.google_connected
     if (needPrompt) {
       setRemovePrompt({ clientId, eventId: v.google_calendar_event_id, name: v.contact_name || v.company_name || 'Cliente' })
     }
@@ -90,8 +90,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
   async function removeFromCalendar() {
     setRemoveSaving(true)
     try {
-      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(fresh)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       await deleteCalendarEvent(token, removePrompt.eventId)
       await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', removePrompt.clientId)
@@ -143,7 +142,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
     if (rest.length === 0) pendingEmptyRef.current = true // fecha só no fim da cadeia
 
     const name = v?.contact_name || v?.company_name || 'Cliente'
-    if (profile?.google_refresh_token) {
+    if (profile?.google_connected) {
       setRemarcPrompt({ clientId, name, oldEventId: v?.google_calendar_event_id || null, newIso, oldDeleted: false, newAdded: false })
     } else {
       setAgendaPrompt({ name })
@@ -153,8 +152,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
   async function remarcDeleteOld() {
     setRemarcBusy('del')
     try {
-      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(fresh)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       await deleteCalendarEvent(token, remarcPrompt.oldEventId)
       if (!remarcPrompt.newAdded) {
@@ -171,8 +169,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
   async function remarcAddNew() {
     setRemarcBusy('add')
     try {
-      const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      const token = await getValidToken(fresh)
+      const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, { clientName: remarcPrompt.name, visitDateTime: remarcPrompt.newIso })
       await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', remarcPrompt.clientId)
