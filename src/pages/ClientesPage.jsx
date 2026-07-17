@@ -533,11 +533,11 @@ export default function ClientesPage() {
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>
                       {client.contact_name || client.company_name}
                     </p>
-                    {(phoneCounts[client.phone] || 0) > 1 && (
-                      <span title={`Contato registrado outras ${phoneCounts[client.phone] - 1}x`}
+                    {(phoneCounts[client.id] || 0) > 1 && (
+                      <span title={`Contato registrado outras ${phoneCounts[client.id] - 1}x`}
                         className="inline-flex items-center flex-shrink-0 rounded-full"
                         style={{ padding: '2px 7px', gap: '1px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: '10px', fontWeight: 700 }}>
-                        <Phone size={10} /><sup>{phoneCounts[client.phone] - 1}</sup>
+                        <Phone size={10} /><sup>{phoneCounts[client.id] - 1}</sup>
                       </span>
                     )}
                     {!client.assigned_to && profile?.role === 'pre_vendas' && (
