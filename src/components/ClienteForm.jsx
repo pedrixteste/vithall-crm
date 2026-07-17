@@ -120,6 +120,57 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [error, setError]         = useState('')
   const [listening, setListening] = useState(false)
   const navigate = useNavigate()
+  // Autocomplete de telefone (estilo discador): 5+ dígitos → sugere contatos
+  // já salvos cujo número COMEÇA igual; tocar puxa os dados p/ o form
+  const [phoneSuggestions, setPhoneSuggestions] = useState([])
+  const [suggestDismissed, setSuggestDismissed] = useState(false)
+  const phoneListRef = useRef(null) // cache da lista (1 fetch por abertura do form)
+
+  async function updatePhoneSuggestions(value) {
+    if (initialData?.id) return // só no cadastro novo
+    const digits = phoneDigits(value)
+    if (digits.length < 5) { setPhoneSuggestions([]); return }
+    if (!phoneListRef.current) {
+      const { data } = await supabase.from('clients').select('id, contact_name, company_name, phone, phone2')
+      phoneListRef.current = data || []
+    }
+    const matches = []
+    for (const r of phoneListRef.current) {
+      const cand = [r.phone, r.phone2].find(p => phoneDigits(p).length >= 8 && phoneDigits(p).startsWith(digits))
+      if (cand) matches.push({ ...r, matchPhone: cand })
+      if (matches.length >= 5) break
+    }
+    setPhoneSuggestions(matches)
+  }
+
+  // Puxa TODOS os dados do contato escolhido (menos estágio/vendedor/visita,
+  // que pertencem ao ciclo novo) — a pessoa só ajusta o que mudou
+  async function applySuggestion(s) {
+    const { data: c } = await supabase.from('clients').select('*').eq('id', s.id).single()
+    if (!c) return
+    setForm(f => ({
+      ...f,
+      contact_name:         c.contact_name || '',
+      company_name:         c.company_name || '',
+      contact_role:         c.contact_role || '',
+      city:                 c.city || '',
+      address_street:       c.address_street || '',
+      address_number:       c.address_number || '',
+      address_neighborhood: c.address_neighborhood || '',
+      address_reference:    c.address_reference || '',
+      instagram:            c.instagram || '',
+      phone:                c.phone || '',
+      phone_type:           c.phone_type || 'pessoal',
+      phone2:               c.phone2 || '',
+      origin:               c.origin || '',
+      indicado_por:         c.indicado_por || '',
+      notes:                c.notes || '',
+    }))
+    setTreinamentosInteresse(c.treinamentos_interesse || [])
+    setPhoneSuggestions([])
+    setSuggestDismissed(true)
+  }
+
   // Pop-up "adicionar no Google Agenda?" após salvar marcação feita
   const [calendarPrompt, setCalendarPrompt] = useState(null) // { clientId, name, phone, visitIso }
   const [calSaving, setCalSaving] = useState(false)
@@ -395,6 +446,68 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           required
         />
 
+        {/* Celular logo abaixo do nome, com autocomplete de contatos já salvos */}
+        <div>
+          <Input
+            label="Celular *"
+            value={form.phone}
+            onChange={e => { set('phone', e.target.value); setSuggestDismissed(false); updatePhoneSuggestions(e.target.value) }}
+            placeholder="(00) 00000-0000"
+          />
+          {phoneSuggestions.length > 0 && !suggestDismissed && (
+            <div className="rounded-xl mt-2" style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.25)', overflow: 'hidden' }}>
+              <div className="flex items-center justify-between" style={{ padding: '8px 12px 6px' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#60A5FA' }}>
+                  📞 Número já registrado — toque para puxar os dados
+                </p>
+                <button type="button" onClick={() => setSuggestDismissed(true)}
+                  className="text-[10px] font-bold" style={{ color: '#6B6560' }}>✕</button>
+              </div>
+              {phoneSuggestions.map(s => (
+                <button key={s.id} type="button" onClick={() => applySuggestion(s)}
+                  className="w-full text-left transition-all active:opacity-70"
+                  style={{ padding: '10px 12px', borderTop: '1px solid rgba(96,165,250,0.12)' }}>
+                  <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>
+                    {s.contact_name || s.company_name || 'Sem nome'}
+                    {s.company_name && s.contact_name ? <span style={{ color: '#6B6560', fontWeight: 400 }}> · {s.company_name}</span> : null}
+                  </p>
+                  <p className="text-xs tabular-nums" style={{ color: '#60A5FA' }}>{s.matchPhone}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tipo do telefone + segundo número (do outro tipo) */}
+        {form.phone.trim() && (
+          <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                Esse número é...
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']].map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => set('phone_type', k)}
+                    className="text-xs font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                    style={{
+                      background: form.phone_type === k ? 'rgba(201,168,76,0.12)' : '#161616',
+                      border: `1px solid ${form.phone_type === k ? 'rgba(201,168,76,0.4)' : '#252525'}`,
+                      color: form.phone_type === k ? '#C9A84C' : '#6B6560',
+                    }}>
+                    {form.phone_type === k ? '✓ ' : ''}{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Input
+              label={form.phone_type === 'empresa' ? 'Telefone pessoal (opcional)' : 'Telefone empresa (opcional)'}
+              value={form.phone2}
+              onChange={e => set('phone2', e.target.value)}
+              placeholder="Se o cliente passar outro número na ligação"
+            />
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <Input
             label="Empresa *"
@@ -447,50 +560,12 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <Input
-            label="Instagram"
-            value={form.instagram}
-            onChange={e => set('instagram', e.target.value)}
-            placeholder="@usuario"
-          />
-          <Input
-            label="Celular *"
-            value={form.phone}
-            onChange={e => set('phone', e.target.value)}
-            placeholder="(00) 00000-0000"
-          />
-        </div>
-
-        {/* Tipo do telefone + segundo número (do outro tipo) */}
-        {form.phone.trim() && (
-          <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
-                Esse número é...
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']].map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => set('phone_type', k)}
-                    className="text-xs font-bold rounded-xl py-2.5 transition-all active:scale-95"
-                    style={{
-                      background: form.phone_type === k ? 'rgba(201,168,76,0.12)' : '#161616',
-                      border: `1px solid ${form.phone_type === k ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: form.phone_type === k ? '#C9A84C' : '#6B6560',
-                    }}>
-                    {form.phone_type === k ? '✓ ' : ''}{label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Input
-              label={form.phone_type === 'empresa' ? 'Telefone pessoal (opcional)' : 'Telefone empresa (opcional)'}
-              value={form.phone2}
-              onChange={e => set('phone2', e.target.value)}
-              placeholder="Se o cliente passar outro número na ligação"
-            />
-          </div>
-        )}
+        <Input
+          label="Instagram"
+          value={form.instagram}
+          onChange={e => set('instagram', e.target.value)}
+          placeholder="@usuario"
+        />
 
         <Select
           label="Como surgiu? *"
