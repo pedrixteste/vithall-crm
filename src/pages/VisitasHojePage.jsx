@@ -135,6 +135,7 @@ export default function VisitasHojePage() {
   const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
   const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
   const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
+  const [prodDate, setProdDate]             = useState(localDateStr()) // dia do "produzido" (calendário)
   const [prod, setProd]                     = useState(null)        // { marcacoes, visitas, matriculas } | null = carregando
 
   const today    = getDayRange(0)
@@ -194,13 +195,15 @@ export default function VisitasHojePage() {
   const personId = prodPerson || user?.id
 
   useEffect(() => {
-    if (view === 'produzido' && personId) fetchProduzido(personId)
-  }, [view, personId])
+    if (view === 'produzido' && personId) fetchProduzido(personId, prodDate)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, personId, prodDate])
 
-  async function fetchProduzido(pid) {
+  async function fetchProduzido(pid, dateStr = localDateStr()) {
     setProd(null)
-    const { start, end } = getDayRange(0)
-    const todayLocal = localDateStr()
+    const start = new Date(dateStr + 'T00:00:00').toISOString()
+    const end   = new Date(dateStr + 'T23:59:59.999').toISOString()
+    const todayLocal = dateStr
     const [marc, hist, mats, dlog, cbt] = await Promise.all([
       supabase.from('clients').select('*')
         .eq('created_by', pid)
@@ -637,6 +640,33 @@ export default function VisitasHojePage() {
             </div>
           )}
 
+          {/* Calendário: navegar entre dias */}
+          {(() => {
+            const shiftDay = (n) => {
+              const d = new Date(prodDate + 'T12:00:00'); d.setDate(d.getDate() + n); setProdDate(localDateStr(d))
+            }
+            const isToday = prodDate === localDateStr()
+            const label = new Date(prodDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'long' }).replace('.', '')
+            return (
+              <div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => shiftDay(-1)} className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-95"
+                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>‹</button>
+                  <div className="flex-1 relative">
+                    <input type="date" value={prodDate} max={localDateStr()}
+                      onChange={e => { if (e.target.value) setProdDate(e.target.value) }}
+                      className="w-full text-center text-sm font-semibold outline-none rounded-xl"
+                      style={{ padding: '9px 12px', background: '#161616', border: `1px solid ${isToday ? 'rgba(201,168,76,0.35)' : '#252525'}`, color: isToday ? '#C9A84C' : '#EFEFEF' }} />
+                  </div>
+                  <button onClick={() => shiftDay(1)} disabled={isToday}
+                    className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-95 disabled:opacity-30"
+                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>›</button>
+                </div>
+                <p className="text-xs capitalize mt-1.5" style={{ color: '#6B6560' }}>{label}{isToday ? ' · hoje' : ''}</p>
+              </div>
+            )
+          })()}
+
           {prod === null ? (
             <div className="flex items-center justify-center" style={{ paddingTop: '60px' }}>
               <div className="w-7 h-7 rounded-full border-2 animate-spin" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
@@ -752,7 +782,7 @@ export default function VisitasHojePage() {
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
                   <p style={{ fontSize: '3rem' }}>📊</p>
                   <p className="text-sm font-medium" style={{ color: '#333030' }}>
-                    Nada produzido hoje ainda
+                    {prodDate === localDateStr() ? 'Nada produzido hoje ainda' : 'Nada produzido nesse dia'}
                   </p>
                 </div>
               )}
@@ -765,7 +795,7 @@ export default function VisitasHojePage() {
         <CallbackForm
           initialData={editingCallback}
           onClose={() => setEditingCallback(null)}
-          onSaved={() => { setEditingCallback(null); if (view === 'produzido' && personId) fetchProduzido(personId); fetchData() }}
+          onSaved={() => { setEditingCallback(null); if (view === 'produzido' && personId) fetchProduzido(personId, prodDate); fetchData() }}
         />
       )}
     </div>
