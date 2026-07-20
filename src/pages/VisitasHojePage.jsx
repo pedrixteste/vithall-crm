@@ -628,13 +628,18 @@ export default function VisitasHojePage() {
             </div>
           ) : (
             <>
-              {/* Resumo do dia */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                {[
+              {/* Resumo do dia — pré-vendas só faz marcações (sem visitas/matrículas) */}
+              {(() => {
+                const tiles = [
                   { label: 'Marcações',  value: prod.marcacoes.length,  color: '#60A5FA', Icon: CalendarPlus },
-                  { label: 'Visitas',    value: prod.visitas.length,    color: '#A78BFA', Icon: Handshake },
-                  { label: 'Matrículas', value: prod.matriculas.length, color: '#C9A84C', Icon: GraduationCap },
-                ].map(({ label, value, color, Icon }) => (
+                  ...(isVisitor ? [
+                    { label: 'Visitas',    value: prod.visitas.length,    color: '#A78BFA', Icon: Handshake },
+                    { label: 'Matrículas', value: prod.matriculas.length, color: '#C9A84C', Icon: GraduationCap },
+                  ] : []),
+                ]
+                return (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, 1fr)`, gap: '10px' }}>
+                {tiles.map(({ label, value, color, Icon }) => (
                   <div key={label} className="rounded-2xl text-center" style={{ background: '#161616', border: '1px solid #252525', padding: '14px 8px' }}>
                     <Icon size={14} style={{ color, margin: '0 auto 6px' }} />
                     <p className="text-xl font-bold tabular-nums" style={{ color }}>{value}</p>
@@ -642,6 +647,8 @@ export default function VisitasHojePage() {
                   </div>
                 ))}
               </div>
+                )
+              })()}
 
               {/* Marcações feitas hoje */}
               {prod.marcacoes.length > 0 && (
@@ -659,8 +666,8 @@ export default function VisitasHojePage() {
                 </div>
               )}
 
-              {/* Visitas feitas hoje */}
-              {prod.visitas.length > 0 && (
+              {/* Visitas feitas hoje — só vendedor/gerente */}
+              {isVisitor && prod.visitas.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <SectionLabel color="#A78BFA">Visitas feitas hoje</SectionLabel>
                   {prod.visitas.map(h => (
@@ -676,8 +683,8 @@ export default function VisitasHojePage() {
                 </div>
               )}
 
-              {/* Matrículas do dia (créditos de comissão) */}
-              {prod.matriculas.length > 0 && (
+              {/* Matrículas do dia (créditos de comissão) — só vendedor/gerente */}
+              {isVisitor && prod.matriculas.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <SectionLabel color="#C9A84C">🎓 Matrículas do dia</SectionLabel>
                   {prod.matriculas.map(m => (
@@ -692,7 +699,7 @@ export default function VisitasHojePage() {
                 </div>
               )}
 
-              {prod.marcacoes.length === 0 && prod.visitas.length === 0 && prod.matriculas.length === 0 && (
+              {prod.marcacoes.length === 0 && (!isVisitor || (prod.visitas.length === 0 && prod.matriculas.length === 0)) && (
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
                   <p style={{ fontSize: '3rem' }}>📊</p>
                   <p className="text-sm font-medium" style={{ color: '#333030' }}>
