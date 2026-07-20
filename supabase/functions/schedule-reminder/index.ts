@@ -19,7 +19,8 @@ serve(async (req) => {
     const { clientName, reminderConfig, playerId } = await req.json()
 
     const hasTimes = reminderConfig?.times?.length
-    const hasDate  = reminderConfig?.type === 'specific_date' && reminderConfig?.date
+    const hasDate  = reminderConfig?.type === 'specific_date' &&
+      (reminderConfig?.date || (Array.isArray(reminderConfig?.dates) && reminderConfig.dates.length))
     if (!playerId || (!hasTimes && !hasDate)) {
       return new Response(JSON.stringify({ error: 'Dados insuficientes' }), { status: 400, headers: cors })
     }
@@ -69,8 +70,16 @@ function buildSchedule(clientName: string, config: any, playerId: string) {
   }
 
   if (config.type === 'specific_date') {
-    const sendAt = new Date(config.date)
-    if (sendAt > now) notifications.push(notif(sendAt))
+    // Uma ou várias datas (formato novo `dates: []`, ou antigo `date`)
+    const dates: string[] = Array.isArray(config.dates)
+      ? config.dates
+      : (config.date ? [config.date] : [])
+    const [h, m] = (config.time ? String(config.time).split(':').map(Number) : [9, 0])
+    for (const ds of dates) {
+      const sendAt = /^\d{4}-\d{2}-\d{2}$/.test(ds) ? new Date(`${ds}T00:00:00`) : new Date(ds)
+      if (config.time || /^\d{4}-\d{2}-\d{2}$/.test(ds)) sendAt.setHours(h, m, 0, 0)
+      if (sendAt > now) notifications.push(notif(sendAt))
+    }
 
   } else if (config.type === 'in_days') {
     const target = new Date(now)

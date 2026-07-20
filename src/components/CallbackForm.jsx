@@ -5,6 +5,8 @@ import { Sheet } from './ui/Sheet'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
 import { PhoneCall } from 'lucide-react'
+import SpecificDates from './SpecificDates'
+import { reminderDates } from '../lib/utils'
 
 // "Cliente pediu para ligar depois" — lembrete leve de ligação, fora da lista
 // de clientes. Só nome + telefone obrigatórios; empresa/cargo opcionais.
@@ -29,7 +31,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
   const [contactRole, setContactRole] = useState(initialData?.contact_role || '')
   const [reminderType, setReminderType] = useState(rc?.type || '')
   const [reminderDays, setReminderDays] = useState(rc?.days || [])
-  const [reminderDate, setReminderDate] = useState(rc?.date || '')
+  const [reminderDatesList, setReminderDatesList] = useState(rc?.type === 'specific_date' ? reminderDates(rc) : [])
   const [reminderTime, setReminderTime] = useState(rc?.time || '')
   const [notes, setNotes]   = useState(initialData?.notes || '')
   const [saving, setSaving] = useState(false)
@@ -54,12 +56,12 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
     if (!phone.trim())       { setError('Telefone e obrigatorio.'); return }
     if (!reminderType)       { setError('Escolha quando lembrar de ligar.'); return }
     if (reminderType === 'weekly' && reminderDays.length === 0) { setError('Escolha ao menos um dia da semana.'); return }
-    if (reminderType === 'specific_date' && !reminderDate)      { setError('Escolha a data.'); return }
+    if (reminderType === 'specific_date' && reminderDatesList.length === 0) { setError('Adicione ao menos uma data.'); return }
 
     let reminder_config = null
     if (reminderType === 'daily')              reminder_config = { type: 'daily' }
     else if (reminderType === 'weekly')        reminder_config = { type: 'weekly', days: reminderDays }
-    else if (reminderType === 'specific_date') reminder_config = { type: 'specific_date', date: reminderDate }
+    else if (reminderType === 'specific_date') reminder_config = { type: 'specific_date', dates: reminderDatesList }
     if (reminder_config && reminderTime) reminder_config.time = reminderTime // hora de ligar (o lembrete fica o dia todo)
 
     setSaving(true); setError('')
@@ -145,11 +147,9 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
 
           {reminderType === 'specific_date' && (
             <div>
-              <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
-                className="w-full text-sm outline-none rounded-xl"
-                style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }} />
+              <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} color="#E8834A" />
               <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
-                Vai aparecer no "Hoje" a partir desse dia, até você marcar como concluído.
+                Aparece no "Hoje" em cada data escolhida. Pode adicionar mais de uma.
               </p>
             </div>
           )}

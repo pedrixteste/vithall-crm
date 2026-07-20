@@ -1,3 +1,5 @@
+import { reminderDates, localDateStr } from './utils'
+
 const DAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
 
 export async function requestNotificationPermission() {
@@ -19,12 +21,14 @@ export function scheduleTodayReminders(clients) {
     const cfg = client.reminder_config
     if (!cfg) continue
 
-    // Data específica — lembrete único, só dispara se for hoje
-    if (cfg.type === 'specific_date' && cfg.date) {
-      const target = new Date(cfg.date)
-      if (target.toDateString() === now.toDateString()) {
-        const delay = target - now
-        if (delay >= 0) setTimeout(() => {
+    // Data específica — dispara se HOJE for uma das datas marcadas
+    if (cfg.type === 'specific_date') {
+      if (reminderDates(cfg).includes(localDateStr(now))) {
+        // no horário marcado (se houver), senão agora
+        const target = new Date(now)
+        if (cfg.time) { const [h, m] = cfg.time.split(':').map(Number); target.setHours(h, m, 0, 0) }
+        const delay = Math.max(0, target - now)
+        setTimeout(() => {
           new Notification(`Lembrete: ${client.contact_name || client.company_name}`, {
             body: 'Hora de entrar em contato!',
             icon: '/logo.png',

@@ -10,6 +10,15 @@ export function cn(...inputs) {
 // de 8 dígitos são descartadas pelo chamador (evita lixo de dados de teste).
 export const phoneDigits = (p) => (p || '').replace(/\D/g, '')
 
+// Lista de datas 'YYYY-MM-DD' de um reminder_config do tipo specific_date.
+// Compatível com o formato ANTIGO (uma só `date`, que podia ser ISO com hora).
+export function reminderDates(cfg) {
+  if (!cfg) return []
+  if (Array.isArray(cfg.dates)) return cfg.dates.filter(Boolean)
+  if (cfg.date) return [String(cfg.date).slice(0, 10)]
+  return []
+}
+
 // Data LOCAL no formato YYYY-MM-DD. NÃO usar toISOString() para isso: ele
 // converte p/ UTC e, entre 21h e meia-noite (Brasil), cai no dia seguinte.
 export function localDateStr(d = new Date()) {

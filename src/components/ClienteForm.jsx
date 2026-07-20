@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { phoneDigits } from '../lib/utils'
+import { phoneDigits, reminderDates } from '../lib/utils'
 import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
@@ -10,6 +10,7 @@ import { Clock, Plus, X, Mic, MicOff, Calendar } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
+import SpecificDates from './SpecificDates'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
@@ -110,7 +111,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const rc = initialData?.reminder_config
   const [reminderType, setReminderType]     = useState(rc?.type    || '')
   const [reminderDays, setReminderDays]     = useState(rc?.days    || [])
-  const [reminderDate, setReminderDate]     = useState(toLocalInputValue(rc?.date))
+  const [reminderDatesList, setReminderDatesList] = useState(rc?.type === 'specific_date' ? reminderDates(rc) : [])
+  const [reminderDateTime, setReminderDateTime]   = useState(rc?.type === 'specific_date' ? (rc?.time || '') : '')
   const [reminderTimes, setReminderTimes]   = useState(rc?.times   || [])
   const [customTime, setCustomTime]         = useState('')
 
@@ -320,8 +322,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     setError('')
 
     let reminder_config = null
-    if (reminderType === 'specific_date' && reminderDate) {
-      reminder_config = { type: 'specific_date', date: new Date(reminderDate).toISOString() }
+    if (reminderType === 'specific_date' && reminderDatesList.length > 0) {
+      reminder_config = { type: 'specific_date', dates: reminderDatesList }
+      if (reminderDateTime) reminder_config.time = reminderDateTime
     } else if (reminderType && reminderType !== 'specific_date' && reminderTimes.length > 0) {
       reminder_config = {
         type: reminderType,
@@ -809,22 +812,20 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             </div>
           )}
 
-          {/* Data específica — calendário + horário */}
+          {/* Data específica — uma ou várias datas + horário opcional */}
           {reminderType === 'specific_date' && (
             <div style={{ marginBottom: '14px' }}>
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
-                Data e hora do lembrete
+                Datas do lembrete
               </p>
-              <input
-                type="datetime-local"
-                value={reminderDate}
-                onChange={e => setReminderDate(e.target.value)}
-                className="w-full text-sm outline-none"
-                style={{ padding: '12px 14px', borderRadius: '12px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }}
-                onFocus={e => e.target.style.borderColor = '#C9A84C'}
-                onBlur={e => e.target.style.borderColor = '#252525'}
-              />
-              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>Você será lembrado uma vez, nessa data e horário.</p>
+              <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} />
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', margin: '12px 0 8px' }}>
+                Horário (opcional)
+              </p>
+              <input type="time" value={reminderDateTime} onChange={e => setReminderDateTime(e.target.value)}
+                className="w-full text-sm outline-none rounded-xl"
+                style={{ padding: '12px 14px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }} />
+              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>Você será lembrado em cada data escolhida. Pode adicionar mais de uma.</p>
             </div>
           )}
 

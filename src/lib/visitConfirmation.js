@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { localDateStr } from './utils'
+import { localDateStr, reminderDates } from './utils'
 
 // Faixa de um dia (local) + label amigável. offset 0 = hoje, 1 = amanhã, etc.
 export function getDayRange(offset = 0) {
@@ -147,11 +147,15 @@ function nextReminderInfo(cfg) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const daysBetween = (d) => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000)
 
-  if (cfg.type === 'specific_date' && cfg.date) {
-    const d = new Date(cfg.date)
-    const daysUntil = daysBetween(d)
-    if (daysUntil < 0) return null // lembrete único que já passou
-    return { date: cfg.date, daysUntil }
+  if (cfg.type === 'specific_date') {
+    // Várias datas possíveis — pega a PRÓXIMA que ainda não passou
+    const upcoming = reminderDates(cfg)
+      .map(s => ({ d: new Date(s + 'T12:00:00'), s }))
+      .map(x => ({ ...x, days: daysBetween(x.d) }))
+      .filter(x => x.days >= 0)
+      .sort((a, b) => a.days - b.days)
+    if (!upcoming.length) return null
+    return { date: upcoming[0].d.toISOString(), daysUntil: upcoming[0].days }
   }
   if (cfg.type === 'daily') {
     return { date: today.toISOString(), daysUntil: 0 }
@@ -231,7 +235,13 @@ export async function fetchTodayCallbacks(userId) {
     if (!cfg) return false
     if (cfg.type === 'daily')  return true
     if (cfg.type === 'weekly') return (cfg.days || []).includes(dowKey)
-    if (cfg.type === 'specific_date') return cfg.date && cfg.date <= todayStr
+    if (cfg.type === 'specific_date') {
+      const ds = reminderDates(cfg)
+      if (ds.includes(todayStr)) return true          // é um dos dias marcados
+      const past = ds.filter(d => d < todayStr)
+      const upcoming = ds.filter(d => d >= todayStr)
+      return past.length > 0 && upcoming.length === 0 // já passou de todas e não deu ok → fica pendente
+    }
     return false
   })
 }

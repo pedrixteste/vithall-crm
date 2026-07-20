@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
-import { localDateStr, phoneDigits } from '../lib/utils'
+import { localDateStr, phoneDigits, reminderDates } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -123,6 +123,11 @@ function getEventIcon(type, data) {
 
 function formatReminder(rc) {
   if (!rc) return null
+  if (rc.type === 'specific_date') {
+    const list = reminderDates(rc).map(s => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })).join(' · ')
+    const label = reminderDates(rc).length > 1 ? 'Datas' : 'Data'
+    return rc.time ? `${label}: ${list} às ${rc.time}` : `${label}: ${list}`
+  }
   let typeStr = ''
   if (rc.type === 'daily')   typeStr = 'Todo dia'
   if (rc.type === 'weekly')  typeStr = `Toda semana (${(rc.days || []).map(d => DAYS_PT[d]).join(', ')})`
