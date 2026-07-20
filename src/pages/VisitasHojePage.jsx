@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
+import { MapPin, Clock, User, Phone, PhoneCall, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
@@ -199,7 +199,7 @@ export default function VisitasHojePage() {
     setProd(null)
     const { start, end } = getDayRange(0)
     const todayLocal = localDateStr()
-    const [marc, hist, mats] = await Promise.all([
+    const [marc, hist, mats, dlog] = await Promise.all([
       supabase.from('clients').select('*')
         .eq('created_by', pid)
         .not('visit_scheduled_at', 'is', null)
@@ -213,6 +213,8 @@ export default function VisitasHojePage() {
       supabase.from('matricula_credits').select('*, clients(*)')
         .eq('credited_to', pid)
         .eq('credit_date', todayLocal),
+      // ligações do dia (aba Ligações) — usadas no resumo do pré-vendas
+      supabase.from('daily_logs').select('calls, answered').eq('user_id', pid).eq('log_date', todayLocal).maybeSingle(),
     ])
     // visitas feitas: 1 por cliente, estágio final recebeu_visita/matriculado
     const visitas = []
@@ -224,7 +226,10 @@ export default function VisitasHojePage() {
         visitas.push(h)
       }
     }
-    setProd({ marcacoes: marc.data || [], visitas, matriculas: mats.data || [] })
+    setProd({
+      marcacoes: marc.data || [], visitas, matriculas: mats.data || [],
+      calls: dlog.data?.calls || 0, answered: dlog.data?.answered || 0,
+    })
   }
 
   // Concluir uma tarefa/follow-up direto da aba Hoje
@@ -635,7 +640,11 @@ export default function VisitasHojePage() {
                   ...(isVisitor ? [
                     { label: 'Visitas',    value: prod.visitas.length,    color: '#A78BFA', Icon: Handshake },
                     { label: 'Matrículas', value: prod.matriculas.length, color: '#C9A84C', Icon: GraduationCap },
-                  ] : []),
+                  ] : [
+                    // pré-vendas: ligações do dia (aba Ligações)
+                    { label: 'Ligações',  value: prod.calls,    color: '#E8834A', Icon: Phone },
+                    { label: 'Atendidas', value: prod.answered, color: '#22D3EE', Icon: PhoneCall },
+                  ]),
                 ]
                 return (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, 1fr)`, gap: '10px' }}>
@@ -699,7 +708,9 @@ export default function VisitasHojePage() {
                 </div>
               )}
 
-              {prod.marcacoes.length === 0 && (!isVisitor || (prod.visitas.length === 0 && prod.matriculas.length === 0)) && (
+              {prod.marcacoes.length === 0 && (isVisitor
+                ? (prod.visitas.length === 0 && prod.matriculas.length === 0)
+                : (prod.calls === 0 && prod.answered === 0)) && (
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
                   <p style={{ fontSize: '3rem' }}>📊</p>
                   <p className="text-sm font-medium" style={{ color: '#333030' }}>
