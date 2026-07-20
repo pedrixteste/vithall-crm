@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, PhoneCall, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
+import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
@@ -199,7 +199,7 @@ export default function VisitasHojePage() {
     setProd(null)
     const { start, end } = getDayRange(0)
     const todayLocal = localDateStr()
-    const [marc, hist, mats, dlog] = await Promise.all([
+    const [marc, hist, mats, dlog, cbt] = await Promise.all([
       supabase.from('clients').select('*')
         .eq('created_by', pid)
         .not('visit_scheduled_at', 'is', null)
@@ -215,6 +215,10 @@ export default function VisitasHojePage() {
         .eq('credit_date', todayLocal),
       // ligações do dia (aba Ligações) — usadas no resumo do pré-vendas
       supabase.from('daily_logs').select('calls, answered').eq('user_id', pid).eq('log_date', todayLocal).maybeSingle(),
+      // "pediu p/ ligar depois" registrados hoje pela pessoa
+      supabase.from('callbacks').select('*').eq('created_by', pid)
+        .gte('created_at', start).lte('created_at', end)
+        .order('created_at', { ascending: true }),
     ])
     // visitas feitas: 1 por cliente, estágio final recebeu_visita/matriculado
     const visitas = []
@@ -229,6 +233,7 @@ export default function VisitasHojePage() {
     setProd({
       marcacoes: marc.data || [], visitas, matriculas: mats.data || [],
       calls: dlog.data?.calls || 0, answered: dlog.data?.answered || 0,
+      callbacksToday: cbt.data || [],
     })
   }
 
@@ -648,6 +653,7 @@ export default function VisitasHojePage() {
                     { label: 'Ligações',  value: prod.calls,    color: '#E8834A', Icon: Phone },
                     { label: 'Atendidas', value: prod.answered, color: '#22D3EE', Icon: PhoneCall },
                   ]),
+                  { label: 'Ligar depois', value: prod.callbacksToday.length, color: '#F472B6', Icon: PhoneForwarded },
                 ]
                 return (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, 1fr)`, gap: '10px' }}>
@@ -674,6 +680,31 @@ export default function VisitasHojePage() {
                       sub={c.city ? <><MapPin size={10} /> {c.city}</> : null}
                       onClick={() => setSelected(c)}
                     />
+                  ))}
+                </div>
+              )}
+
+              {/* "Pediu p/ ligar depois" registrados hoje (cor rosa, distinta das marcações) */}
+              {prod.callbacksToday.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <SectionLabel color="#F472B6"><span className="inline-flex items-center gap-1.5"><PhoneForwarded size={12} /> Ligar depois — registrados hoje</span></SectionLabel>
+                  {prod.callbacksToday.map(c => (
+                    <div key={c.id} className="rounded-2xl"
+                      style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #F472B6', padding: '13px 15px' }}>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                        {c.reminder_config?.time && (
+                          <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                            style={{ padding: '2px 8px', background: 'rgba(244,114,182,0.12)', border: '1px solid rgba(244,114,182,0.3)', color: '#F472B6' }}>
+                            <Clock size={9} /> {c.reminder_config.time}
+                          </span>
+                        )}
+                      </div>
+                      {(c.company_name || c.contact_role) && (
+                        <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+                      )}
+                      <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {c.phone}</p>
+                    </div>
                   ))}
                 </div>
               )}
@@ -711,7 +742,7 @@ export default function VisitasHojePage() {
                 </div>
               )}
 
-              {prod.marcacoes.length === 0 && (isVisitor
+              {prod.marcacoes.length === 0 && prod.callbacksToday.length === 0 && (isVisitor
                 ? (prod.visitas.length === 0 && prod.matriculas.length === 0)
                 : (prod.calls === 0 && prod.answered === 0)) && (
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
