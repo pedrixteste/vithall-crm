@@ -141,20 +141,38 @@ export default function CallbackForm({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Hora de ligar (opcional) — o lembrete fica o dia todo até dar o ok */}
-          {reminderType && (
-            <div style={{ marginTop: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
-                Hora de ligar (opcional)
-              </p>
-              <input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)}
-                className="w-full text-sm outline-none rounded-xl"
-                style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }} />
-              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
-                Só p/ lembrar o melhor horário — o card fica o dia todo até você concluir.
-              </p>
-            </div>
-          )}
+          {/* Hora de ligar (opcional) — seletor próprio (Hora + Minuto) p/ não
+              depender do relógio nativo, que corta o botão em alguns celulares */}
+          {reminderType && (() => {
+            const [h = '', m = ''] = reminderTime ? reminderTime.split(':') : []
+            const setPart = (hh, mm) => setReminderTime((hh !== '' && mm !== '') ? `${hh}:${mm}` : '')
+            const selStyle = { padding: '12px 10px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', borderRadius: '12px', fontSize: '14px', outline: 'none', width: '100%' }
+            return (
+              <div style={{ marginTop: '14px' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                  Hora de ligar (opcional)
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
+                  <select value={h} onChange={e => setPart(e.target.value, e.target.value ? (m || '00') : '')} style={selStyle}>
+                    <option value="">Hora</option>
+                    {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(hh => (
+                      <option key={hh} value={hh} style={{ background: '#1A1A1A' }}>{hh}h</option>
+                    ))}
+                  </select>
+                  <span style={{ color: '#6B6560', fontWeight: 700 }}>:</span>
+                  <select value={m} onChange={e => setPart(e.target.value ? (h || '00') : '', e.target.value)} style={selStyle}>
+                    <option value="">Min</option>
+                    {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(mm => (
+                      <option key={mm} value={mm} style={{ background: '#1A1A1A' }}>{mm}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
+                  Só p/ lembrar o melhor horário — o card fica o dia todo até você concluir.
+                </p>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Descrição (opcional) */}
