@@ -25,10 +25,15 @@ export default function EquipePage() {
 
   async function changeRole(memberId, newRole) {
     setSaving(true)
-    await supabase.from('profiles').update({ role: newRole }).eq('id', memberId)
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
+    // Via função segura no servidor (confirma que quem chama é gerente)
+    const { error } = await supabase.rpc('set_member_role', { member_id: memberId, new_role: newRole })
     setEditingId(null)
     setSaving(false)
+    if (error) {
+      alert('Não foi possível alterar o cargo: ' + error.message)
+      return
+    }
+    await fetchMembers() // confirma do banco (não fica "otimista" mentindo)
   }
 
   const getRoleInfo = (roleKey) => ROLES.find(r => r.key === roleKey) || ROLES[0]
