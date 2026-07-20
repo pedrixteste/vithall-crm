@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
+import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
@@ -118,6 +119,7 @@ export default function VisitasHojePage() {
   const [profilesMap, setProfilesMap]   = useState({})
   const [loading, setLoading]           = useState(true)
   const [selected, setSelected]         = useState(null)
+  const [editingCallback, setEditingCallback] = useState(null)
   const [toConfirm, setToConfirm]       = useState([])
   const [confirmHidden, setConfirmHidden] = useState(false)
   const [todayVisits, setTodayVisits]   = useState([])
@@ -689,7 +691,8 @@ export default function VisitasHojePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <SectionLabel color="#F472B6"><span className="inline-flex items-center gap-1.5"><PhoneForwarded size={12} /> Ligar depois — registrados hoje</span></SectionLabel>
                   {prod.callbacksToday.map(c => (
-                    <div key={c.id} className="rounded-2xl"
+                    <button key={c.id} onClick={() => setEditingCallback(c)}
+                      className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
                       style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #F472B6', padding: '13px 15px' }}>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
@@ -704,7 +707,8 @@ export default function VisitasHojePage() {
                         <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                       )}
                       <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {c.phone}</p>
-                    </div>
+                      <p className="text-[10px] mt-1.5" style={{ color: '#2A2A2A' }}>Toque para editar →</p>
+                    </button>
                   ))}
                 </div>
               )}
@@ -755,6 +759,14 @@ export default function VisitasHojePage() {
             </>
           )}
         </>
+      )}
+
+      {editingCallback && (
+        <CallbackForm
+          initialData={editingCallback}
+          onClose={() => setEditingCallback(null)}
+          onSaved={() => { setEditingCallback(null); if (view === 'produzido' && personId) fetchProduzido(personId); fetchData() }}
+        />
       )}
     </div>
   )

@@ -20,22 +20,33 @@ const WEEK_DAYS = [
   { key: 'qui', label: 'Qui' }, { key: 'sex', label: 'Sex' }, { key: 'sab', label: 'Sáb' }, { key: 'dom', label: 'Dom' },
 ]
 
-export default function CallbackForm({ onClose, onSaved }) {
+export default function CallbackForm({ onClose, onSaved, initialData }) {
   const { user } = useAuth()
-  const [contactName, setContactName] = useState('')
-  const [phone, setPhone]             = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [contactRole, setContactRole] = useState('')
-  const [reminderType, setReminderType] = useState('')
-  const [reminderDays, setReminderDays] = useState([])
-  const [reminderDate, setReminderDate] = useState('')
-  const [reminderTime, setReminderTime] = useState('')
-  const [notes, setNotes]   = useState('')
+  const rc = initialData?.reminder_config
+  const [contactName, setContactName] = useState(initialData?.contact_name || '')
+  const [phone, setPhone]             = useState(initialData?.phone || '')
+  const [companyName, setCompanyName] = useState(initialData?.company_name || '')
+  const [contactRole, setContactRole] = useState(initialData?.contact_role || '')
+  const [reminderType, setReminderType] = useState(rc?.type || '')
+  const [reminderDays, setReminderDays] = useState(rc?.days || [])
+  const [reminderDate, setReminderDate] = useState(rc?.date || '')
+  const [reminderTime, setReminderTime] = useState(rc?.time || '')
+  const [notes, setNotes]   = useState(initialData?.notes || '')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError]   = useState('')
 
   const titleCase = str => str.replace(/(^|\s)\S/g, l => l.toUpperCase())
   const toggleDay = d => setReminderDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+
+  async function handleDelete() {
+    if (!initialData?.id) return
+    if (!confirm('Excluir este "ligar depois"?')) return
+    setDeleting(true)
+    await supabase.from('callbacks').delete().eq('id', initialData.id)
+    setDeleting(false)
+    onSaved()
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -52,22 +63,24 @@ export default function CallbackForm({ onClose, onSaved }) {
     if (reminder_config && reminderTime) reminder_config.time = reminderTime // hora de ligar (o lembrete fica o dia todo)
 
     setSaving(true); setError('')
-    const { error: err } = await supabase.from('callbacks').insert({
-      created_by:      user.id,
+    const payload = {
       contact_name:    contactName.trim(),
       phone:           phone.trim(),
       company_name:    companyName.trim() || null,
       contact_role:    contactRole.trim() || null,
       notes:           notes.trim() || null,
       reminder_config,
-    })
+    }
+    const { error: err } = initialData?.id
+      ? await supabase.from('callbacks').update(payload).eq('id', initialData.id)
+      : await supabase.from('callbacks').insert({ ...payload, created_by: user.id })
     setSaving(false)
     if (err) { setError('Erro ao salvar. Tente novamente.'); return }
     onSaved()
   }
 
   return (
-    <Sheet open onClose={onClose} title="Cliente pediu p/ ligar depois">
+    <Sheet open onClose={onClose} title={initialData ? 'Editar "ligar depois"' : 'Cliente pediu p/ ligar depois'}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '4px' }}>
 
         <p className="text-xs" style={{ color: '#6B6560', lineHeight: 1.5 }}>
@@ -197,6 +210,14 @@ export default function CallbackForm({ onClose, onSaved }) {
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancelar</Button>
           <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
         </div>
+
+        {initialData?.id && (
+          <button type="button" onClick={handleDelete} disabled={deleting}
+            className="w-full text-xs font-semibold rounded-xl py-3 transition-all"
+            style={{ background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.2)', color: '#E85555' }}>
+            {deleting ? 'Excluindo...' : 'Excluir este "ligar depois"'}
+          </button>
+        )}
       </form>
     </Sheet>
   )
