@@ -315,6 +315,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [pendingPediuLigar, setPendingPediuLigar] = useState(false)
   const [callBackAt, setCallBackAt]       = useState('')
   const [syncingCalendar, setSyncingCalendar] = useState(false)
+  const [removingReminder, setRemovingReminder] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
   const [creator, setCreator]             = useState(null) // quem marcou a visita (created_by)
   const [phoneCount, setPhoneCount]       = useState(1)    // registros com o mesmo telefone
@@ -644,6 +645,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     await supabase.from('visits').update({ visit_date: newDate }).eq('id', visitId)
     setEditingVisitId(null)
     fetchVisits()
+  }
+
+  // Remove o lembrete ("quando quero ser lembrado?") deste cliente — para
+  // parar o flood de notificações sem mexer no resto do cadastro.
+  async function removeReminder() {
+    if (!confirm('Remover o lembrete deste cliente? As notificações vão parar.')) return
+    setRemovingReminder(true)
+    await supabase.from('clients').update({ reminder_config: null }).eq('id', currentClient.id)
+    setCurrentClient(c => ({ ...c, reminder_config: null }))
+    setRemovingReminder(false)
   }
 
   async function toggleTreinamentoInteresse(training) {
@@ -1352,9 +1363,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         {currentClient.reminder_config && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Lembrete</p>
-            <div className="flex items-center gap-2">
-              <span style={{ color: '#C9A84C' }}>🔔</span>
-              <p className="text-xs font-medium" style={{ color: '#6B6560' }}>{formatReminder(currentClient.reminder_config)}</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span style={{ color: '#C9A84C' }}>🔔</span>
+                <p className="text-xs font-medium truncate" style={{ color: '#6B6560' }}>{formatReminder(currentClient.reminder_config)}</p>
+              </div>
+              <button onClick={removeReminder} disabled={removingReminder}
+                className="flex items-center gap-1.5 flex-shrink-0 rounded-lg transition-all active:scale-95"
+                style={{ padding: '6px 10px', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.2)', color: '#E85555', fontSize: '11px', fontWeight: 600 }}>
+                <Trash2 size={12} /> {removingReminder ? 'Removendo...' : 'Remover'}
+              </button>
             </div>
           </div>
         )}
