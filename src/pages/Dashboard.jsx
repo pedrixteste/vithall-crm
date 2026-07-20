@@ -11,7 +11,7 @@ import ClienteDetalhe from '../components/ClienteDetalhe'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
-import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
+import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
 import { fetchVisitsToConfirm, fetchTodayVisits } from '../lib/visitConfirmation'
 import { localDateStr } from '../lib/utils'
 
@@ -194,12 +194,13 @@ export default function Dashboard() {
     const dt    = new Date(c.visit_scheduled_at)
     const dtEnd = new Date(dt.getTime() + 60 * 60 * 1000)
     const fmt   = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-    const title = c.company_name ? `Visita - ${c.contact_name} (${c.company_name})` : `Visita - ${c.contact_name}`
+    // Mesmo título/ficha do evento criado via API (quem não conectou o Google
+    // cai neste link, então a descrição precisa vir igual)
     return `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${encodeURIComponent(title)}` +
+      `&text=${encodeURIComponent(buildEventSummary(c))}` +
       `&dates=${fmt(dt)}/${fmt(dtEnd)}` +
-      (c.city  ? `&location=${encodeURIComponent(c.city)}`  : '') +
-      (c.notes ? `&details=${encodeURIComponent(c.notes)}` : '')
+      (c.city ? `&location=${encodeURIComponent(c.city)}` : '') +
+      `&details=${encodeURIComponent(buildEventDescription(c, c.visit_scheduled_at))}`
   }
 
   const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
@@ -417,7 +418,7 @@ export default function Dashboard() {
                                 const token = await getValidToken(user.id)
                                 if (!token) { alert('Conecte o Google Agenda no Perfil primeiro.'); return }
                                 const eventId = await createCalendarEvent(token, {
-                                  clientName: v.contact_name || v.company_name || 'Cliente',
+                                  clientId:      v.id,
                                   visitDateTime: v.visit_scheduled_at,
                                 })
                                 await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', v.id)

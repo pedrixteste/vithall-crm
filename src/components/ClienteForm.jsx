@@ -433,6 +433,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, {
+        clientId:      calendarPrompt.clientId,
         clientName:    calendarPrompt.name,
         visitDateTime: calendarPrompt.visitIso,
       })

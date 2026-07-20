@@ -616,7 +616,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       const eventId = await createCalendarEvent(token, {
-        clientName:    currentClient.contact_name || currentClient.company_name || 'Cliente',
+        clientId:      currentClient.id,
+        client:        currentClient,
         visitDateTime: currentClient.visit_scheduled_at,
       })
       await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', currentClient.id)

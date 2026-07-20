@@ -171,7 +171,11 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
     try {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
-      const eventId = await createCalendarEvent(token, { clientName: remarcPrompt.name, visitDateTime: remarcPrompt.newIso })
+      const eventId = await createCalendarEvent(token, {
+        clientId:      remarcPrompt.clientId,
+        clientName:    remarcPrompt.name,
+        visitDateTime: remarcPrompt.newIso,
+      })
       await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', remarcPrompt.clientId)
       setRemarcPrompt(p => ({ ...p, newAdded: true }))
     } catch (e) {

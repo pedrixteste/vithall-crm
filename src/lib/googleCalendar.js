@@ -73,13 +73,82 @@ export async function getValidToken(userId) {
   return data.access_token
 }
 
+const ORIGIN_LABELS = {
+  'frias contatinhos': 'Frias contatinhos',
+  'frias listas':      'Frias listas',
+  'lead campanha':     'Lead campanha',
+  'lead organico':     'Lead orgânico',
+  'feiras':            'Eventos',
+  'indicacao':         'Indicacao',
+}
+
+const fmtDate = (v) => {
+  if (!v) return ''
+  const d = new Date(v)
+  return isNaN(d) ? '' : d.toLocaleDateString('pt-BR')
+}
+
+const fmtTime = (v) => {
+  if (!v) return ''
+  const d = new Date(v)
+  return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** "Rua X, 123 — Bairro, Cidade (Ref.: perto do posto)" */
+function formatAddress(c) {
+  const rua    = [c.address_street, c.address_number].filter(Boolean).join(', ')
+  const local  = [c.address_neighborhood, c.city].filter(Boolean).join(', ')
+  const base   = [rua, local].filter(Boolean).join(' — ')
+  return c.address_reference ? `${base}${base ? ' ' : ''}(Ref.: ${c.address_reference})` : base
+}
+
+function formatOrigin(c) {
+  const label = ORIGIN_LABELS[c.origin] || c.origin || ''
+  return c.origin === 'indicacao' && c.indicado_por ? `${label} (por ${c.indicado_por})` : label
+}
+
+/** Título do evento: "Nome do cliente - Cidade" */
+export function buildEventSummary(c) {
+  const nome = c.contact_name || c.company_name || 'Cliente'
+  return c.city ? `${nome} - ${c.city}` : nome
+}
+
+/**
+ * Descrição do evento com a ficha da marcação — todos os dados que
+ * quem marcou já preencheu, para o vendedor ver direto na agenda.
+ */
+export function buildEventDescription(c, visitDateTime) {
+  const linhas = [
+    ['Nome',              c.contact_name || ''],
+    ['Empresa',           c.company_name || ''],
+    ['Cargo',             c.contact_role || ''],
+    ['Telefone',          [c.phone, c.phone2].filter(Boolean).join(' / ')],
+    ['Como surgiu',       formatOrigin(c)],
+    ['Data da marcação',  fmtDate(c.created_at)],
+    ['Data da visita',    fmtDate(visitDateTime)],
+    ['Horário da visita', fmtTime(visitDateTime)],
+    ['Endereço',          formatAddress(c)],
+    ['Observações',       c.notes || ''],
+  ]
+  return linhas.map(([label, valor]) => `${label}: ${valor || '—'}`).join('\n')
+}
+
 /**
  * Cria evento no Google Calendar primário do usuário.
+ * Passe `clientId` (busca a ficha completa) ou `client` (row já carregada);
+ * `clientName` segue aceito como fallback mínimo.
  * @returns {string} id do evento criado
  */
-export async function createCalendarEvent(accessToken, { clientName, visitDateTime }) {
+export async function createCalendarEvent(accessToken, { clientId, client, clientName, visitDateTime }) {
   const start = new Date(visitDateTime)
   const end   = new Date(start.getTime() + 60 * 60 * 1000) // 1h de duração padrão
+
+  let c = client || null
+  if (!c && clientId) {
+    const { data } = await supabase.from('clients').select('*').eq('id', clientId).maybeSingle()
+    c = data || null
+  }
+  if (!c) c = { contact_name: clientName || 'Cliente' }
 
   const res = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events',
@@ -90,8 +159,9 @@ export async function createCalendarEvent(accessToken, { clientName, visitDateTi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        summary:     `Visita Vithall — ${clientName}`,
-        description: 'Visita comercial agendada pelo CRM Vithall',
+        summary:     buildEventSummary(c),
+        description: buildEventDescription(c, visitDateTime),
+        location:    formatAddress(c) || undefined,
         start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
         end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
         reminders: {
