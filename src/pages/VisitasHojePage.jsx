@@ -483,6 +483,9 @@ export default function VisitasHojePage() {
                   <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                 )}
                 <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {c.phone}</p>
+                {c.notes && (
+                  <p className="text-[11px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
+                )}
               </a>
               <button onClick={() => completeCallback(c.id)} title="Já liguei"
                 className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"

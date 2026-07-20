@@ -30,6 +30,7 @@ export default function CallbackForm({ onClose, onSaved }) {
   const [reminderDays, setReminderDays] = useState([])
   const [reminderDate, setReminderDate] = useState('')
   const [reminderTime, setReminderTime] = useState('')
+  const [notes, setNotes]   = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
 
@@ -57,6 +58,7 @@ export default function CallbackForm({ onClose, onSaved }) {
       phone:           phone.trim(),
       company_name:    companyName.trim() || null,
       contact_role:    contactRole.trim() || null,
+      notes:           notes.trim() || null,
       reminder_config,
     })
     setSaving(false)
@@ -153,6 +155,17 @@ export default function CallbackForm({ onClose, onSaved }) {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Descrição (opcional) */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+            Descricao (opcional)
+          </label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+            placeholder="Anote o contexto para lembrar quando for ligar (ex: o que ficou combinado, interesse, melhor abordagem...)"
+            className="w-full text-sm outline-none resize-none rounded-xl"
+            style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', lineHeight: '1.5' }} />
         </div>
 
         {error && (
