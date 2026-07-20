@@ -465,7 +465,15 @@ export default function VisitasHojePage() {
             <div key={c.id} className="rounded-2xl flex items-center gap-3"
               style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
               <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                  {c.reminder_config?.time && (
+                    <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                      style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
+                      <Clock size={9} /> {c.reminder_config.time}
+                    </span>
+                  )}
+                </div>
                 {(c.company_name || c.contact_role) && (
                   <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                 )}

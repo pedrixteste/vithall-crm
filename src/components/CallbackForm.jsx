@@ -29,6 +29,7 @@ export default function CallbackForm({ onClose, onSaved }) {
   const [reminderType, setReminderType] = useState('')
   const [reminderDays, setReminderDays] = useState([])
   const [reminderDate, setReminderDate] = useState('')
+  const [reminderTime, setReminderTime] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
 
@@ -47,6 +48,7 @@ export default function CallbackForm({ onClose, onSaved }) {
     if (reminderType === 'daily')              reminder_config = { type: 'daily' }
     else if (reminderType === 'weekly')        reminder_config = { type: 'weekly', days: reminderDays }
     else if (reminderType === 'specific_date') reminder_config = { type: 'specific_date', date: reminderDate }
+    if (reminder_config && reminderTime) reminder_config.time = reminderTime // hora de ligar (o lembrete fica o dia todo)
 
     setSaving(true); setError('')
     const { error: err } = await supabase.from('callbacks').insert({
@@ -133,6 +135,21 @@ export default function CallbackForm({ onClose, onSaved }) {
                 style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }} />
               <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
                 Vai aparecer no "Hoje" a partir desse dia, até você marcar como concluído.
+              </p>
+            </div>
+          )}
+
+          {/* Hora de ligar (opcional) — o lembrete fica o dia todo até dar o ok */}
+          {reminderType && (
+            <div style={{ marginTop: '14px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                Hora de ligar (opcional)
+              </p>
+              <input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)}
+                className="w-full text-sm outline-none rounded-xl"
+                style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }} />
+              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
+                Só p/ lembrar o melhor horário — o card fica o dia todo até você concluir.
               </p>
             </div>
           )}
