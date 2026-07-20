@@ -3,11 +3,15 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Remove qualquer service worker legado (PWA antigo) — o app não usa mais SW.
-// Rede de segurança: mesmo que sobre um registro, ele é limpo ao abrir o app.
+// Remove service workers LEGADOS (o PWA antigo que prendia o app numa versão
+// velha), mas PRESERVA o do OneSignal — ele entrega as notificações push e NÃO
+// guarda cópia do app, então não traz o bug de cache de volta.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations()
-    .then((regs) => regs.forEach((r) => r.unregister()))
+    .then((regs) => regs.forEach((r) => {
+      const url = r.active?.scriptURL || r.waiting?.scriptURL || r.installing?.scriptURL || ''
+      if (!url.includes('OneSignalSDK')) r.unregister()
+    }))
     .catch(() => {})
 }
 

@@ -53,6 +53,32 @@ async function saveSubId(id) {
   await supabase.from('profiles').update({ onesignal_player_id: id }).eq('id', user.id)
 }
 
+// Botão "Ativar notificações" (Perfil): pede permissão e salva a assinatura.
+// Retorna o id da assinatura, ou null se a pessoa recusou.
+export async function enablePushNotifications() {
+  return requestAndSaveSubscription()
+}
+
+// Silencioso, no load do app: se a permissão JÁ foi concedida antes, garante
+// que o player_id atual esteja salvo no perfil (sem mostrar nenhum prompt).
+export async function syncPushIfGranted() {
+  if (!import.meta.env.VITE_ONESIGNAL_APP_ID) return
+  window.OneSignalDeferred = window.OneSignalDeferred || []
+  window.OneSignalDeferred.push(async (OneSignal) => {
+    try {
+      if (!OneSignal.Notifications.permission) return // ainda não permitiu
+      const subId = OneSignal.User?.PushSubscription?.id
+      if (subId) await saveSubId(subId)
+    } catch { /* ignora */ }
+  })
+}
+
+// Estado da permissão de notificação p/ a UI: 'granted' | 'denied' | 'default'
+export function getNotificationPermission() {
+  if (typeof Notification === 'undefined') return 'unsupported'
+  return Notification.permission
+}
+
 // Chamado ao salvar um cliente com lembrete configurado
 export async function scheduleClientReminder({ clientName, clientId, reminderConfig }) {
   const hasTimes = reminderConfig?.times?.length

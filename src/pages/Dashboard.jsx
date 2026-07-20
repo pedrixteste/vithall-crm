@@ -8,7 +8,7 @@ import ClienteForm from '../components/ClienteForm'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
-import { initOneSignal } from '../lib/onesignal'
+import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 import { fetchVisitsToConfirm, fetchTodayVisits } from '../lib/visitConfirmation'
 import { localDateStr } from '../lib/utils'
@@ -98,6 +98,7 @@ export default function Dashboard() {
 
   async function setupReminders() {
     initOneSignal()
+    syncPushIfGranted() // se já permitiu antes, garante o player_id salvo (silencioso)
     const granted = await requestNotificationPermission()
     if (!granted) return
     const { data } = await supabase

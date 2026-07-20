@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { User, LogOut, Check, Calendar, Unlink, Smartphone } from 'lucide-react'
+import { User, LogOut, Check, Calendar, Unlink, Smartphone, Bell } from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
+import { enablePushNotifications, getNotificationPermission } from '../lib/onesignal'
 
 export default function PerfilPage() {
   const { profile: authProfile, signOut, user } = useAuth()
@@ -20,6 +21,16 @@ export default function PerfilPage() {
   const [installed, setInstalled]   = useState(false)
   const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  // Notificações push
+  const [pushPerm, setPushPerm] = useState(getNotificationPermission())
+  const [enablingPush, setEnablingPush] = useState(false)
+
+  async function handleEnablePush() {
+    setEnablingPush(true)
+    await enablePushNotifications()
+    setPushPerm(getNotificationPermission())
+    setEnablingPush(false)
+  }
 
   useEffect(() => {
     if (!user?.id) return
@@ -190,6 +201,52 @@ export default function PerfilPage() {
               Ao conectar, visitas agendadas aparecem automaticamente no Google Agenda.
               Quando o cliente cancelar, o evento é removido sozinho.
             </p>
+          )}
+        </div>
+      </Card>
+
+      {/* Notificações push */}
+      <Card>
+        <div className="p-6" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0,
+              background: pushPerm === 'granted' ? 'rgba(74,222,128,0.1)' : 'rgba(34,211,238,0.1)',
+              border: `1px solid ${pushPerm === 'granted' ? 'rgba(74,222,128,0.25)' : 'rgba(34,211,238,0.25)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Bell size={18} style={{ color: pushPerm === 'granted' ? '#4ADE80' : '#22D3EE' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 600, color: '#EFEFEF' }}>Notificações</p>
+              <p style={{ fontSize: '11px', color: pushPerm === 'granted' ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+                {pushPerm === 'granted' ? 'Ativadas — você recebe lembretes e o resumo do dia'
+                  : pushPerm === 'denied' ? 'Bloqueadas no navegador'
+                  : 'Ative para receber lembretes e o resumo do dia'}
+              </p>
+            </div>
+          </div>
+
+          {pushPerm === 'default' && (
+            <button onClick={handleEnablePush} disabled={enablingPush}
+              style={{
+                width: '100%', padding: '13px', borderRadius: '14px',
+                fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                background: 'rgba(34,211,238,0.1)', color: '#22D3EE',
+                border: '1px solid rgba(34,211,238,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}>
+              <Bell size={15} /> {enablingPush ? 'Ativando...' : 'Ativar notificações'}
+            </button>
+          )}
+          {pushPerm === 'denied' && (
+            <div className="rounded-xl" style={{ padding: '12px 14px', background: '#111', border: '1px solid #1C1C1C' }}>
+              <p style={{ fontSize: '12px', color: '#B0A99F', lineHeight: 1.6 }}>
+                {isIOS
+                  ? <>No iPhone, as notificações só funcionam com o app <b style={{ color: '#EFEFEF' }}>adicionado à tela inicial</b>. Depois, permita nos Ajustes do celular.</>
+                  : <>Você bloqueou as notificações. Para ativar, toque no <b style={{ color: '#EFEFEF' }}>cadeado</b> ao lado do endereço do site e permita as notificações.</>}
+              </p>
+            </div>
           )}
         </div>
       </Card>
