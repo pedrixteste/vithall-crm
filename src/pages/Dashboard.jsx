@@ -5,6 +5,8 @@ import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, Externa
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
+import CallbackForm from '../components/CallbackForm'
+import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
@@ -50,6 +52,8 @@ export default function Dashboard() {
   const [recentVisits, setRecentVisits] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm]     = useState(false)
+  const [showCallbackForm, setShowCallbackForm]   = useState(false)
+  const [showAddMenu, setShowAddMenu]             = useState(false)
   const [selectedCliente, setSelectedCliente]     = useState(null)
   const [period, setPeriod]           = useState('max')
   const [customFrom, setCustomFrom]   = useState('')
@@ -476,9 +480,9 @@ export default function Dashboard() {
 
       </div>
 
-      {/* FAB - Novo Cliente */}
+      {/* FAB - Adicionar (abre o menu de 2 opções) */}
       <button
-        onClick={() => setShowClienteForm(true)}
+        onClick={() => setShowAddMenu(true)}
         style={{
           position: 'fixed',
           bottom: '88px',
@@ -501,10 +505,25 @@ export default function Dashboard() {
         <Plus size={24} color="#F0EAD6" strokeWidth={2.5} />
       </button>
 
+      {showAddMenu && (
+        <AddChooser
+          onClose={() => setShowAddMenu(false)}
+          onNewClient={() => { setShowAddMenu(false); setShowClienteForm(true) }}
+          onNewCallback={() => { setShowAddMenu(false); setShowCallbackForm(true) }}
+        />
+      )}
+
       {showClienteForm && (
         <ClienteForm
           onClose={() => setShowClienteForm(false)}
           onSaved={() => { setShowClienteForm(false); fetchData() }}
+        />
+      )}
+
+      {showCallbackForm && (
+        <CallbackForm
+          onClose={() => setShowCallbackForm(false)}
+          onSaved={() => { setShowCallbackForm(false); fetchData() }}
         />
       )}
 

@@ -8,7 +8,7 @@ import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
   fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks,
-  fetchOpenTasks, getDayRange, daysAheadWindow,
+  fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 import { localDateStr } from '../lib/utils'
@@ -129,6 +129,7 @@ export default function VisitasHojePage() {
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
   const [feedbacks, setFeedbacks]           = useState([]) // estrelas preenchidas hoje (visitas que marquei)
   const [tasks, setTasks]                   = useState([]) // "A fazer": tarefas/follow-ups em aberto
+  const [callbacks, setCallbacks]           = useState([]) // "pediu p/ ligar depois" que caem hoje
   const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
   const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
   const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
@@ -144,7 +145,7 @@ export default function VisitasHojePage() {
     if (!user?.id) return
     const role = profile?.role
 
-    const [confirm, tv, tc, mv, mc, rem, tsk] = await Promise.all([
+    const [confirm, tv, tc, mv, mc, rem, tsk, cbs] = await Promise.all([
       fetchVisitsToConfirm(user.id),
       fetchVisitsForDay(role, user.id, 0),
       fetchCallbacksForDay(role, user.id, 0),
@@ -152,9 +153,11 @@ export default function VisitasHojePage() {
       fetchCallbacksForDay(role, user.id, 1),
       fetchUpcomingReminders(user.id, daysAheadWindow()), // sexta alcança segunda
       fetchOpenTasks(user.id),
+      fetchTodayCallbacks(user.id),
     ])
     setReminders(rem)
     setTasks(tsk)
+    setCallbacks(cbs)
     // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
     // sem resposta ou "não confirmada" não aparecem na agenda
     setToConfirm(confirm)
@@ -230,6 +233,12 @@ export default function VisitasHojePage() {
     await supabase.from('tasks').update({ completed: true }).eq('id', taskId)
   }
 
+  // Marcar um "pediu p/ ligar depois" como concluído (some do Hoje)
+  async function completeCallback(id) {
+    setCallbacks(cs => cs.filter(c => c.id !== id)) // otimista
+    await supabase.from('callbacks').update({ done: true }).eq('id', id)
+  }
+
   // Clicou num botão de resultado → muda o estágio automaticamente (otimista)
   async function handleStageChange(visit, newStage) {
     const oldStage = visit.matricula_stage
@@ -290,7 +299,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0 && tasks.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -444,6 +453,30 @@ export default function VisitasHojePage() {
               sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
               onClick={() => setSelected(c)}
             />
+          ))}
+        </div>
+      )}
+
+      {/* Ligar depois — clientes que pediram retorno (fora da lista de clientes) */}
+      {!loading && callbacks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5"><Phone size={12} /> Ligar depois</span></SectionLabel>
+          {callbacks.map(c => (
+            <div key={c.id} className="rounded-2xl flex items-center gap-3"
+              style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
+              <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                {(c.company_name || c.contact_role) && (
+                  <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+                )}
+                <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {c.phone}</p>
+              </a>
+              <button onClick={() => completeCallback(c.id)} title="Já liguei"
+                className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
+                ✓
+              </button>
+            </div>
           ))}
         </div>
       )}

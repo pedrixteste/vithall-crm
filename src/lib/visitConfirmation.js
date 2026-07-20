@@ -212,6 +212,30 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
   return data || []
 }
 
+// "Pediu para ligar depois" (tabela callbacks, separada dos clientes) que caem
+// HOJE: daily sempre; weekly no dia da semana; specific_date a partir da data.
+// Só os do próprio usuário e não concluídos. Aparecem na aba Hoje.
+const DOW_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
+export async function fetchTodayCallbacks(userId) {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('callbacks')
+    .select('*')
+    .eq('created_by', userId)
+    .eq('done', false)
+    .order('created_at', { ascending: true })
+  const dowKey = DOW_KEYS[new Date().getDay()]
+  const todayStr = localDateStr()
+  return (data || []).filter(c => {
+    const cfg = c.reminder_config
+    if (!cfg) return false
+    if (cfg.type === 'daily')  return true
+    if (cfg.type === 'weekly') return (cfg.days || []).includes(dowKey)
+    if (cfg.type === 'specific_date') return cfg.date && cfg.date <= todayStr
+    return false
+  })
+}
+
 // Tarefas em aberto do usuário (follow-ups criados na estrela + manuais) que
 // já venceram, não têm prazo, ou vencem até o próximo dia útil. Aparecem na
 // aba Hoje ("A fazer") — a página global de Tarefas foi removida.

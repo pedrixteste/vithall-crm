@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Plus, Search, ChevronRight, X, SlidersHorizontal, Phone } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
+import CallbackForm from '../components/CallbackForm'
+import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { Card } from '../components/ui/Card'
 import { STAGE_BADGES } from '../components/ui/Badge'
@@ -50,6 +52,8 @@ export default function ClientesPage() {
   const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
   const [showForm, setShowForm]     = useState(false)
+  const [showCallbackForm, setShowCallbackForm] = useState(false)
+  const [showAddMenu, setShowAddMenu]           = useState(false)
   const [selected, setSelected]     = useState(null)
   const [showFilters, setShowFilters] = useState(false)
   const [filterStage, setFilterStage] = useState('')
@@ -214,7 +218,7 @@ export default function ClientesPage() {
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestao</p>
           <h1 style={{ color: '#EFEFEF' }}>Clientes</h1>
         </div>
-        <Button onClick={() => setShowForm(true)} size="md">
+        <Button onClick={() => setShowAddMenu(true)} size="md">
           <Plus size={15} /> Novo
         </Button>
       </div>
@@ -574,8 +578,20 @@ export default function ClientesPage() {
         </div>
       )}
 
+      {showAddMenu && (
+        <AddChooser
+          onClose={() => setShowAddMenu(false)}
+          onNewClient={() => { setShowAddMenu(false); setShowForm(true) }}
+          onNewCallback={() => { setShowAddMenu(false); setShowCallbackForm(true) }}
+        />
+      )}
+
       {showForm && (
         <ClienteForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); fetchClients() }} />
+      )}
+
+      {showCallbackForm && (
+        <CallbackForm onClose={() => setShowCallbackForm(false)} onSaved={() => setShowCallbackForm(false)} />
       )}
     </div>
   )
