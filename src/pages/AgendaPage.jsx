@@ -304,7 +304,7 @@ export default function AgendaPage() {
                       Cliente e cidade *
                     </label>
                     <input autoFocus value={note} onChange={e => setNote(e.target.value)}
-                      placeholder="Ex: Batman · Lajeado"
+                      placeholder="Ex: Fulano · Lajeado"
                       className="w-full text-sm outline-none rounded-xl"
                       style={{ padding: '10px 14px', background: '#111', border: '1px solid rgba(232,131,74,0.4)', color: '#EFEFEF' }} />
                     <p className="text-[10px] mt-1.5" style={{ color: '#555050' }}>
