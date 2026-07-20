@@ -104,8 +104,8 @@ export default function Layout({ children }) {
           {navItems.filter(i => !i.mobileHide).map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}
               className="flex-1 flex flex-col items-center py-3 gap-1.5 transition-all"
-              style={{ color: isActive(to) ? '#C9A84C' : '#333030' }}>
-              <Icon size={21} strokeWidth={isActive(to) ? 2.5 : 1.8} />
+              style={{ color: isActive(to) ? '#C9A84C' : '#8A837C' }}>
+              <Icon size={21} strokeWidth={isActive(to) ? 2.5 : 1.9} />
               <span className="text-[10px] font-semibold">{label}</span>
             </Link>
           ))}
