@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall } from 'lucide-react'
+import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
@@ -12,7 +12,7 @@ import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
-import { fetchVisitsToConfirm, fetchTodayVisits } from '../lib/visitConfirmation'
+import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount } from '../lib/visitConfirmation'
 import { localDateStr } from '../lib/utils'
 
 function getGreeting() {
@@ -48,7 +48,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [freshProfile, setFreshProfile] = useState(authProfile)
   const profile = freshProfile
-  const [stats, setStats] = useState({ retornos: 0, visits: 0, tasks: 0, closed: 0, marcacoes: 0, callsToday: 0 })
+  const [stats, setStats] = useState({ retornos: 0, visits: 0, pending: 0, closed: 0, marcacoes: 0, callsToday: 0, answeredToday: 0 })
   const [recentVisits, setRecentVisits] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm]     = useState(false)
@@ -150,20 +150,34 @@ export default function Dashboard() {
       return q.in('client_id', ids)
     }
 
-    const [ret, v, t, cl, rv, mc, dl] = await Promise.all([
-      applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),
-      applyDate(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
-      // "A fazer": tarefas abertas (follow-ups) do usuário — agora vivem no Hoje
-      supabase.from('tasks').select('id', { count: 'exact' }).eq('seller_id', user.id).eq('completed', false),
-      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' }).eq('matricula_stage', 'matriculado')), 'created_at'),
+    // Os 4 cards são o resumo do DIA ("como estou produzindo hoje") — não
+    // seguem o seletor de período, que continua valendo p/ "Visitas recentes".
+    const todayStr = localDateStr()
+    const dayStart = new Date(todayStr + 'T00:00:00').toISOString()
+    const dayEnd   = new Date(todayStr + 'T23:59:59.999').toISOString()
+
+    // Matrículas do dia: crédito de comissão (mesma fonte do "Produzido hoje"),
+    // que vai p/ quem marcou a visita. Gerente vê as da equipe toda.
+    let matq = supabase.from('matricula_credits').select('id', { count: 'exact' }).eq('credit_date', todayStr)
+    if (profile?.role !== 'gerente') matq = matq.eq('credited_to', user.id)
+
+    const [ret, v, pend, cl, rv, mc, dl] = await Promise.all([
+      applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])).eq('visit_date', todayStr),
+      applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })).eq('visit_date', todayStr),
+      // "Pendentes": tudo que a aba Hoje lista como esperando a pessoa
+      fetchPendingCount(profile?.role, user.id),
+      matq,
       applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
-      // pré-vendas: marcações (clientes registrados no período) + ligações de hoje
-      applyDate(applyRole(supabase.from('clients').select('id', { count: 'exact' })), 'created_at'),
-      supabase.from('daily_logs').select('calls').eq('user_id', user.id).eq('log_date', localDateStr()).maybeSingle(),
+      // Marcações de hoje: cliente cadastrado hoje JÁ com visita marcada —
+      // mesma definição do "Produzido hoje", p/ os dois números baterem
+      supabase.from('clients').select('id', { count: 'exact' })
+        .eq('created_by', user.id).not('visit_scheduled_at', 'is', null)
+        .gte('created_at', dayStart).lte('created_at', dayEnd),
+      supabase.from('daily_logs').select('calls, answered').eq('user_id', user.id).eq('log_date', todayStr).maybeSingle(),
     ])
     setStats({
-      retornos: ret.count || 0, visits: v.count || 0, tasks: t.count || 0, closed: cl.count || 0,
-      marcacoes: mc.count || 0, callsToday: dl.data?.calls || 0,
+      retornos: ret.count || 0, visits: v.count || 0, pending: pend, closed: cl.count || 0,
+      marcacoes: mc.count || 0, callsToday: dl.data?.calls || 0, answeredToday: dl.data?.answered || 0,
     })
     setRecentVisits(rv.data || [])
 
@@ -205,19 +219,21 @@ export default function Dashboard() {
 
   const firstName = profile?.name?.split(' ')[0]?.split('@')[0] || ''
 
-  // Pré-vendas produz ligações e marcações; vendedor/gerente, retornos e visitas
+  // Resumo do DIA. Pré-vendas produz ligações/atendidas e marcações;
+  // vendedor/gerente, retornos e visitas. "Pendentes" (o que a aba Hoje lista
+  // esperando a pessoa) vale p/ todos e substitui o antigo "A fazer".
   const statCards = profile?.role === 'pre_vendas'
     ? [
       { label: 'Ligações hoje', value: stats.callsToday, icon: PhoneCall, accent: '#60A5FA', to: '/ligacoes' },
+      { label: 'Atendidas', value: stats.answeredToday, icon: PhoneForwarded, accent: '#4ADE80', to: '/ligacoes' },
       { label: 'Marcações', value: stats.marcacoes, icon: CalendarCheck, accent: '#A78BFA', to: '/clientes' },
-      { label: 'A fazer', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
-      { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
+      { label: 'Pendentes', value: stats.pending, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
     ]
     : [
       { label: 'Retornos', value: stats.retornos, icon: RotateCcw, accent: '#60A5FA', to: '/clientes?outcome=retorno' },
       { label: 'Visitas', value: stats.visits, icon: MapPin, accent: '#A78BFA', to: '/clientes' },
-      { label: 'A fazer', value: stats.tasks, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
-      { label: 'Fechados', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
+      { label: 'Matrículas', value: stats.closed, icon: TrendingUp, accent: '#4ADE80', to: '/pipeline' },
+      { label: 'Pendentes', value: stats.pending, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
     ]
 
   if (selectedCliente) return (

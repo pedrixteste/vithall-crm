@@ -261,6 +261,25 @@ export async function fetchOpenTasks(userId) {
   return (data || []).filter(t => !t.due_date || t.due_date <= cutoff)
 }
 
+// Quantas coisas estão esperando a pessoa HOJE — o mesmo conjunto que a aba
+// "Hoje" lista, então o card do Dashboard e a aba nunca divergem:
+// visitas a confirmar (hoje até o próximo dia útil — confirmar a de amanhã já
+// é tarefa de hoje), lembretes chegando, "ligar depois" (callbacks e clientes
+// em pediu_ligar com retorno hoje), "a fazer" e as visitas do dia.
+// Feedbacks de visita ficam de fora: são aviso, não pendência.
+export async function fetchPendingCount(role, userId) {
+  if (!userId) return 0
+  const lists = await Promise.all([
+    fetchVisitsToConfirm(userId),
+    fetchUpcomingReminders(userId, daysAheadWindow()),
+    fetchTodayCallbacks(userId),
+    fetchOpenTasks(userId),
+    fetchCallbacksForDay(role, userId, 0),
+    fetchVisitsForDay(role, userId, 0),
+  ])
+  return lists.reduce((total, l) => total + l.length, 0)
+}
+
 // Estrelas preenchidas HOJE (rated_at) de clientes que o usuário marcou —
 // aviso na aba Hoje do pré-vendas p/ ele conferir o feedback da visita.
 export async function fetchTodayFeedbacks(userId) {
