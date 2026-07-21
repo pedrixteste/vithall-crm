@@ -380,7 +380,10 @@ export default function AgendaPage() {
                 </p>
                 <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
                   Cria <b style={{ color: '#B0A99F' }}>"Reservado - {calPrompt.slot?.booked_note}"</b> às{' '}
-                  {timeOf(calPrompt.slot?.slot_at)} na agenda de {profilesMap[sellerId]?.name?.split(' ')[0] || 'quem atende'}.
+                  {timeOf(calPrompt.slot?.slot_at)} na <b style={{ color: '#B0A99F' }}>sua</b> agenda do Google.
+                  {profilesMap[sellerId]?.name && sellerId !== user?.id && (
+                    <> {profilesMap[sellerId].name.split(' ')[0]} enxerga pela agenda compartilhada.</>
+                  )}
                 </p>
                 {calPrompt.error && (
                   <p className="text-[11px] font-semibold rounded-xl mb-3"

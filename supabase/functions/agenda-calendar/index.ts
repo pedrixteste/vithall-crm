@@ -15,21 +15,25 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
 /**
- * Token válido do DONO DA AGENDA.
+ * Token válido do dono do evento.
  *
- * Roda no servidor de propósito: o navegador de quem ocupa o horário não pode
- * ler o token do vendedor (RLS de `google_tokens` é own-row, e isso é uma
- * correção de segurança deliberada). Como o evento precisa nascer na agenda do
- * vendedor, é aqui — com service role — que ele é criado.
+ * O evento nasce na agenda de QUEM OCUPOU o horário (`booked_by`) — as agendas
+ * da equipe são compartilhadas, então o vendedor enxerga o evento mesmo ele
+ * pertencendo a outra pessoa. Efeito colateral aceito: para o Google o horário
+ * do vendedor continua "livre", porque o compromisso não é dele.
+ *
+ * Continua rodando no servidor porque o navegador não lê o token de ninguém
+ * além do próprio (RLS own-row em `google_tokens`, correção deliberada) — e a
+ * remoção precisa funcionar mesmo quando quem libera não é quem ocupou.
  */
-async function sellerAccessToken(sb: any, sellerId: string) {
+async function ownerAccessToken(sb: any, ownerId: string, quem: string) {
   const { data: tok } = await sb
     .from('google_tokens')
     .select('access_token, refresh_token, token_expiry')
-    .eq('id', sellerId)
+    .eq('id', ownerId)
     .maybeSingle()
 
-  if (!tok?.refresh_token) return { error: 'O vendedor não tem o Google Agenda conectado.' }
+  if (!tok?.refresh_token) return { error: `${quem} não tem o Google Agenda conectado.` }
   if (tok.access_token && tok.token_expiry > Date.now() + 300_000) return { token: tok.access_token }
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -67,12 +71,16 @@ serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     const { data: slot } = await sb
       .from('agenda_slots')
-      .select('id, seller_id, slot_at, booked_note, status, google_calendar_event_id')
+      .select('id, seller_id, booked_by, slot_at, booked_note, status, google_calendar_event_id')
       .eq('id', slotId)
       .maybeSingle()
     if (!slot) return json({ error: 'Horário não encontrado' }, 404)
 
-    const auth = await sellerAccessToken(sb, slot.seller_id)
+    // A agenda que recebe o evento é a de quem ocupou. Na remoção isso ainda
+    // vale: o app chama esta função ANTES de limpar `booked_by`, senão o
+    // evento ficaria órfão sem ninguém para apagá-lo.
+    if (!slot.booked_by) return json({ ok: false, reason: 'Horário sem responsável — ocupe antes de reservar.' })
+    const auth = await ownerAccessToken(sb, slot.booked_by, 'Quem ocupou o horário')
     if (auth.error) return json({ ok: false, reason: auth.error })
 
     // ── Liberar o horário: some o evento junto ──
