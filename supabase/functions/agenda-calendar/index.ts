@@ -68,6 +68,60 @@ async function ownerAccessToken(sb: any, ownerId: string, quem: string) {
   return { token: data.access_token }
 }
 
+/** E-mail para convidar o vendedor.
+ *
+ *  O caminho natural seria ler o id da agenda `primary` dele (que é o próprio
+ *  endereço), mas o app pede só o escopo `calendar.events` — dá para criar e
+ *  editar eventos, não para ler dados da agenda. Ampliar o escopo obrigaria
+ *  todo mundo a reconectar o Google, então usamos o e-mail de login.
+ *
+ *  Se esse e-mail não for a conta Google da pessoa, o convite vira um convidado
+ *  externo e o evento não chega na agenda dela — o aceite automático falha e o
+ *  app avisa, em vez de fingir que deu certo. */
+async function emailDoUsuario(sb: any, userId: string) {
+  const { data, error } = await sb.auth.admin.getUserById(userId)
+  if (error) return null
+  return data?.user?.email || null
+}
+
+/** Aceita o convite em nome do vendedor.
+ *  Ele não deveria ter trabalho nenhum: o horário já foi combinado no CRM, o
+ *  convite é só o reflexo disso na agenda. Como o servidor tem o token dele,
+ *  a resposta é dada por ele mesmo — sem e-mail e sem pendência na tela. */
+async function aceitarConvite(token: string, eventId: string, email: string) {
+  // Aceite feito com o token do ORGANIZADOR (quem marcou), não do convidado.
+  //
+  // Pelo convidado não funciona: contas Gmail pessoais costumam estar em "só
+  // adicionar à agenda quando eu responder", então o evento nem existe na
+  // agenda dele para ser aceito — a leitura devolve 404. O organizador, por
+  // outro lado, é dono do evento e pode definir a resposta de quem convidou.
+  const get = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!get.ok) return { ok: false, reason: `evento não encontrado (${get.status})` }
+  const ev = await get.json()
+
+  // Reenvia a lista inteira de convidados alterando só a resposta dele —
+  // mandar só a própria entrada apagaria os demais participantes.
+  const attendees = (ev.attendees || []).map((a: any) =>
+    a.email?.toLowerCase() === email.toLowerCase() ? { ...a, responseStatus: 'accepted' } : a)
+
+  const patch = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?sendUpdates=none`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendees }),
+    },
+  )
+  if (!patch.ok) {
+    const err = await patch.json().catch(() => ({}))
+    return { ok: false, reason: err?.error?.message || `erro ${patch.status} ao aceitar` }
+  }
+  return { ok: true }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -128,28 +182,59 @@ serve(async (req) => {
     const quemMarcou = marcou?.name || ''
     const cor        = marcou?.calendar_color || null
     const nomeVend   = (vendedor?.name || '').split(' ')[0]
+    const nomeMarcou = quemMarcou.split(' ')[0]
+
+    // O vendedor entra como CONVIDADO. É o que faz o evento chegar só a ele
+    // (marcando para dois vendedores, cada um recebe o seu) e o que mantém o
+    // horário realmente ocupado na agenda dele — sendo que o organizador
+    // continua quem marcou, então o e-mail e a cor são os dela.
+    let emailVend: string | null = null
+    let aviso = ''
+    if (slot.seller_id !== slot.booked_by) {
+      const vendAuth = await ownerAccessToken(sb, slot.seller_id, 'O vendedor')
+      if (vendAuth.error) aviso = vendAuth.error
+      else emailVend = await emailDoUsuario(sb, slot.seller_id)
+      if (!emailVend && !aviso) aviso = 'Não achei o e-mail do vendedor para convidar.'
+      var vendToken = vendAuth.token
+    }
 
     const start = new Date(slot.slot_at)
     const end   = new Date(start.getTime() + 60 * 60 * 1000)
-    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        summary: `Reservado - ${slot.booked_note || 'horário ocupado'}${nomeVend ? ` (${nomeVend})` : ''}`,
-        description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}`
-          + `${nomeVend ? `, na agenda de ${nomeVend}` : ''}.`,
-        colorId: cor || undefined,
-        start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
-        end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
-      }),
-    })
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // Quem marcou vem PRIMEIRO: é a parte do título que sobrevive ao
+          // corte na visão de mês e no celular, e a cor não consegue dizer
+          // isso (o Google só respeita a cor do evento para o dono da agenda).
+          summary: `${nomeMarcou ? `${nomeMarcou} → ` : ''}${slot.booked_note || 'Horário ocupado'}`,
+          description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}`
+            + `${nomeVend ? `, para ${nomeVend}` : ''}.`,
+          colorId: cor || undefined,
+          start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
+          end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
+          ...(emailVend ? { attendees: [{ email: emailVend }] } : {}),
+        }),
+      })
     const data = await res.json()
     if (!res.ok) {
       return json({ ok: false, reason: data?.error?.message || `Erro ${res.status} ao criar no Google Agenda.` })
     }
 
+    // Aceite automático — o vendedor não deve precisar mexer em nada
+    let aceite: any = null
+    if (emailVend) {
+      aceite = await aceitarConvite(auth.token!, data.id, emailVend)
+      if (!aceite.ok) aviso = `Evento criado, mas ficou pendente na agenda do vendedor (${aceite.reason}).`
+    }
+
     await sb.from('agenda_slots').update({ google_calendar_event_id: data.id }).eq('id', slot.id)
-    return json({ ok: true, eventId: data.id, quemMarcou, cor, corNome: cor ? CORES[cor] : null })
+    return json({
+      ok: true, eventId: data.id, quemMarcou, cor, corNome: cor ? CORES[cor] : null,
+      convidado: emailVend, aceite, aviso: aviso || undefined,
+    })
   } catch (e) {
     return json({ error: (e as Error).message }, 500)
   }

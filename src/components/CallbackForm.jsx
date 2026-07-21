@@ -37,6 +37,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
   const [reminderDatesList, setReminderDatesList] = useState(rc?.type === 'specific_date' ? reminderDates(rc) : [])
   const [reminderTime, setReminderTime] = useState(rc?.time || '')
   const [notes, setNotes]   = useState(initialData?.notes || '')
+  const [listLocation, setListLocation] = useState(initialData?.list_location || '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError]   = useState('')
@@ -76,6 +77,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
       company_name:    companyName.trim() || null,
       contact_role:    contactRole.trim() || null,
       notes:           notes.trim() || null,
+      list_location:   listLocation.trim() || null,
       reminder_config,
     }
     const { error: err } = initialData?.id
@@ -204,6 +206,11 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
             )
           })()}
         </div>
+
+        {/* Onde o contato foi achado na lista física — antes ia solto no
+            meio da descrição ("Pág 55"). */}
+        <Input label="Onde encontrou na lista" value={listLocation}
+          onChange={e => setListLocation(e.target.value)} placeholder="Ex: Pág 55, linha 12" />
 
         {/* Descrição (opcional) */}
         <div>

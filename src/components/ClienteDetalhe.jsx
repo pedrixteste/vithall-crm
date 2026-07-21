@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
@@ -1132,6 +1132,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             {currentClient.address_reference && (
               <p className="text-xs" style={{ color: '#6B6560', paddingLeft: '26px', marginTop: '-8px' }}>
                 Ref.: {currentClient.address_reference}
+              </p>
+            )}
+            {currentClient.list_location && (
+              <p className="flex items-center gap-2.5 text-sm" style={{ color: '#6B6560' }}>
+                <BookOpen size={14} style={{ color: '#C9A84C', flexShrink: 0 }} />
+                Lista: {currentClient.list_location}
               </p>
             )}
             {currentClient.instagram && (

@@ -94,6 +94,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     indicado_por:    initialData?.indicado_por    || '',
     matricula_stage: initialData?.matricula_stage || 'nao_marcou',
     notes:           initialData?.notes           || '',
+    list_location:   initialData?.list_location   || '',
     assigned_to:     initialData?.assigned_to     || '',
   })
 
@@ -190,6 +191,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       origin:               c.origin || '',
       indicado_por:         c.indicado_por || '',
       notes:                c.notes || '',
+      list_location:        c.list_location || '',
     }))
     setTreinamentosInteresse(c.treinamentos_interesse || [])
     setDiasLivres(c.dias_livres || [])
@@ -708,6 +710,15 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             </div>
           </div>
         )}
+
+        {/* Onde o contato foi achado na lista física — a equipe já anotava isso
+            no meio das observações ("Pág 55"), agora tem campo próprio. */}
+        <Input
+          label="Onde encontrou na lista"
+          value={form.list_location}
+          onChange={e => set('list_location', e.target.value)}
+          placeholder="Ex: Pág 55, linha 12"
+        />
 
         {/* ---- OBSERVACOES ---- */}
         <div>
