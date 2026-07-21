@@ -36,6 +36,8 @@ export default function AgendaPage() {
   const [note, setNote]               = useState('')
   const [saving, setSaving]           = useState(false)
   const [errorMsg, setErrorMsg]       = useState('')
+  // Pop-up "reservar no Google Agenda do vendedor?" após ocupar
+  const [calPrompt, setCalPrompt]     = useState(null) // { slot, busy, done, error }
 
   const isOwner = sellerId === user?.id
 
@@ -124,14 +126,40 @@ export default function AgendaPage() {
     setOccupyingId(null)
     setNote('')
     fetchSlots()
+    // O horário já está reservado no CRM; o Google Agenda é o passo seguinte
+    setCalPrompt({ slot: data[0], busy: false, done: false, error: '' })
+  }
+
+  // Cria/remove o evento na agenda do VENDEDOR. Vai pelo servidor porque o
+  // token do Google dele não é legível daqui (RLS own-row, de propósito).
+  async function syncSlotCalendar(slot, action) {
+    const { data, error } = await supabase.functions.invoke('agenda-calendar', {
+      body: { slotId: slot.id, action },
+    })
+    if (error) return { ok: false, reason: 'Falha de conexão com o servidor.' }
+    return data || { ok: false, reason: 'Resposta vazia do servidor.' }
+  }
+
+  async function confirmCalendar() {
+    setCalPrompt(p => ({ ...p, busy: true, error: '' }))
+    const r = await syncSlotCalendar(calPrompt.slot, 'create')
+    if (!r.ok) { setCalPrompt(p => ({ ...p, busy: false, error: r.reason || 'Não foi possível reservar.' })); return }
+    setCalPrompt(p => ({ ...p, busy: false, done: true }))
+    fetchSlots()
+    setTimeout(() => setCalPrompt(null), 1200)
   }
 
   async function freeSlot(slot) {
     if (!confirm(`Liberar o horário ${timeOf(slot.slot_at)}?`)) return
     setErrorMsg('')
+    // Tira da agenda do vendedor ANTES de liberar, senão perco o id do evento
+    if (slot.google_calendar_event_id) {
+      const r = await syncSlotCalendar(slot, 'delete')
+      if (!r.ok) setErrorMsg(`Horário liberado, mas o evento seguiu no Google Agenda (${r.reason}). Remova manualmente.`)
+    }
     const { error } = await supabase
       .from('agenda_slots')
-      .update({ status: 'livre', booked_by: null, booked_note: null })
+      .update({ status: 'livre', booked_by: null, booked_note: null, google_calendar_event_id: null })
       .eq('id', slot.id)
     if (error) { setErrorMsg('Não foi possível salvar — verifique sua internet.'); return }
     fetchSlots()
@@ -335,6 +363,47 @@ export default function AgendaPage() {
         <p className="text-[11px]" style={{ color: '#333030', lineHeight: 1.5 }}>
           💡 Visita longa? Ocupe todos os horários que ela vai tomar (ex: das 13:00 às 15:30 → ocupe 13:00 e 14:30).
         </p>
+      )}
+
+      {/* Pop-up: reservar o horário no Google Agenda do vendedor */}
+      {calPrompt && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #303030', padding: '22px', maxWidth: '340px', width: '100%' }}>
+            {calPrompt.done ? (
+              <p className="text-sm font-semibold text-center" style={{ color: '#4ADE80' }}>
+                ✓ Reservado no Google Agenda!
+              </p>
+            ) : (
+              <>
+                <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>
+                  Reservar no Google Agenda?
+                </p>
+                <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                  Cria <b style={{ color: '#B0A99F' }}>"Reservado - {calPrompt.slot?.booked_note}"</b> às{' '}
+                  {timeOf(calPrompt.slot?.slot_at)} na agenda de {profilesMap[sellerId]?.name?.split(' ')[0] || 'quem atende'}.
+                </p>
+                {calPrompt.error && (
+                  <p className="text-[11px] font-semibold rounded-xl mb-3"
+                    style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                    {calPrompt.error}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setCalPrompt(null)} disabled={calPrompt.busy}
+                    className="text-xs font-bold rounded-xl py-3 transition-all active:scale-95"
+                    style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                    Agora não
+                  </button>
+                  <button onClick={confirmCalendar} disabled={calPrompt.busy}
+                    className="text-xs font-bold rounded-xl py-3 transition-all active:scale-95"
+                    style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ADE80' }}>
+                    {calPrompt.busy ? 'Reservando...' : 'Reservar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
