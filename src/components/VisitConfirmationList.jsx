@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { getValidToken, deleteCalendarEvent, createCalendarEvent } from '../lib/googleCalendar'
 import { bookingStamp, logVisitScheduled, bookingLabel } from '../lib/visitBooking'
-import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar, CalendarClock } from 'lucide-react'
+import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar, CalendarClock, ChevronDown } from 'lucide-react'
 
 // Converte timestamp UTC p/ o formato do input datetime-local (hora local)
 function toLocalInputValue(iso) {
@@ -30,6 +30,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [pending, setPending]   = useState(visits)
+  const [openId, setOpenId]     = useState(null)     // visita expandida (accordion)
   const [activeId, setActiveId] = useState(null)     // visita aberta para digitar nota/data
   const [activeKind, setActiveKind] = useState(null) // 'nao_confirmada' | 'tentativa' | 'remarcou'
   const [note, setNote]         = useState('')
@@ -217,6 +218,10 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
         const dateLabel = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')
         const isActive = activeId === v.id
         const cfg = activeKind ? NOTE_CONFIG[activeKind] : null
+        // Recolhido por padrão: com 4 botões por visita a lista tomava a tela
+        // inteira. Card único já abre (não há lista pra compactar), e quem
+        // está no meio de uma resposta fica aberto.
+        const isOpen = pending.length === 1 || openId === v.id || isActive
 
         return (
           <div key={v.id} className="rounded-2xl"
@@ -227,9 +232,12 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                 Não foi possível salvar — verifique sua internet e tente de novo.
               </p>
             )}
-            {/* Cliente */}
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="min-w-0">
+            {/* Cliente — o cabeçalho inteiro abre/fecha */}
+            <button
+              onClick={() => setOpenId(openId === v.id ? null : v.id)}
+              className="w-full text-left flex items-start justify-between gap-3"
+              style={{ marginBottom: isOpen ? '12px' : 0 }}>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
                 {v.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>}
                 <p className="text-xs font-medium mt-1 flex items-center gap-1.5" style={{ color: '#C9A84C' }}>
@@ -238,13 +246,17 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                 </p>
                 {/* QUANDO a marcação foi feita — a linha de cima é quando a
                     visita acontece. Some para registros sem carimbo (antigos). */}
-                {bookingLabel(v) && (
+                {isOpen && bookingLabel(v) && (
                   <p className="text-[11px] mt-1" style={{ color: '#6B6560' }}>📌 {bookingLabel(v)}</p>
                 )}
               </div>
-            </div>
+              {pending.length > 1 && (
+                <ChevronDown size={16} className="flex-shrink-0 transition-transform"
+                  style={{ color: '#6B6560', marginTop: '2px', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+              )}
+            </button>
 
-            {!isActive ? (
+            {!isOpen ? null : !isActive ? (
               /* 4 botões (2×2) */
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
