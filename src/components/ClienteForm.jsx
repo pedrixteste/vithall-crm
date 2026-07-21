@@ -206,12 +206,15 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [calDone, setCalDone]     = useState(false)
   // Pop-up "número já registrado antes" — último da cadeia
   const [dupPrompt, setDupPrompt] = useState(null) // { clientId }
+  // Cadeia da reserva: substituir | confirmar_nao | sem_reserva | ocupar | pronto
+  const [slotPrompt, setSlotPrompt] = useState(null)
   const dupPendingRef = useRef(null) // segura o dup até o pop-up da agenda fechar
 
   // Fim do pop-up do Google Agenda → mostra o de número repetido (se houver)
   function finishAfterCalendar() {
     if (dupPendingRef.current) {
       setCalendarPrompt(null)
+      setSlotPrompt(null)
       setDupPrompt(dupPendingRef.current)
       dupPendingRef.current = null
     } else {
@@ -441,16 +444,23 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         }
       }
 
-      // Cadastro novo com marcação feita + Google Agenda conectado →
-      // oferece adicionar a visita no Google Agenda antes de fechar
-      if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id && profile?.google_connected) {
+      // Cadastro novo com marcação feita → a reserva provisória da Agenda
+      // (feita durante as ligações) precisa virar a visita de verdade, senão
+      // ficam dois eventos no mesmo horário
+      if (!initialData?.id && form.matricula_stage === 'nao_visitado' && newVisitIso && res.data?.id) {
         dupPendingRef.current = dup // o pop-up do número repetido vem DEPOIS
-        setCalendarPrompt({
+        const base = {
           clientId: res.data.id,
           name:     form.contact_name || form.company_name || 'Cliente',
           phone:    form.phone,
           visitIso: newVisitIso,
-        })
+        }
+        const reserva = await findReservedSlot(form.assigned_to, newVisitIso)
+        if (reserva)                     setSlotPrompt({ ...base, slot: reserva, step: 'substituir' })
+        else if (form.assigned_to)       setSlotPrompt({ ...base, step: 'sem_reserva' })
+        else if (profile?.google_connected) setCalendarPrompt(base)
+        else if (dup) setDupPrompt(dup)
+        else onSaved()
       } else if (dup) {
         setDupPrompt(dup)
       } else {
@@ -458,6 +468,81 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       }
     }
     setSaving(false)
+  }
+
+  // ── Reserva da Agenda × visita cadastrada ───────────────────────
+  // Elas reservam o horário durante as ligações ("pedro · lajeado") e só no
+  // fim do turno cadastram o cliente. Aqui a reserva é reencontrada para
+  // virar a visita de verdade em vez de duplicar o evento no Google.
+  //
+  // Tolerância de 15 min: reserva 16:30 casa com visita às 16:45. Larga demais
+  // seria perigoso — ofereceria substituir a reserva do horário vizinho, e um
+  // "sim" no automático apagaria a reserva de outro cliente.
+  const SLOT_TOLERANCIA_MIN = 15
+
+  async function findReservedSlot(sellerId, visitIso) {
+    if (!sellerId || !visitIso) return null
+    const alvo = new Date(visitIso).getTime()
+    const janela = SLOT_TOLERANCIA_MIN * 60 * 1000
+    const { data } = await supabase
+      .from('agenda_slots')
+      .select('*')
+      .eq('seller_id', sellerId)
+      .eq('status', 'ocupado')
+      .is('client_id', null) // reserva que ainda não virou visita
+      .gte('slot_at', new Date(alvo - janela).toISOString())
+      .lte('slot_at', new Date(alvo + janela).toISOString())
+    if (!data?.length) return null
+    // Havendo mais de uma na janela, fica a mais próxima — nunca ofereço duas
+    return data.sort((a, b) =>
+      Math.abs(new Date(a.slot_at) - alvo) - Math.abs(new Date(b.slot_at) - alvo))[0]
+  }
+
+  /** Substitui a reserva provisória pelo evento completo do cliente. */
+  async function substituirReserva() {
+    setSlotPrompt(p => ({ ...p, busy: true, error: '' }))
+    const { slot, clientId, visitIso } = slotPrompt
+    // O evento antigo sai antes: sem isso o horário fica com dois no Google
+    if (slot.google_calendar_event_id) {
+      await supabase.functions.invoke('agenda-calendar', { body: { slotId: slot.id, action: 'delete' } })
+    }
+    const { data, error } = await supabase.functions.invoke('agenda-calendar', {
+      body: { slotId: slot.id, action: 'create', clientId, visitIso },
+    })
+    if (error || !data?.ok) {
+      setSlotPrompt(p => ({ ...p, busy: false, error: data?.reason || 'Não foi possível substituir.' }))
+      return
+    }
+    await supabase.from('clients').update({ google_calendar_event_id: data.eventId }).eq('id', clientId)
+    setSlotPrompt(p => ({ ...p, busy: false, step: 'pronto' }))
+    setTimeout(finishAfterCalendar, 1200)
+  }
+
+  /** Caso B: o horário não estava reservado — ocupa agora, em nome de quem cadastra. */
+  async function ocuparAgora() {
+    setSlotPrompt(p => ({ ...p, busy: true, error: '' }))
+    const { clientId, visitIso, name } = slotPrompt
+    const { data: novo, error: errSlot } = await supabase.from('agenda_slots').insert({
+      seller_id:   form.assigned_to,
+      slot_at:     visitIso,
+      status:      'ocupado',
+      booked_by:   user.id,
+      booked_note: `${name}${form.city ? ` · ${form.city}` : ''}`,
+    }).select().single()
+    if (errSlot) {
+      setSlotPrompt(p => ({ ...p, busy: false, error: 'Não foi possível abrir o horário na agenda.' }))
+      return
+    }
+    const { data, error } = await supabase.functions.invoke('agenda-calendar', {
+      body: { slotId: novo.id, action: 'create', clientId, visitIso },
+    })
+    if (error || !data?.ok) {
+      setSlotPrompt(p => ({ ...p, busy: false, error: data?.reason || 'Horário ocupado, mas o Google Agenda falhou.' }))
+      return
+    }
+    await supabase.from('clients').update({ google_calendar_event_id: data.eventId }).eq('id', clientId)
+    setSlotPrompt(p => ({ ...p, busy: false, step: 'pronto' }))
+    setTimeout(finishAfterCalendar, 1200)
   }
 
   // Botão do pop-up — mesma engrenagem do "Adicionar ao Google Agenda" da ficha
@@ -969,6 +1054,102 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     )}
 
     {/* Pop-up: esse número já foi registrado antes */}
+    {/* Reserva da Agenda → visita de verdade */}
+    {slotPrompt && (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #303030', padding: '22px', maxWidth: '350px', width: '100%' }}>
+          {slotPrompt.step === 'pronto' ? (
+            <p className="text-sm font-semibold text-center" style={{ color: '#4ADE80' }}>
+              ✓ Agenda atualizada!
+            </p>
+          ) : slotPrompt.step === 'substituir' ? (
+            <>
+              <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Substituir a reserva?</p>
+              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                Existe <b style={{ color: '#B0A99F' }}>"{slotPrompt.slot.booked_note}"</b> reservado às{' '}
+                {new Date(slotPrompt.slot.slot_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
+                Ele vira a visita completa, com todos os dados do cliente.
+              </p>
+              {slotPrompt.error && (
+                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                  {slotPrompt.error}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'confirmar_nao' }))} disabled={slotPrompt.busy}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  Não
+                </button>
+                <button type="button" onClick={substituirReserva} disabled={slotPrompt.busy}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ADE80' }}>
+                  {slotPrompt.busy ? 'Substituindo...' : 'Sim, substituir'}
+                </button>
+              </div>
+            </>
+          ) : slotPrompt.step === 'confirmar_nao' ? (
+            <>
+              <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Tem certeza?</p>
+              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                Vão ficar <b style={{ color: '#B0A99F' }}>dois eventos</b> no mesmo horário: a reserva e a visita.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button type="button" onClick={finishAfterCalendar}
+                  className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  Não quero tirar a reserva
+                </button>
+                <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'substituir' }))}
+                  className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.4)', color: '#C9A84C' }}>
+                  Voltar e substituir
+                </button>
+              </div>
+            </>
+          ) : slotPrompt.step === 'sem_reserva' ? (
+            <>
+              <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Horário não reservado</p>
+              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                Não achei reserva para{' '}
+                {new Date(slotPrompt.visitIso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}{' '}
+                às {new Date(slotPrompt.visitIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
+                Tem certeza que preencheu certo?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setSlotPrompt(null); dupPendingRef.current = null }}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  Vou corrigir
+                </button>
+                <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'ocupar' }))}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ADE80' }}>
+                  Está certo
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Ocupar na agenda?</p>
+              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                Abre e ocupa esse horário na agenda do vendedor, e cria a visita no Google Agenda.
+              </p>
+              {slotPrompt.error && (
+                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                  {slotPrompt.error}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={finishAfterCalendar} disabled={slotPrompt.busy}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  Agora não
+                </button>
+                <button type="button" onClick={ocuparAgora} disabled={slotPrompt.busy}
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ADE80' }}>
+                  {slotPrompt.busy ? 'Ocupando...' : 'Sim, ocupar'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
     {dupPrompt && (
       <div className="fixed inset-0 z-[80] flex items-center justify-center px-6"
         style={{ background: 'rgba(0,0,0,0.85)' }}>

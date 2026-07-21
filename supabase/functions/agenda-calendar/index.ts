@@ -14,6 +14,48 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+const ORIGIN_LABELS: Record<string, string> = {
+  'frias contatinhos': 'Frias contatinhos', 'frias listas': 'Frias listas',
+  'lead campanha': 'Lead campanha', 'lead organico': 'Lead orgânico',
+  'feiras': 'Eventos', 'indicacao': 'Indicacao',
+}
+const fmtDate = (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : ''
+const fmtTime = (v: string | null) => v ? new Date(v).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : ''
+
+function enderecoDe(c: any) {
+  const rua   = [c.address_street, c.address_number].filter(Boolean).join(', ')
+  const local = [c.address_neighborhood, c.city].filter(Boolean).join(', ')
+  const base  = [rua, local].filter(Boolean).join(' — ')
+  return c.address_reference ? `${base}${base ? ' ' : ''}(Ref.: ${c.address_reference})` : base
+}
+
+function telefonesDe(c: any) {
+  const lista = [c.phone, ...((Array.isArray(c.phones) ? c.phones : []).map((p: any) => p?.n))]
+  if (c.phone2 && !lista.includes(c.phone2)) lista.push(c.phone2)
+  return lista.filter(Boolean).join(' / ')
+}
+
+/** Ficha do cliente no corpo do evento — a mesma que o app já monta quando
+ *  adiciona uma visita ao Google Agenda, repetida aqui porque este caminho
+ *  roda no servidor (é ele que sabe convidar o vendedor). */
+function fichaDoCliente(c: any, visitIso: string) {
+  const origem = ORIGIN_LABELS[c.origin] || c.origin || ''
+  const linhas: [string, string][] = [
+    ['Nome',              c.contact_name || ''],
+    ['Empresa',           c.company_name || ''],
+    ['Cargo',             c.contact_role || ''],
+    ['Telefone',          telefonesDe(c)],
+    ['Como surgiu',       c.origin === 'indicacao' && c.indicado_por ? `${origem} (por ${c.indicado_por})` : origem],
+    ['Data da marcação',  fmtDate(c.visit_booked_at || c.created_at)],
+    ['Data da visita',    fmtDate(visitIso)],
+    ['Horário da visita', fmtTime(visitIso)],
+    ['Endereço',          enderecoDe(c)],
+    ['Onde na lista',     c.list_location || ''],
+    ['Observações',       c.notes || ''],
+  ]
+  return linhas.map(([k, v]) => `${k}: ${v || '—'}`).join('\n')
+}
+
 // Cores de evento do Google Agenda. O evento fica na agenda do vendedor, então
 // a cor é o que diz QUEM marcou — cada pessoa sempre na mesma.
 const CORES: Record<string, string> = {
@@ -126,7 +168,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
-    const { slotId, action } = await req.json()
+    // `clientId` chega quando a reserva provisória vira a visita de verdade:
+    // o evento passa de "Reservado - nota" para a ficha completa do cliente,
+    // sem perder o convite ao vendedor (que é o motivo de isto rodar aqui).
+    // `visitIso` permite marcar a visita num horário levemente diferente do
+    // horário reservado — 16:30 reservado, visita às 16:45.
+    const { slotId, action, clientId, visitIso } = await req.json()
     if (!slotId) return json({ error: 'slotId obrigatório' }, 400)
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -136,6 +183,12 @@ serve(async (req) => {
       .eq('id', slotId)
       .maybeSingle()
     if (!slot) return json({ error: 'Horário não encontrado' }, 404)
+
+    let cliente: any = null
+    if (clientId) {
+      const { data } = await sb.from('clients').select('*').eq('id', clientId).maybeSingle()
+      cliente = data || null
+    }
 
     // O evento nasce na agenda de QUEM OCUPOU.
     //
@@ -198,20 +251,31 @@ serve(async (req) => {
       var vendToken = vendAuth.token
     }
 
-    const start = new Date(slot.slot_at)
+    // Com cliente, o horário da visita manda (pode ser 16:45 numa reserva de
+    // 16:30); sem cliente, vale o horário reservado.
+    const start = new Date(cliente && visitIso ? visitIso : slot.slot_at)
     const end   = new Date(start.getTime() + 60 * 60 * 1000)
+
+    // Quem marcou vem PRIMEIRO no título: é a parte que sobrevive ao corte na
+    // visão de mês e no celular, e a cor não consegue dizer isso (o Google só
+    // respeita a cor do evento para o dono da agenda).
+    const titulo = cliente
+      ? `${nomeMarcou ? `${nomeMarcou} → ` : ''}${cliente.contact_name || cliente.company_name || 'Cliente'}`
+        + `${cliente.city ? ` · ${cliente.city}` : ''}`
+      : `${nomeMarcou ? `${nomeMarcou} → ` : ''}${slot.booked_note || 'Horário ocupado'}`
+
     const res = await fetch(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none',
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Quem marcou vem PRIMEIRO: é a parte do título que sobrevive ao
-          // corte na visão de mês e no celular, e a cor não consegue dizer
-          // isso (o Google só respeita a cor do evento para o dono da agenda).
-          summary: `${nomeMarcou ? `${nomeMarcou} → ` : ''}${slot.booked_note || 'Horário ocupado'}`,
-          description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}`
-            + `${nomeVend ? `, para ${nomeVend}` : ''}.`,
+          summary: titulo,
+          description: cliente
+            ? fichaDoCliente(cliente, start.toISOString())
+            : `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}`
+              + `${nomeVend ? `, para ${nomeVend}` : ''}.`,
+          location: cliente ? (enderecoDe(cliente) || undefined) : undefined,
           colorId: cor || undefined,
           start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
           end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
@@ -230,10 +294,13 @@ serve(async (req) => {
       if (!aceite.ok) aviso = `Evento criado, mas ficou pendente na agenda do vendedor (${aceite.reason}).`
     }
 
-    await sb.from('agenda_slots').update({ google_calendar_event_id: data.id }).eq('id', slot.id)
+    await sb.from('agenda_slots').update({
+      google_calendar_event_id: data.id,
+      ...(cliente ? { client_id: cliente.id } : {}),
+    }).eq('id', slot.id)
     return json({
       ok: true, eventId: data.id, quemMarcou, cor, corNome: cor ? CORES[cor] : null,
-      convidado: emailVend, aceite, aviso: aviso || undefined,
+      convidado: emailVend, aceite, cliente: cliente?.contact_name || null, aviso: aviso || undefined,
     })
   } catch (e) {
     return json({ error: (e as Error).message }, 500)
