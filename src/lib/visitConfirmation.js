@@ -33,9 +33,14 @@ export function daysAheadWindow(d = new Date()) {
 export const isVisitTreated = (c) =>
   c.visit_confirmation === 'confirmada' || c.visit_confirmation === 'tentativa'
 
+// Estágios em que a visita JÁ ACONTECEU e foi resolvida — não é mais uma
+// visita "a fazer". Uma visita matriculada/avaliada hoje deixava de ser
+// pendência real mas continuava contando (estava só nao_visitado no filtro).
+const POST_VISITA = ['recebeu_visita', 'matriculado', 'nao_apareceu', 'cancelado']
+
 // Visitas agendadas para um dia (offset). Só para quem FAZ visita:
 // vendedor (atribuídas a ele) e gerente (todas). Pré-vendas → [].
-// Só retorna visitas TRATADAS (confirmada/tentativa) — ver isVisitTreated.
+// Só retorna visitas TRATADAS (confirmada/tentativa) e AINDA NÃO REALIZADAS.
 export async function fetchVisitsForDay(role, userId, offset = 0) {
   if (role !== 'vendedor' && role !== 'gerente') return []
   const { start, end } = getDayRange(offset)
@@ -44,6 +49,7 @@ export async function fetchVisitsForDay(role, userId, offset = 0) {
     .select('*')
     .not('visit_scheduled_at', 'is', null)
     .in('visit_confirmation', ['confirmada', 'tentativa'])
+    .not('matricula_stage', 'in', `(${POST_VISITA.join(',')})`)
     .gte('visit_scheduled_at', start)
     .lte('visit_scheduled_at', end)
     .order('visit_scheduled_at', { ascending: true })
