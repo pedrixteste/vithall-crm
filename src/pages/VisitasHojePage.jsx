@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap } from 'lucide-react'
+import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES } from '../components/ui/Badge'
@@ -477,31 +477,42 @@ export default function VisitasHojePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5"><Phone size={12} /> Ligar depois</span></SectionLabel>
           {callbacks.map(c => (
-            <div key={c.id} className="rounded-2xl flex items-center gap-3"
+            /* Nome/telefone ligam; a descrição e o lápis abrem a edição — assim
+               não precisa caçar o contato no Produzido hoje pra corrigir algo */
+            <div key={c.id} className="rounded-2xl"
               style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
-              <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
-                  {c.reminder_config?.time && (
-                    <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
-                      style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
-                      <Clock size={9} /> {c.reminder_config.time}
-                    </span>
+              <div className="flex items-center gap-3">
+                <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                    {c.reminder_config?.time && (
+                      <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                        style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
+                        <Clock size={9} /> {c.reminder_config.time}
+                      </span>
+                    )}
+                  </div>
+                  {(c.company_name || c.contact_role) && (
+                    <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                   )}
-                </div>
-                {(c.company_name || c.contact_role) && (
-                  <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
-                )}
-                <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {c.phone}</p>
-                {c.notes && (
+                  <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {c.phone}</p>
+                </a>
+                <button onClick={() => setEditingCallback(c)} title="Editar contato"
+                  className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                  style={{ width: '38px', height: '38px', background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.22)', color: '#E8834A' }}>
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => completeCallback(c.id)} title="Já liguei"
+                  className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                  style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
+                  ✓
+                </button>
+              </div>
+              {c.notes && (
+                <button onClick={() => setEditingCallback(c)} className="w-full text-left">
                   <p className="text-[11px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
-                )}
-              </a>
-              <button onClick={() => completeCallback(c.id)} title="Já liguei"
-                className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
-                style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
-                ✓
-              </button>
+                </button>
+              )}
             </div>
           ))}
         </div>
