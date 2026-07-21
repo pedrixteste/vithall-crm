@@ -127,6 +127,14 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     toLocalInputValue(initialData?.visit_scheduled_at)
   )
 
+  // "Pediu para ligar depois" saiu do cadastro: isso agora se registra pelo "+"
+  // (CallbackForm), que é o único caminho que realmente agenda o retorno — pelo
+  // form o call_back_at ficava nulo e o cliente nunca aparecia na aba Hoje.
+  // Só continua na lista para quem JÁ está nesse estágio, senão editar um
+  // cliente antigo trocaria o estágio dele sem querer.
+  const stageOptions = (!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES)
+    .filter(s => s.key !== 'pediu_ligar' || initialData?.matricula_stage === 'pediu_ligar')
+
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [listening, setListening] = useState(false)
@@ -653,7 +661,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             if (e.target.value !== 'nao_visitado') setVisitScheduledAt('')
           }}
         >
-          {(!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES).map(s => (
+          {stageOptions.map(s => (
             <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
