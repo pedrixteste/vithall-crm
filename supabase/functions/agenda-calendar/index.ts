@@ -83,10 +83,19 @@ serve(async (req) => {
       .maybeSingle()
     if (!slot) return json({ error: 'Horário não encontrado' }, 404)
 
-    // O evento nasce na agenda do VENDEDOR: assim o horário fica de fato
-    // ocupado para o Google (se ficasse na agenda de quem marcou, o vendedor
-    // apareceria livre naquele horário). Quem marcou é identificado pela COR.
-    const auth = await ownerAccessToken(sb, slot.seller_id, 'O vendedor')
+    // O evento nasce na agenda de QUEM OCUPOU.
+    //
+    // Tentamos antes criar na agenda do vendedor e distinguir as pessoas pela
+    // cor do evento: não funciona. O Google só respeita a cor do evento para o
+    // DONO da agenda; quem enxerga por compartilhamento vê tudo na cor que
+    // escolheu para aquela agenda — então todas as marcações saíam iguais.
+    // Com o evento na agenda de cada pessoa, cada uma vira uma agenda distinta
+    // e o Google já as colore diferente sozinho, do jeito que cada um prefere.
+    //
+    // Na remoção isso ainda vale: o app chama esta função ANTES de limpar
+    // `booked_by`, senão o evento ficaria sem ninguém para apagá-lo.
+    if (!slot.booked_by) return json({ ok: false, reason: 'Horário sem responsável — ocupe antes de reservar.' })
+    const auth = await ownerAccessToken(sb, slot.booked_by, 'Quem ocupou o horário')
     if (auth.error) return json({ ok: false, reason: auth.error })
 
     // ── Liberar o horário: some o evento junto ──
@@ -108,24 +117,27 @@ serve(async (req) => {
       return json({ ok: true, deleted: true })
     }
 
-    // ── Ocupar: reserva 1h na agenda do vendedor ──
-    // O nome de quem marcou vai na descrição; a cor é o sinal visual rápido.
-    let quemMarcou = ''
-    let cor: string | null = null
-    if (slot.booked_by) {
-      const { data: p } = await sb.from('profiles')
-        .select('name, calendar_color').eq('id', slot.booked_by).maybeSingle()
-      quemMarcou = p?.name || ''
-      cor = p?.calendar_color || null
-    }
+    // ── Ocupar: reserva 1h ──
+    // O evento fica na agenda de quem marcou, então o nome do VENDEDOR precisa
+    // aparecer: senão a pessoa olha a própria agenda e não sabe de quem é a
+    // visita que ela reservou.
+    const [{ data: marcou }, { data: vendedor }] = await Promise.all([
+      sb.from('profiles').select('name, calendar_color').eq('id', slot.booked_by).maybeSingle(),
+      sb.from('profiles').select('name').eq('id', slot.seller_id).maybeSingle(),
+    ])
+    const quemMarcou = marcou?.name || ''
+    const cor        = marcou?.calendar_color || null
+    const nomeVend   = (vendedor?.name || '').split(' ')[0]
+
     const start = new Date(slot.slot_at)
     const end   = new Date(start.getTime() + 60 * 60 * 1000)
     const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        summary: `Reservado - ${slot.booked_note || 'horário ocupado'}`,
-        description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}.`,
+        summary: `Reservado - ${slot.booked_note || 'horário ocupado'}${nomeVend ? ` (${nomeVend})` : ''}`,
+        description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}`
+          + `${nomeVend ? `, na agenda de ${nomeVend}` : ''}.`,
         colorId: cor || undefined,
         start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
         end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
