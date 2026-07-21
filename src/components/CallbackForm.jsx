@@ -7,6 +7,7 @@ import { Button } from './ui/Button'
 import { PhoneCall } from 'lucide-react'
 import SpecificDates from './SpecificDates'
 import { reminderDates } from '../lib/utils'
+import PhoneList, { TipoToggle } from './PhoneList'
 
 // "Cliente pediu para ligar depois" — lembrete leve de ligação, fora da lista
 // de clientes. Só nome + telefone obrigatórios; empresa/cargo opcionais.
@@ -27,6 +28,8 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
   const rc = initialData?.reminder_config
   const [contactName, setContactName] = useState(initialData?.contact_name || '')
   const [phone, setPhone]             = useState(initialData?.phone || '')
+  const [phoneType, setPhoneType]     = useState(initialData?.phone_type || 'pessoal')
+  const [phones, setPhones]           = useState(Array.isArray(initialData?.phones) ? initialData.phones : [])
   const [companyName, setCompanyName] = useState(initialData?.company_name || '')
   const [contactRole, setContactRole] = useState(initialData?.contact_role || '')
   const [reminderType, setReminderType] = useState(rc?.type || '')
@@ -68,6 +71,8 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
     const payload = {
       contact_name:    contactName.trim(),
       phone:           phone.trim(),
+      phone_type:      phoneType,
+      phones:          phones.filter(x => x?.n?.trim()).map(x => ({ n: x.n.trim(), t: x.t || 'pessoal' })),
       company_name:    companyName.trim() || null,
       contact_role:    contactRole.trim() || null,
       notes:           notes.trim() || null,
@@ -95,6 +100,18 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
 
         <Input label="Telefone *" value={phone}
           onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+
+        {phone.trim() && (
+          <>
+            <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                Esse número é...
+              </p>
+              <TipoToggle value={phoneType} onChange={setPhoneType} />
+            </div>
+            <PhoneList value={phones} onChange={setPhones} primaryFilled />
+          </>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <Input label="Empresa" value={companyName}

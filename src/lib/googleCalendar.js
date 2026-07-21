@@ -1,5 +1,6 @@
 // Helpers para Google Calendar API
 import { supabase } from './supabase'
+import { allPhones } from './utils'
 
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events'
@@ -122,7 +123,7 @@ export function buildEventDescription(c, visitDateTime) {
     ['Nome',              c.contact_name || ''],
     ['Empresa',           c.company_name || ''],
     ['Cargo',             c.contact_role || ''],
-    ['Telefone',          [c.phone, c.phone2].filter(Boolean).join(' / ')],
+    ['Telefone',          allPhones(c).map(p => p.n).join(' / ')],
     ['Como surgiu',       formatOrigin(c)],
     ['Data da marcação',  fmtDate(c.created_at)],
     ['Data da visita',    fmtDate(visitDateTime)],

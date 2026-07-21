@@ -10,7 +10,7 @@ import { Card } from '../components/ui/Card'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
-import { phoneDigits } from '../lib/utils'
+import { phoneDigits, allPhones, allPhoneDigits } from '../lib/utils'
 
 const OUTCOME_OPTIONS = [
   { key: 'matriculada',          label: 'Matriculada',        icon: '✅', color: '#4ADE80' },
@@ -112,8 +112,8 @@ export default function ClientesPage() {
 
     // Registros do mesmo contato (base toda): compara por DÍGITOS e considera
     // os dois telefones (principal e secundário) — contagem por id do cliente
-    const { data: phones } = await supabase.from('clients').select('id, phone, phone2')
-    const keysOf = (r) => [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
+    const { data: phones } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
+    const keysOf = (r) => allPhoneDigits(r)
     const idx = {}
     for (const r of phones || []) for (const k of keysOf(r)) (idx[k] ||= new Set()).add(r.id)
     const counts = {}
@@ -163,8 +163,7 @@ export default function ClientesPage() {
     const matchesSearch = !q ||
       c.company_name?.toLowerCase().includes(q) ||
       c.contact_name?.toLowerCase().includes(q) ||
-      (qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits)) ||
-      (qDigits && (c.phone2 || '').replace(/\D/g, '').includes(qDigits))
+      (qDigits && allPhoneDigits(c).some(d => d.includes(qDigits)))
 
     const matchesStage   = !filterStage || c.matricula_stage === filterStage
     const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
@@ -555,7 +554,7 @@ export default function ClientesPage() {
                   )}
                   {client.phone && (
                     <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#555050' }}>
-                      <Phone size={10} style={{ flexShrink: 0 }} /> {client.phone}{client.phone2 ? ` · ${client.phone2}` : ''}
+                      <Phone size={10} style={{ flexShrink: 0 }} /> {allPhones(client).map(p => p.n).join(' · ')}
                     </p>
                   )}
                   <div style={{ marginTop: '6px' }}>

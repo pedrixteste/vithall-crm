@@ -6,7 +6,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
-import { localDateStr, phoneDigits, reminderDates } from '../lib/utils'
+import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -415,12 +415,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // Conta quantos registros existem do mesmo contato — por DÍGITOS (ignora
   // formatação) e considerando os dois telefones (principal e secundário)
   async function fetchPhoneCount() {
-    const keys = [phoneDigits(currentClient.phone), phoneDigits(currentClient.phone2)].filter(k => k.length >= 8)
+    const keys = allPhoneDigits(currentClient)
     if (!keys.length) { setPhoneCount(1); return }
-    const { data } = await supabase.from('clients').select('id, phone, phone2')
+    const { data } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
     const ids = new Set()
     for (const r of data || []) {
-      const rk = [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
+      const rk = allPhoneDigits(r)
       if (rk.some(k => keys.includes(k))) ids.add(r.id)
     }
     setPhoneCount(ids.size || 1)
@@ -1083,51 +1083,32 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           {/* Infos de contato */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {currentClient.phone && (() => {
-              // Telefone principal + o do outro tipo (vazio até ser preenchido no ✏️)
-              const primaryType = currentClient.phone_type === 'empresa' ? 'Empresa' : 'Pessoal'
-              const otherType   = currentClient.phone_type === 'empresa' ? 'Pessoal' : 'Empresa'
-              const typeTag = (label) => (
+              // Todos os telefones do cliente, cada um com a sua etiqueta.
+              // Antes eram dois fixos e o segundo herdava o tipo oposto.
+              const typeTag = (t) => (
                 <span className="text-[9px] font-bold uppercase tracking-wide rounded-full flex-shrink-0"
                   style={{ padding: '2px 8px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', color: '#C9A84C' }}>
-                  {label}
+                  {t === 'empresa' ? 'Empresa' : 'Pessoal'}
                 </span>
               )
-              return (
-                <>
-                  <div className="flex items-center gap-2.5">
-                    <a href={`tel:${currentClient.phone}`} className="flex items-center gap-2.5 text-sm"
-                      style={{ color: '#6B6560' }}>
-                      <Phone size={14} style={{ color: '#C9A84C' }} />
-                      {currentClient.phone}
-                    </a>
-                    {typeTag(primaryType)}
-                    {phoneCount > 1 && (
-                      <button onClick={() => setShowHistorico(true)}
-                        title="Contato já registrado antes — ver histórico"
-                        className="flex items-center rounded-lg transition-all active:scale-95"
-                        style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
-                        <Phone size={12} />
-                        <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    {currentClient.phone2 ? (
-                      <a href={`tel:${currentClient.phone2}`} className="flex items-center gap-2.5 text-sm"
-                        style={{ color: '#6B6560' }}>
-                        <Phone size={14} style={{ color: '#6B6560' }} />
-                        {currentClient.phone2}
-                      </a>
-                    ) : (
-                      <span className="flex items-center gap-2.5 text-sm" style={{ color: '#3A3A3A' }}>
-                        <Phone size={14} style={{ color: '#3A3A3A' }} />
-                        — sem número (adicione no ✏️)
-                      </span>
-                    )}
-                    {typeTag(otherType)}
-                  </div>
-                </>
-              )
+              return allPhones(currentClient).map((p, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <a href={`tel:${p.n}`} className="flex items-center gap-2.5 text-sm" style={{ color: '#6B6560' }}>
+                    <Phone size={14} style={{ color: i === 0 ? '#C9A84C' : '#6B6560' }} />
+                    {p.n}
+                  </a>
+                  {typeTag(p.t)}
+                  {i === 0 && phoneCount > 1 && (
+                    <button onClick={() => setShowHistorico(true)}
+                      title="Contato já registrado antes — ver histórico"
+                      className="flex items-center rounded-lg transition-all active:scale-95"
+                      style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
+                      <Phone size={12} />
+                      <sup style={{ fontSize: '10px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
+                    </button>
+                  )}
+                </div>
+              ))
             })()}
             {(currentClient.city || currentClient.address_street) && (() => {
               const parts = [
@@ -2172,7 +2153,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {showHistorico && (
         <ContatoHistorico
           phone={currentClient.phone}
-          phones={[currentClient.phone, currentClient.phone2]}
+          phones={allPhones(currentClient).map(p => p.n)}
           currentClientId={currentClient.id}
           onOpenClient={(record, opts) => switchToClient(record, opts)}
           onClose={() => setShowHistorico(false)}

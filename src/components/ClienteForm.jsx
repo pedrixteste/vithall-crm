@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { phoneDigits, reminderDates } from '../lib/utils'
+import { phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import { Sheet } from './ui/Sheet'
 import { Input, Select } from './ui/Input'
 import { Button } from './ui/Button'
@@ -12,6 +12,7 @@ import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import SpecificDates from './SpecificDates'
+import PhoneList, { TipoToggle } from './PhoneList'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 
@@ -127,6 +128,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   const [visitScheduledAt, setVisitScheduledAt] = useState(
     toLocalInputValue(initialData?.visit_scheduled_at)
   )
+  // Telefones adicionais (coluna `phones`). O principal continua em form.phone.
+  const [phones, setPhones] = useState(
+    Array.isArray(initialData?.phones) ? initialData.phones : []
+  )
 
   // "Pediu para ligar depois" saiu do cadastro: isso agora se registra pelo "+"
   // (CallbackForm), que é o único caminho que realmente agenda o retorno — pelo
@@ -151,12 +156,12 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     const digits = phoneDigits(value)
     if (digits.length < 5) { setPhoneSuggestions([]); return }
     if (!phoneListRef.current) {
-      const { data } = await supabase.from('clients').select('id, contact_name, company_name, phone, phone2')
+      const { data } = await supabase.from('clients').select('id, contact_name, company_name, phone, phone_type, phone2, phones')
       phoneListRef.current = data || []
     }
     const matches = []
     for (const r of phoneListRef.current) {
-      const cand = [r.phone, r.phone2].find(p => phoneDigits(p).length >= 8 && phoneDigits(p).startsWith(digits))
+      const cand = allPhones(r).map(x => x.n).find(p => phoneDigits(p).length >= 8 && phoneDigits(p).startsWith(digits))
       if (cand) matches.push({ ...r, matchPhone: cand })
       if (matches.length >= 5) break
     }
@@ -188,6 +193,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     }))
     setTreinamentosInteresse(c.treinamentos_interesse || [])
     setDiasLivres(c.dias_livres || [])
+    setPhones(Array.isArray(c.phones) ? c.phones : [])
     setPhoneSuggestions([])
     setSuggestDismissed(true)
   }
@@ -350,6 +356,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       visit_scheduled_at: newVisitIso,
       treinamentos_interesse: treinamentosInteresse,
       dias_livres: diasLivres,
+      // Descarta os campos que a pessoa abriu e não preencheu
+      phones: phones.filter(p => p?.n?.trim()).map(p => ({ n: p.n.trim(), t: p.t || 'pessoal' })),
     }
     // Visita remarcada (data mudou) → confirmação antiga não vale mais e
     // quem mudou a data passa a ser o responsável por confirmar
@@ -420,13 +428,12 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       // considerando principal e secundário dos dois lados)
       let dup = null
       if (!initialData?.id && res.data?.id) {
-        const keys = [phoneDigits(form.phone), phoneDigits(form.phone2)].filter(k => k.length >= 8)
+        const keys = allPhoneDigits({ ...form, phones })
         if (keys.length) {
-          const { data: phones } = await supabase.from('clients').select('id, phone, phone2')
-          const repeated = (phones || []).some(r => {
+          const { data: outros } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
+          const repeated = (outros || []).some(r => {
             if (r.id === res.data.id) return false
-            const rk = [phoneDigits(r.phone), phoneDigits(r.phone2)].filter(k => k.length >= 8)
-            return rk.some(k => keys.includes(k))
+            return allPhoneDigits(r).some(k => keys.includes(k))
           })
           if (repeated) dup = { clientId: res.data.id }
         }
@@ -517,34 +524,18 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           )}
         </div>
 
-        {/* Tipo do telefone + segundo número (do outro tipo) */}
+        {/* Tipo do número principal + telefones adicionais (cada um com o
+            SEU tipo — antes o segundo herdava o oposto do primeiro) */}
         {form.phone.trim() && (
-          <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
+          <>
+            <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
                 Esse número é...
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']].map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => set('phone_type', k)}
-                    className="text-xs font-bold rounded-xl py-2.5 transition-all active:scale-95"
-                    style={{
-                      background: form.phone_type === k ? 'rgba(201,168,76,0.12)' : '#161616',
-                      border: `1px solid ${form.phone_type === k ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: form.phone_type === k ? '#C9A84C' : '#6B6560',
-                    }}>
-                    {form.phone_type === k ? '✓ ' : ''}{label}
-                  </button>
-                ))}
-              </div>
+              <TipoToggle value={form.phone_type} onChange={t => set('phone_type', t)} />
             </div>
-            <Input
-              label={form.phone_type === 'empresa' ? 'Telefone pessoal (opcional)' : 'Telefone empresa (opcional)'}
-              value={form.phone2}
-              onChange={e => set('phone2', e.target.value)}
-              placeholder="Se o cliente passar outro número na ligação"
-            />
-          </div>
+            <PhoneList value={phones} onChange={setPhones} primaryFilled />
+          </>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

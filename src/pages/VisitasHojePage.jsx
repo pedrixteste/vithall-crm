@@ -12,7 +12,7 @@ import {
   fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
-import { localDateStr } from '../lib/utils'
+import { localDateStr, allPhones } from '../lib/utils'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
@@ -448,7 +448,7 @@ export default function VisitasHojePage() {
               time={timeOf(c.call_back_at)}
               tag="Ligar" tagColor="#E8834A"
               name={c.contact_name} company={c.company_name}
-              sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
+              sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
               isPast={new Date(c.call_back_at) < new Date()}
               onClick={() => setSelected(c)}
             />
@@ -465,7 +465,7 @@ export default function VisitasHojePage() {
               time={reminderLabel(c.daysUntil, c.reminderDate)}
               tag="Lembrete" tagColor="#22D3EE"
               name={c.contact_name} company={c.company_name}
-              sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
+              sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
               onClick={() => setSelected(c)}
             />
           ))}
@@ -495,7 +495,7 @@ export default function VisitasHojePage() {
                   {(c.company_name || c.contact_role) && (
                     <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                   )}
-                  <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {c.phone}</p>
+                  <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
                 </a>
                 <button onClick={() => setEditingCallback(c)} title="Editar contato"
                   className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
@@ -616,7 +616,7 @@ export default function VisitasHojePage() {
                   time={timeOf(c.call_back_at)}
                   tag="Ligar" tagColor="#E8834A"
                   name={c.contact_name} company={c.company_name}
-                  sub={c.phone ? <><Phone size={10} /> {c.phone}</> : null}
+                  sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
                   onClick={() => setSelected(c)}
                 />
               ))}
@@ -747,7 +747,7 @@ export default function VisitasHojePage() {
                       {(c.company_name || c.contact_role) && (
                         <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                       )}
-                      <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {c.phone}</p>
+                      <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
                       <p className="text-[10px] mt-1.5" style={{ color: '#2A2A2A' }}>Toque para editar →</p>
                     </button>
                   ))}
