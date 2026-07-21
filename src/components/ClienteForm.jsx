@@ -518,6 +518,23 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     setTimeout(finishAfterCalendar, 1200)
   }
 
+  /** Recusou substituir: a reserva fica de pé E a visita vai para o Google
+   *  assim mesmo, avulsa. Sem isso, recusar deixava a visita fora da agenda —
+   *  justamente o que essa funcionalidade veio resolver. */
+  async function manterReservaECriarVisita() {
+    setSlotPrompt(p => ({ ...p, busy: true, error: '' }))
+    const { clientId, visitIso } = slotPrompt
+    const { data, error } = await supabase.functions.invoke('agenda-calendar', {
+      body: { clientId, visitIso, organizerId: user.id },
+    })
+    if (error || !data?.ok) {
+      setSlotPrompt(p => ({ ...p, busy: false, error: data?.reason || 'Não foi possível criar a visita no Google.' }))
+      return
+    }
+    setSlotPrompt(p => ({ ...p, busy: false, step: 'pronto' }))
+    setTimeout(finishAfterCalendar, 1200)
+  }
+
   /** Caso B: o horário não estava reservado — ocupa agora, em nome de quem cadastra. */
   async function ocuparAgora() {
     setSlotPrompt(p => ({ ...p, busy: true, error: '' }))
@@ -1092,10 +1109,15 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
               <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
                 Vão ficar <b style={{ color: '#B0A99F' }}>dois eventos</b> no mesmo horário: a reserva e a visita.
               </p>
+              {slotPrompt.error && (
+                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                  {slotPrompt.error}
+                </p>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <button type="button" onClick={finishAfterCalendar}
+                <button type="button" onClick={manterReservaECriarVisita} disabled={slotPrompt.busy}
                   className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
-                  Não quero tirar a reserva
+                  {slotPrompt.busy ? 'Criando a visita...' : 'Não quero tirar a reserva'}
                 </button>
                 <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'substituir' }))}
                   className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.4)', color: '#C9A84C' }}>

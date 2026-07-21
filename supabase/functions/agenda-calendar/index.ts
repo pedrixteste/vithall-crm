@@ -173,21 +173,41 @@ serve(async (req) => {
     // sem perder o convite ao vendedor (que é o motivo de isto rodar aqui).
     // `visitIso` permite marcar a visita num horário levemente diferente do
     // horário reservado — 16:30 reservado, visita às 16:45.
-    const { slotId, action, clientId, visitIso } = await req.json()
-    if (!slotId) return json({ error: 'slotId obrigatório' }, 400)
+    const { slotId, action, clientId, visitIso, organizerId } = await req.json()
+    if (!slotId && !clientId) return json({ error: 'slotId ou clientId obrigatório' }, 400)
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    const { data: slot } = await sb
-      .from('agenda_slots')
-      .select('id, seller_id, booked_by, slot_at, booked_note, status, google_calendar_event_id')
-      .eq('id', slotId)
-      .maybeSingle()
-    if (!slot) return json({ error: 'Horário não encontrado' }, 404)
 
     let cliente: any = null
     if (clientId) {
       const { data } = await sb.from('clients').select('*').eq('id', clientId).maybeSingle()
       cliente = data || null
+      if (!cliente) return json({ error: 'Cliente não encontrado' }, 404)
+    }
+
+    // Sem `slotId` é um evento AVULSO: a pessoa recusou substituir a reserva,
+    // mas a visita precisa ir para o Google do mesmo jeito — com o vendedor
+    // convidado, senão ele não recebe a ficha do cliente. O horário reservado
+    // fica intocado, exatamente como ela pediu.
+    let slot: any
+    if (slotId) {
+      const { data } = await sb
+        .from('agenda_slots')
+        .select('id, seller_id, booked_by, slot_at, booked_note, status, google_calendar_event_id')
+        .eq('id', slotId)
+        .maybeSingle()
+      if (!data) return json({ error: 'Horário não encontrado' }, 404)
+      slot = data
+    } else {
+      slot = {
+        id: null,
+        seller_id: cliente.assigned_to,
+        booked_by: organizerId || cliente.created_by,
+        slot_at: visitIso || cliente.visit_scheduled_at,
+        booked_note: null,
+        google_calendar_event_id: cliente.google_calendar_event_id,
+      }
+      if (!slot.booked_by) return json({ error: 'Sem organizador para o evento' }, 400)
     }
 
     // O evento nasce na agenda de QUEM OCUPOU.
@@ -220,7 +240,8 @@ serve(async (req) => {
         const err = await del.json().catch(() => ({}))
         return json({ ok: false, reason: err?.error?.message || `Erro ${del.status} ao remover do Google Agenda.` })
       }
-      await sb.from('agenda_slots').update({ google_calendar_event_id: null }).eq('id', slot.id)
+      if (slot.id) await sb.from('agenda_slots').update({ google_calendar_event_id: null }).eq('id', slot.id)
+      else if (cliente) await sb.from('clients').update({ google_calendar_event_id: null }).eq('id', cliente.id)
       return json({ ok: true, deleted: true })
     }
 
@@ -294,10 +315,16 @@ serve(async (req) => {
       if (!aceite.ok) aviso = `Evento criado, mas ficou pendente na agenda do vendedor (${aceite.reason}).`
     }
 
-    await sb.from('agenda_slots').update({
-      google_calendar_event_id: data.id,
-      ...(cliente ? { client_id: cliente.id } : {}),
-    }).eq('id', slot.id)
+    // Evento avulso não tem horário para carimbar — o id vai direto no cliente
+    if (slot.id) {
+      await sb.from('agenda_slots').update({
+        google_calendar_event_id: data.id,
+        ...(cliente ? { client_id: cliente.id } : {}),
+      }).eq('id', slot.id)
+    }
+    if (cliente) {
+      await sb.from('clients').update({ google_calendar_event_id: data.id }).eq('id', cliente.id)
+    }
     return json({
       ok: true, eventId: data.id, quemMarcou, cor, corNome: cor ? CORES[cor] : null,
       convidado: emailVend, aceite, cliente: cliente?.contact_name || null, aviso: aviso || undefined,
