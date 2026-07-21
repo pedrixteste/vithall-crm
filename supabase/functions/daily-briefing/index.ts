@@ -162,6 +162,9 @@ serve(async (req) => {
     for (const c of clients) clientById[c.id] = c
 
     const results: any[] = []
+    // Recordes do dia — replicados p/ os gerentes depois do laço, para eles
+    // saberem que a pessoa bateu e que ela já foi avisada.
+    const recordes: { nome: string, texto: string }[] = []
 
     for (const p of profiles) {
       if (onlyUser && p.id !== onlyUser) continue
@@ -288,6 +291,10 @@ serve(async (req) => {
           if (anoMaduro && bateu(anoRef))      badge = ` — ${rotulo}, seu melhor dia do ano! 🏆`
           else if (mesMaduro && bateu(mesRef)) badge = ` — ${rotulo}, seu melhor dia do mês! 🔥`
         }
+        if (badge) {
+          const escopo = badge.includes('do ano') ? 'do ano' : 'do mês'
+          recordes.push({ nome: p.name || '—', texto: `${p.name || '—'}: ${rotulo} — melhor dia ${escopo} 🏆` })
+        }
 
         const primeiro = (p.name || '').split(' ')[0] || ''
         heading = `🌅 Bom dia${primeiro ? `, ${primeiro}` : ''}${badge}`
@@ -335,7 +342,32 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, slot, enviados: results.length, results }), {
+    // ── Aviso de recorde para os gerentes ──
+    // O gerente recebe o mesmo fato que a pessoa recebeu, para saber que ela
+    // bateu e que já foi parabenizada. Não avisa o gerente sobre ele mesmo —
+    // ele acabou de receber o próprio badge no "Bom dia".
+    if (slot === 'morning' && recordes.length && !dryRun) {
+      for (const g of profiles.filter(x => x.role === 'gerente')) {
+        const outros = recordes.filter(r => r.nome !== g.name)
+        if (!outros.length) continue
+        const texto = outros.map(r => r.texto).join(' · ')
+        const push = await fetch('https://onesignal.com/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_id: ONESIGNAL_APP_ID,
+            include_player_ids: [g.onesignal_player_id],
+            headings: { pt: '🏆 Recorde na equipe', en: 'Team record' },
+            contents: { pt: texto, en: texto },
+            url: 'https://vithall-crm.vercel.app/relatorios',
+          }),
+        })
+        results.push({ user: g.name, heading: '🏆 Recorde na equipe', content: texto, gerente: true,
+          onesignal: { status: push.status, ...(await push.json().catch(() => ({}))) } })
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, slot, enviados: results.length, recordes, results }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
   } catch (e) {
