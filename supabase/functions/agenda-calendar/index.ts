@@ -82,7 +82,11 @@ serve(async (req) => {
         `https://www.googleapis.com/calendar/v3/calendars/primary/events/${slot.google_calendar_event_id}`,
         { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } },
       )
-      if (del.status !== 204 && del.status !== 404) {
+      // 204 removido agora · 404 nunca existiu · 410 já tinha sido removido
+      // (alguém apagou direto no Google). Nos três o resultado desejado é o
+      // mesmo: não há evento na agenda. Tratar 410 como erro gerava alarme
+      // falso — "remova manualmente" um evento que já não existe.
+      if (![204, 404, 410].includes(del.status)) {
         const err = await del.json().catch(() => ({}))
         return json({ ok: false, reason: err?.error?.message || `Erro ${del.status} ao remover do Google Agenda.` })
       }
