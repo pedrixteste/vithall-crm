@@ -14,17 +14,24 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+// Cores de evento do Google Agenda. O evento fica na agenda do vendedor, então
+// a cor é o que diz QUEM marcou — cada pessoa sempre na mesma.
+const CORES: Record<string, string> = {
+  '1': 'Lavanda', '2': 'Sálvia', '3': 'Uva', '4': 'Flamingo', '5': 'Banana', '6': 'Tangerina',
+  '7': 'Pavão', '8': 'Grafite', '9': 'Mirtilo', '10': 'Manjericão', '11': 'Tomate',
+}
+// A cor vem de `profiles.calendar_color`, definida pelo gerente. Sortear a cor
+// a partir do id NÃO funciona: com 6 pessoas e 10 cores, duas colidem fácil —
+// e na primeira tentativa Mafê e Amanda caíram exatamente na mesma.
+
 /**
- * Token válido do dono do evento.
+ * Token válido do DONO DA AGENDA.
  *
- * O evento nasce na agenda de QUEM OCUPOU o horário (`booked_by`) — as agendas
- * da equipe são compartilhadas, então o vendedor enxerga o evento mesmo ele
- * pertencendo a outra pessoa. Efeito colateral aceito: para o Google o horário
- * do vendedor continua "livre", porque o compromisso não é dele.
- *
- * Continua rodando no servidor porque o navegador não lê o token de ninguém
- * além do próprio (RLS own-row em `google_tokens`, correção deliberada) — e a
- * remoção precisa funcionar mesmo quando quem libera não é quem ocupou.
+ * Roda no servidor de propósito: o navegador de quem ocupa o horário não pode
+ * ler o token do vendedor (RLS de `google_tokens` é own-row, e isso é uma
+ * correção de segurança deliberada). Como o evento precisa nascer na agenda do
+ * vendedor — para o horário contar como ocupado de verdade —, é aqui, com
+ * service role, que ele é criado.
  */
 async function ownerAccessToken(sb: any, ownerId: string, quem: string) {
   const { data: tok } = await sb
@@ -56,7 +63,7 @@ async function ownerAccessToken(sb: any, ownerId: string, quem: string) {
   await sb.from('google_tokens').update({
     access_token: data.access_token,
     token_expiry: Date.now() + data.expires_in * 1000,
-  }).eq('id', sellerId)
+  }).eq('id', ownerId)
 
   return { token: data.access_token }
 }
@@ -76,11 +83,10 @@ serve(async (req) => {
       .maybeSingle()
     if (!slot) return json({ error: 'Horário não encontrado' }, 404)
 
-    // A agenda que recebe o evento é a de quem ocupou. Na remoção isso ainda
-    // vale: o app chama esta função ANTES de limpar `booked_by`, senão o
-    // evento ficaria órfão sem ninguém para apagá-lo.
-    if (!slot.booked_by) return json({ ok: false, reason: 'Horário sem responsável — ocupe antes de reservar.' })
-    const auth = await ownerAccessToken(sb, slot.booked_by, 'Quem ocupou o horário')
+    // O evento nasce na agenda do VENDEDOR: assim o horário fica de fato
+    // ocupado para o Google (se ficasse na agenda de quem marcou, o vendedor
+    // apareceria livre naquele horário). Quem marcou é identificado pela COR.
+    const auth = await ownerAccessToken(sb, slot.seller_id, 'O vendedor')
     if (auth.error) return json({ ok: false, reason: auth.error })
 
     // ── Liberar o horário: some o evento junto ──
@@ -103,6 +109,15 @@ serve(async (req) => {
     }
 
     // ── Ocupar: reserva 1h na agenda do vendedor ──
+    // O nome de quem marcou vai na descrição; a cor é o sinal visual rápido.
+    let quemMarcou = ''
+    let cor: string | null = null
+    if (slot.booked_by) {
+      const { data: p } = await sb.from('profiles')
+        .select('name, calendar_color').eq('id', slot.booked_by).maybeSingle()
+      quemMarcou = p?.name || ''
+      cor = p?.calendar_color || null
+    }
     const start = new Date(slot.slot_at)
     const end   = new Date(start.getTime() + 60 * 60 * 1000)
     const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
@@ -110,7 +125,8 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         summary: `Reservado - ${slot.booked_note || 'horário ocupado'}`,
-        description: 'Horário reservado pela agenda do CRM Vithall.',
+        description: `Horário reservado pela agenda do CRM Vithall${quemMarcou ? ` por ${quemMarcou}` : ''}.`,
+        colorId: cor || undefined,
         start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
         end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
       }),
@@ -121,7 +137,7 @@ serve(async (req) => {
     }
 
     await sb.from('agenda_slots').update({ google_calendar_event_id: data.id }).eq('id', slot.id)
-    return json({ ok: true, eventId: data.id })
+    return json({ ok: true, eventId: data.id, quemMarcou, cor, corNome: cor ? CORES[cor] : null })
   } catch (e) {
     return json({ error: (e as Error).message }, 500)
   }

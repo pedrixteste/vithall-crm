@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
 import { enablePushNotifications, getNotificationPermission } from '../lib/onesignal'
+import { colorInfo } from '../lib/calendarColors'
 
 export default function PerfilPage() {
   const { profile: authProfile, signOut, user } = useAuth()
@@ -202,6 +203,28 @@ export default function PerfilPage() {
               Quando o cliente cancelar, o evento é removido sozinho.
             </p>
           )}
+
+          {/* Cor das marcações — só leitura. Quem define é o gerente, para as
+              cores não colidirem entre duas pessoas (foi o que aconteceu
+              quando tentamos sortear automaticamente). */}
+          {(() => {
+            const cor = colorInfo(freshProfile?.calendar_color)
+            if (!cor) return null
+            return (
+              <div className="rounded-2xl flex items-center gap-3"
+                style={{ background: '#111', border: '1px solid #1C1C1C', padding: '13px 15px' }}>
+                <span style={{ width: '22px', height: '22px', borderRadius: '7px', background: cor.hex, flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }} />
+                <div className="min-w-0">
+                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#EFEFEF' }}>
+                    Sua cor na agenda: {cor.nome}
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#6B6560', lineHeight: 1.45 }}>
+                    Os horários que você ocupar aparecem nessa cor na agenda do vendedor.
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </Card>
 
