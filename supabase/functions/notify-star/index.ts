@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const ONESIGNAL_API_KEY  = Deno.env.get('ONESIGNAL_REST_API_KEY')!
+
+// A chave "legacy" do OneSignal autentica com Basic; a nova (os_v2_app_...)
+// com Key. Mandar o esquema errado devolve 401 "Access denied" mesmo com a
+// chave certa — e a resposta vinha sendo ignorada, entao o push falhava calado.
+const OS_AUTH = ONESIGNAL_API_KEY?.startsWith(`os_v2_`)
+  ? `Key ${ONESIGNAL_API_KEY}`
+  : `Basic ${ONESIGNAL_API_KEY}`
 const ONESIGNAL_APP_ID   = Deno.env.get('ONESIGNAL_APP_ID')!
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -53,12 +60,12 @@ serve(async (req) => {
     const res = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${ONESIGNAL_API_KEY}`,
+        'Authorization': OS_AUTH,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
-        include_subscription_uids: [profile.onesignal_player_id],
+        include_player_ids: [profile.onesignal_player_id],
         headings: { pt: '⭐ Visita avaliada', en: 'Visit rated' },
         contents: { pt: body, en: body },
         url: 'https://vithall-crm.vercel.app/agenda',

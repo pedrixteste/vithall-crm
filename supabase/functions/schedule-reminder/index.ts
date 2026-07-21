@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')!
+
+// A chave "legacy" do OneSignal autentica com Basic; a nova (os_v2_app_...)
+// com Key. Mandar o esquema errado devolve 401 "Access denied" mesmo com a
+// chave certa — e a resposta vinha sendo ignorada, entao o push falhava calado.
+const OS_AUTH = ONESIGNAL_API_KEY?.startsWith(`os_v2_`)
+  ? `Key ${ONESIGNAL_API_KEY}`
+  : `Basic ${ONESIGNAL_API_KEY}`
 const ONESIGNAL_APP_ID = Deno.env.get('ONESIGNAL_APP_ID')!
 
 const cors = {
@@ -32,7 +39,7 @@ serve(async (req) => {
       const res = await fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: {
-          'Authorization': `Key ${ONESIGNAL_API_KEY}`,
+          'Authorization': OS_AUTH,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(notif),
@@ -54,7 +61,7 @@ function buildSchedule(clientName: string, config: any, playerId: string) {
 
   const notif = (sendAt: Date) => ({
     app_id: ONESIGNAL_APP_ID,
-    include_subscription_uids: [playerId],
+    include_player_ids: [playerId],
     headings: { pt: `Lembrete: ${clientName}`, en: `Reminder: ${clientName}` },
     contents: { pt: 'Hora de entrar em contato!', en: 'Time to get in touch!' },
     send_after: sendAt.toISOString(),

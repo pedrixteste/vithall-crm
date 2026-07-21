@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const ONESIGNAL_API_KEY    = Deno.env.get('ONESIGNAL_REST_API_KEY')!
+
+// A chave "legacy" do OneSignal autentica com Basic; a nova (os_v2_app_...)
+// com Key. Mandar o esquema errado devolve 401 "Access denied" mesmo com a
+// chave certa — e a resposta vinha sendo ignorada, entao o push falhava calado.
+const OS_AUTH = ONESIGNAL_API_KEY?.startsWith(`os_v2_`)
+  ? `Key ${ONESIGNAL_API_KEY}`
+  : `Basic ${ONESIGNAL_API_KEY}`
 const ONESIGNAL_APP_ID     = Deno.env.get('ONESIGNAL_APP_ID')!
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -223,8 +230,8 @@ serve(async (req) => {
         const answered = log?.answered || 0
 
         const feitos: string[] = []
-        if (calls)     feitos.push(`${calls} ligações`)
-        if (answered)  feitos.push(`${answered} atendidas`)
+        if (calls)     feitos.push(plural(calls, 'ligação', 'ligações'))
+        if (answered)  feitos.push(plural(answered, 'atendida', 'atendidas'))
         if (marc)      feitos.push(plural(marc, 'marcação', 'marcações'))
         if (vis)       feitos.push(plural(vis, 'visita', 'visitas'))
         if (mats)      feitos.push(plural(mats, 'matrícula', 'matrículas'))
@@ -245,29 +252,41 @@ serve(async (req) => {
             metricByDay[d] = (metricByDay[d] || 0) + 1
           }
         }
-        const valor    = metricByDay[lastDayStr] || 0
-        const substantivo = isSeller ? 'matrículas' : 'marcações'
+        const valor = metricByDay[lastDayStr] || 0
+        const rotulo = isSeller
+          ? plural(valor, 'matrícula', 'matrículas')
+          : plural(valor, 'marcação', 'marcações')
 
-        // Guardas do usuário: nada de "melhor do mês" com o mês recém-começado
-        // (dia 2 do mês, recorde entre dois dias), nada de "melhor do ano" em
-        // janeiro. Medidos em DIAS ÚTEIS DECORRIDOS, não em dias com dado —
-        // assim 31/07 ainda ganha o badge de julho quando lido no dia 1º/08.
+        // Dias em que a pessoa REALMENTE trabalhou (registrou ligação, marcação
+        // ou matrícula). O calendário sozinho não serve de guarda: o banco pode
+        // ter sido zerado, ou a pessoa ter entrado ontem — aí "julho já tem 15
+        // dias úteis" convive com 1 dia de histórico, e 1 marcação viraria
+        // "melhor dia do ano".
+        const diasAtivos = new Set<string>(Object.keys(metricByDay))
+        for (const l of logs) {
+          if (l.user_id === p.id && (l.calls || 0) > 0) diasAtivos.add(l.log_date)
+        }
+
         const mesRef = lastDayStr.slice(0, 7)
         const anoRef = lastDayStr.slice(0, 4)
-        const diasUteisMes = businessDaysBetween(`${mesRef}-01`, lastDayStr)
-        const diasUteisAno = businessDaysBetween(`${anoRef}-01-01`, lastDayStr)
         const ehJaneiro = lastDayStr.slice(5, 7) === '01'
+        const ativosNo = (escopo: string) =>
+          [...diasAtivos].filter(d => d.startsWith(escopo) && d !== lastDayStr).length
+
+        // Guardas do usuário: nada de "melhor do mês" com o mês recém-começado,
+        // nada de "melhor do ano" em janeiro. Exige as duas coisas — período
+        // decorrido E histórico acumulado.
+        const mesMaduro = businessDaysBetween(`${mesRef}-01`, lastDayStr) >= 5 && ativosNo(mesRef) >= 5
+        const anoMaduro = !ehJaneiro
+          && businessDaysBetween(`${anoRef}-01-01`, lastDayStr) >= 20 && ativosNo(anoRef) >= 20
 
         const bateu = (escopo: string) => Object.entries(metricByDay)
           .every(([d, v]) => d === lastDayStr || !d.startsWith(escopo) || v < valor)
 
         let badge = ''
         if (valor > 0) {
-          if (!ehJaneiro && diasUteisAno >= 20 && bateu(anoRef)) {
-            badge = ` — ${valor} ${substantivo}, seu melhor dia do ano! 🏆`
-          } else if (diasUteisMes >= 5 && bateu(mesRef)) {
-            badge = ` — ${valor} ${substantivo}, seu melhor dia do mês! 🔥`
-          }
+          if (anoMaduro && bateu(anoRef))      badge = ` — ${rotulo}, seu melhor dia do ano! 🏆`
+          else if (mesMaduro && bateu(mesRef)) badge = ` — ${rotulo}, seu melhor dia do mês! 🔥`
         }
 
         const primeiro = (p.name || '').split(' ')[0] || ''
@@ -295,17 +314,21 @@ serve(async (req) => {
       results.push({ user: p.name, heading, content, pending })
 
       if (!dryRun) {
-        await fetch('https://onesignal.com/api/v1/notifications', {
+        const push = await fetch('https://onesignal.com/api/v1/notifications', {
           method: 'POST',
-          headers: { 'Authorization': `Key ${ONESIGNAL_API_KEY}`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             app_id: ONESIGNAL_APP_ID,
-            include_subscription_uids: [p.onesignal_player_id],
+            include_player_ids: [p.onesignal_player_id],
             headings: { pt: heading, en: heading },
             contents: { pt: content, en: content },
             url: 'https://vithall-crm.vercel.app/agenda',
           }),
         })
+        // O OneSignal responde 200 mesmo quando não entrega (inscrição morta,
+        // por exemplo) — o motivo vem no corpo, então ele precisa ser lido.
+        const resp = await push.json().catch(() => ({}))
+        results[results.length - 1].onesignal = { status: push.status, ...resp }
         await sb.from('briefing_log').upsert({
           user_id: p.id, log_date: todayStr, slot, pending_count: pending,
         }, { onConflict: 'user_id,log_date,slot' })

@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const ONESIGNAL_API_KEY    = Deno.env.get('ONESIGNAL_REST_API_KEY')!
+
+// A chave "legacy" do OneSignal autentica com Basic; a nova (os_v2_app_...)
+// com Key. Mandar o esquema errado devolve 401 "Access denied" mesmo com a
+// chave certa — e a resposta vinha sendo ignorada, entao o push falhava calado.
+const OS_AUTH = ONESIGNAL_API_KEY?.startsWith(`os_v2_`)
+  ? `Key ${ONESIGNAL_API_KEY}`
+  : `Basic ${ONESIGNAL_API_KEY}`
 const ONESIGNAL_APP_ID     = Deno.env.get('ONESIGNAL_APP_ID')!
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -44,7 +51,7 @@ serve(async (req) => {
         `https://onesignal.com/api/v1/notifications/${row.onesignal_id}?app_id=${ONESIGNAL_APP_ID}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Key ${ONESIGNAL_API_KEY}` },
+          headers: { 'Authorization': OS_AUTH },
         }
       )
       if (res.ok) cancelled++
