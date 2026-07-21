@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
 import { enablePushNotifications, getNotificationPermission } from '../lib/onesignal'
-import { colorInfo } from '../lib/calendarColors'
+import { colorInfo, GOOGLE_EVENT_COLORS } from '../lib/calendarColors'
 
 export default function PerfilPage() {
   const { profile: authProfile, signOut, user } = useAuth()
@@ -59,6 +59,14 @@ export default function PerfilPage() {
 
   const profile = freshProfile
   const isGoogleConnected = !!freshProfile?.google_connected
+
+  const [savingColor, setSavingColor] = useState(false)
+  async function saveColor(id) {
+    setSavingColor(true)
+    const { error } = await supabase.from(`profiles`).update({ calendar_color: id }).eq(`id`, freshProfile.id)
+    if (!error) setFreshProfile(p => ({ ...p, calendar_color: id }))
+    setSavingColor(false)
+  }
 
   async function handleDisconnectGoogle() {
     if (!confirm('Desconectar o Google Agenda? Os eventos já criados não serão afetados.')) return
@@ -204,27 +212,42 @@ export default function PerfilPage() {
             </p>
           )}
 
-          {/* Cor das marcações — só leitura. Quem define é o gerente, para as
-              cores não colidirem entre duas pessoas (foi o que aconteceu
-              quando tentamos sortear automaticamente). */}
-          {(() => {
-            const cor = colorInfo(freshProfile?.calendar_color)
-            if (!cor) return null
-            return (
-              <div className="rounded-2xl flex items-center gap-3"
-                style={{ background: '#111', border: '1px solid #1C1C1C', padding: '13px 15px' }}>
-                <span style={{ width: '22px', height: '22px', borderRadius: '7px', background: cor.hex, flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }} />
-                <div className="min-w-0">
-                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#EFEFEF' }}>
-                    Sua cor na agenda: {cor.nome}
-                  </p>
-                  <p style={{ fontSize: '11px', color: '#6B6560', lineHeight: 1.45 }}>
-                    Os horários que você ocupar aparecem nessa cor na agenda do vendedor.
-                  </p>
-                </div>
-              </div>
-            )
-          })()}
+          {/* Cor dos eventos criados pelo CRM na agenda da própria pessoa.
+              Editável: como o evento nasce na agenda de quem marca, duas
+              pessoas escolherem a mesma cor não atrapalha ninguém — o que
+              distingue os colegas é a agenda, não a cor do evento.
+              São 11 e não as ~24 da tela do Google: a API recusa as demais
+              ("Invalid color id value"). */}
+          <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#EFEFEF' }}>
+              Cor das suas marcações
+            </p>
+            <p style={{ fontSize: '11px', color: '#6B6560', lineHeight: 1.45, marginTop: '2px', marginBottom: '12px' }}>
+              Os horários que você ocupar entram nessa cor na sua agenda do Google.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {Object.entries(GOOGLE_EVENT_COLORS).map(([id, c]) => {
+                const ativa = String(freshProfile?.calendar_color) === id
+                return (
+                  <button key={id} type="button" title={c.nome}
+                    onClick={() => saveColor(id)} disabled={savingColor}
+                    style={{
+                      width: '34px', height: '34px', borderRadius: '10px', background: c.hex,
+                      border: ativa ? '2px solid #EFEFEF' : '1px solid rgba(255,255,255,0.12)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 800, fontSize: '15px', lineHeight: 1,
+                    }}>
+                    {ativa ? '✓' : ''}
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ fontSize: '11px', color: '#555050', marginTop: '10px' }}>
+              {colorInfo(freshProfile?.calendar_color)
+                ? `Escolhida: ${colorInfo(freshProfile.calendar_color).nome}`
+                : 'Sem cor escolhida — o Google usa a cor padrão da sua agenda.'}
+            </p>
+          </div>
         </div>
       </Card>
 

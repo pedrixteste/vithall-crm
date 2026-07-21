@@ -29,6 +29,7 @@ function getDateLabel() {
 }
 
 const PERIOD_OPTIONS = [
+  { key: 'today',  label: 'Hoje' },
   { key: 'week',   label: 'Semana' },
   { key: 'month',  label: 'Mes' },
   { key: 'year',   label: 'Ano' },
@@ -55,7 +56,7 @@ export default function Dashboard() {
   const [showCallbackForm, setShowCallbackForm]   = useState(false)
   const [showAddMenu, setShowAddMenu]             = useState(false)
   const [selectedCliente, setSelectedCliente]     = useState(null)
-  const [period, setPeriod]           = useState('max')
+  const [period, setPeriod]           = useState('today') // padrão: o dia
   const [customFrom, setCustomFrom]   = useState('')
   const [customTo, setCustomTo]       = useState('')
   const [showPeriodDrop, setShowPeriodDrop] = useState(false)
@@ -116,11 +117,20 @@ export default function Dashboard() {
   function getPeriodStart() {
     if (period === 'max') return null
     if (period === 'custom') return customFrom || null
+    if (period === 'today') return new Date(localDateStr() + 'T00:00:00').toISOString()
     const d = new Date()
     if (period === 'week')  d.setDate(d.getDate() - 7)
     if (period === 'month') d.setMonth(d.getMonth() - 1)
     if (period === 'year')  d.setFullYear(d.getFullYear() - 1)
     return d.toISOString()
+  }
+
+  /** Dias YYYY-MM-DD cobertos pelo período — para daily_logs, que é por dia. */
+  function periodDays() {
+    const start = getPeriodStart()
+    const from = start ? localDateStr(new Date(start)) : null
+    const to = period === 'custom' && customTo ? customTo : localDateStr()
+    return { from, to }
   }
 
   async function fetchData() {
@@ -150,34 +160,43 @@ export default function Dashboard() {
       return q.in('client_id', ids)
     }
 
-    // Os 4 cards são o resumo do DIA ("como estou produzindo hoje") — não
-    // seguem o seletor de período, que continua valendo p/ "Visitas recentes".
-    const todayStr = localDateStr()
-    const dayStart = new Date(todayStr + 'T00:00:00').toISOString()
-    const dayEnd   = new Date(todayStr + 'T23:59:59.999').toISOString()
+    // Os cards seguem o período escolhido (padrão "Hoje") — é assim que a
+    // pessoa vê no próprio Dashboard quantas ligações fez na semana ou
+    // quantas marcações no mês, sem abrir os Relatórios.
+    const { from: diaDe, to: diaAte } = periodDays()
 
-    // Matrículas do dia: crédito de comissão (mesma fonte do "Produzido hoje"),
+    // Datas por DIA (visits.visit_date, matricula_credits.credit_date são date)
+    const porDia = (q, campo) => {
+      if (diaDe) q = q.gte(campo, diaDe)
+      return q.lte(campo, diaAte)
+    }
+
+    // Matrículas: crédito de comissão (mesma fonte do "Produzido hoje"),
     // que vai p/ quem marcou a visita. Gerente vê as da equipe toda.
-    let matq = supabase.from('matricula_credits').select('id', { count: 'exact' }).eq('credit_date', todayStr)
+    let matq = porDia(supabase.from('matricula_credits').select('id', { count: 'exact' }), 'credit_date')
     if (profile?.role !== 'gerente') matq = matq.eq('credited_to', user.id)
 
     const [ret, v, pend, cl, rv, mc, dl] = await Promise.all([
-      applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])).eq('visit_date', todayStr),
-      applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })).eq('visit_date', todayStr),
-      // "Pendentes": tudo que a aba Hoje lista como esperando a pessoa
+      porDia(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),
+      porDia(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' })), 'visit_date'),
+      // "Pendentes" ignora o período de propósito: ou está pendente AGORA, ou
+      // não está — "pendências da semana passada" não existe.
       fetchPendingCount(profile?.role, user.id),
       matq,
       applyDate(applyClientFilter(supabase.from('visits').select('*, clients(company_name)').order('visit_date', { ascending: false }).limit(4)), 'visit_date'),
-      // Marcações de hoje: cliente cadastrado hoje JÁ com visita marcada —
+      // Marcações: cliente cadastrado no período JÁ com visita marcada —
       // mesma definição do "Produzido hoje", p/ os dois números baterem
-      supabase.from('clients').select('id', { count: 'exact' })
-        .eq('created_by', user.id).not('visit_scheduled_at', 'is', null)
-        .gte('created_at', dayStart).lte('created_at', dayEnd),
-      supabase.from('daily_logs').select('calls, answered').eq('user_id', user.id).eq('log_date', todayStr).maybeSingle(),
+      applyDate(supabase.from('clients').select('id', { count: 'exact' })
+        .eq('created_by', user.id).not('visit_scheduled_at', 'is', null), 'created_at'),
+      // daily_logs é uma linha por dia: no período, soma os dias
+      porDia(supabase.from('daily_logs').select('calls, answered').eq('user_id', user.id), 'log_date'),
     ])
+    const somaLogs = (dl.data || []).reduce((a, l) => ({
+      calls: a.calls + (l.calls || 0), answered: a.answered + (l.answered || 0),
+    }), { calls: 0, answered: 0 })
     setStats({
       retornos: ret.count || 0, visits: v.count || 0, pending: pend, closed: cl.count || 0,
-      marcacoes: mc.count || 0, callsToday: dl.data?.calls || 0, answeredToday: dl.data?.answered || 0,
+      marcacoes: mc.count || 0, callsToday: somaLogs.calls, answeredToday: somaLogs.answered,
     })
     setRecentVisits(rv.data || [])
 
@@ -224,7 +243,7 @@ export default function Dashboard() {
   // esperando a pessoa) vale p/ todos e substitui o antigo "A fazer".
   const statCards = profile?.role === 'pre_vendas'
     ? [
-      { label: 'Ligações hoje', value: stats.callsToday, icon: PhoneCall, accent: '#60A5FA', to: '/ligacoes' },
+      { label: 'Ligações', value: stats.callsToday, icon: PhoneCall, accent: '#60A5FA', to: '/ligacoes' },
       { label: 'Atendidas', value: stats.answeredToday, icon: PhoneForwarded, accent: '#4ADE80', to: '/ligacoes' },
       { label: 'Marcações', value: stats.marcacoes, icon: CalendarCheck, accent: '#A78BFA', to: '/clientes' },
       { label: 'Pendentes', value: stats.pending, icon: CheckSquare, accent: '#E8834A', to: '/agenda' },
