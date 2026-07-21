@@ -10,6 +10,7 @@ import { Clock, Plus, X, Mic, MicOff, Calendar } from 'lucide-react'
 import { scheduleClientReminder } from '../lib/onesignal'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
+import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import SpecificDates from './SpecificDates'
 
 const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
@@ -352,8 +353,9 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     }
     // Visita remarcada (data mudou) → confirmação antiga não vale mais e
     // quem mudou a data passa a ser o responsável por confirmar
+    const oldVisitIso = initialData?.visit_scheduled_at ? new Date(initialData.visit_scheduled_at).toISOString() : null
+    const dateChanged = newVisitIso && newVisitIso !== oldVisitIso
     if (initialData?.id) {
-      const oldVisitIso = initialData.visit_scheduled_at ? new Date(initialData.visit_scheduled_at).toISOString() : null
       if (newVisitIso !== oldVisitIso) {
         payload.visit_confirmation = null
         payload.visit_confirmation_note = null
@@ -361,6 +363,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       }
     } else {
       payload.visit_scheduled_by = newVisitIso ? user.id : null
+    }
+    // Carimbo da marcação. Trocar uma data por outra é remarcação; sair de
+    // "sem visita" para uma data é a primeira marcação, não conta como tal.
+    if (dateChanged) {
+      Object.assign(payload, bookingStamp(initialData, { isReschedule: !!oldVisitIso }))
     }
     // created_by só no cadastro — editar não pode trocar quem marcou
     const res = initialData?.id
@@ -370,6 +377,16 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (res.error) {
       setError('Erro ao salvar. Tente novamente.')
     } else {
+      // Rastro da marcação/remarcação no histórico da ficha
+      if (dateChanged) {
+        logVisitScheduled({
+          clientId: initialData?.id || res.data?.id,
+          userId:   user.id,
+          userName: profile?.name,
+          from:     oldVisitIso,
+          to:       newVisitIso,
+        })
+      }
       // Crédito de matrícula p/ comissão quando a edição muda o estágio
       if (initialData?.id && form.matricula_stage !== initialData.matricula_stage) {
         if (form.matricula_stage === 'matriculado') {

@@ -323,6 +323,7 @@ export default function RelatoriosPage() {
   const [exportPersonId, setExportPersonId]   = useState(null)
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, atendidas: false, marcacoes: true, visitas: true, matriculas: false })
   const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
+  const [reschedules, setReschedules]         = useState({}) // client_id → datas das remarcações
   const [view, setView]                       = useState('graficos') // graficos | listas
 
   useEffect(() => { fetchData() }, [profile])
@@ -336,6 +337,20 @@ export default function RelatoriosPage() {
     }
     const { data: clientsData } = await query
     setClients(clientsData || [])
+
+    // Datas das remarcações (p/ o CSV): as colunas do cliente só guardam a
+    // primeira e a atual — a lista completa vive no histórico.
+    const { data: bookings } = await supabase
+      .from('client_history')
+      .select('client_id, created_at, event_data')
+      .eq('event_type', 'visit_scheduled')
+      .order('created_at', { ascending: true })
+    const byClient = {}
+    for (const b of bookings || []) {
+      if (!b.event_data?.from) continue // primeira marcação não é remarcação
+      ;(byClient[b.client_id] ||= []).push(b.created_at)
+    }
+    setReschedules(byClient)
 
     const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
     setProfiles(profilesData || [])
@@ -694,7 +709,7 @@ export default function RelatoriosPage() {
       </div>
 
       {view === 'listas' && (
-        <RelatoriosListas clients={clients} profiles={profiles} role={profile?.role} />
+        <RelatoriosListas clients={clients} profiles={profiles} role={profile?.role} reschedules={reschedules} />
       )}
 
       {view === 'graficos' && (<>

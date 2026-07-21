@@ -114,7 +114,7 @@ function Toggle3({ value, onChange, labels = ['Todos', 'Sim', 'Não'] }) {
 const inputStyle = { padding: '9px 12px', borderRadius: '10px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', fontSize: '13px', outline: 'none', width: '100%' }
 
 // ── Componente ─────────────────────────────────────────────────────
-export default function RelatoriosListas({ clients = [], profiles = [], role }) {
+export default function RelatoriosListas({ clients = [], profiles = [], role, reschedules = {} }) {
   const isGerente = role === 'gerente'
   const nameOf = useMemo(() => {
     const m = Object.fromEntries(profiles.map(p => [p.id, p.name || '—']))
@@ -140,14 +140,21 @@ export default function RelatoriosListas({ clients = [], profiles = [], role }) 
     { key: 'dias_livres', label: 'Dias livres',          get: c => (c.dias_livres || []).map(d => ({ seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' }[d] || d)).join(', ') },
     { key: 'matriculas',  label: 'Matrículas',           get: c => (c.matriculas || []).join(', ') },
     { key: 'registro',    label: 'Data de registro',     get: c => fmtDate(c.created_at) },
-    { key: 'marcacao',    label: 'Data de marcação',     get: c => fmtDateTime(c.visit_scheduled_at) },
+    // Antes esta coluna se chamava "Data de marcação" e mostrava
+    // visit_scheduled_at — que é QUANDO A VISITA ACONTECE, não quando alguém
+    // marcou. O carimbo de verdade são as três colunas seguintes.
+    { key: 'marcacao',    label: 'Visita agendada para', get: c => fmtDateTime(c.visit_scheduled_at) },
+    { key: 'marcada_em',  label: 'Marcação feita em',    get: c => fmtDateTime(c.visit_booked_at) },
+    { key: 'marcada_1a',  label: '1ª marcação',          get: c => fmtDateTime(c.visit_first_booked_at) },
+    { key: 'remarcacoes', label: 'Remarcações',          get: c => c.visit_reschedule_count || 0 },
+    { key: 'datas_remarc', label: 'Datas das remarcações', get: c => (reschedules[c.id] || []).map(fmtDate).join(' / ') },
     { key: 'data_visita', label: 'Data da visita',       get: c => fmtDate(latestVisit(c)?.visit_date) },
     { key: 'resultado',   label: 'Resultado da visita',  get: c => OUTCOMES[latestVisit(c)?.visit_outcome] || '' },
     { key: 'descricao',   label: 'Descrição da visita',  get: c => latestVisit(c)?.visit_notes || '' },
     { key: 'nota',        label: 'Nota',                 get: c => latestVisit(c)?.rating || '' },
     { key: 'marcou',      label: 'Quem marcou',          get: c => nameOf(c.created_by) },
     { key: 'vendedor',    label: 'Vendedor',             get: c => nameOf(c.assigned_to) },
-  ], [nameOf])
+  ], [nameOf, reschedules])
 
   // Filtros
   const [f, setF] = useState({

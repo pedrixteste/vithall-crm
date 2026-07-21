@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
+import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import { localDateStr, phoneDigits, reminderDates } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
@@ -76,9 +77,20 @@ function formatTimeAgo(dateStr) {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
+// Data/hora da visita dentro do histórico de marcações
+const fmtVisitDT = (v) => v
+  ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  : '—'
+
 function describeEvent(type, data) {
   if (type === 'created')           return 'Cliente cadastrado no sistema'
   if (type === 'visit')             return 'Visita registrada'
+  if (type === 'visit_scheduled') {
+    // A data que saiu só existe aqui — na coluna ela foi substituída
+    return data?.from
+      ? `Visita remarcada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}`
+      : `Visita marcada para ${fmtVisitDT(data?.to)}`
+  }
   if (type === 'matricula_added')   return `Matriculado em ${data?.training}`
   if (type === 'matricula_removed') return `Matricula removida: ${data?.training}`
   if (type === 'stage_change') {
@@ -99,6 +111,7 @@ function getEventColor(type, data) {
   if (type === 'matricula_added')   return '#4ADE80'
   if (type === 'matricula_removed') return '#E85555'
   if (type === 'visit')             return '#A78BFA'
+  if (type === 'visit_scheduled')   return '#22D3EE'
   if (type === 'created')           return '#C9A84C'
   return '#6B6560'
 }
@@ -106,6 +119,7 @@ function getEventColor(type, data) {
 function getEventIcon(type, data) {
   if (type === 'created')           return '👤'
   if (type === 'visit')             return '📍'
+  if (type === 'visit_scheduled')   return data?.from ? '🔁' : '📌'
   if (type === 'matricula_added')   return '✅'
   if (type === 'matricula_removed') return '❌'
   if (type === 'stage_change') {
@@ -878,7 +892,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         visit_confirmation:       null,
         visit_confirmation_note:  null,
         visit_scheduled_by:       user.id,
+        ...bookingStamp(currentClient, { isReschedule: !!currentClient.visit_scheduled_at }),
       }).eq('id', currentClient.id)
+      logVisitScheduled({
+        clientId: currentClient.id, userId: user.id, userName: profile?.name,
+        from: currentClient.visit_scheduled_at, to: iso,
+      })
       setCurrentClient(c => ({ ...c, visit_scheduled_at: iso, google_calendar_event_id: null, visit_confirmation: null, visit_confirmation_note: null, visit_scheduled_by: user.id }))
       if (edit.visit_outcome === 'retorno_pessoalmente') setSyncAfterSave(visitId)
     }

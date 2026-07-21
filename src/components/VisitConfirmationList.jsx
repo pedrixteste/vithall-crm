@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { getValidToken, deleteCalendarEvent, createCalendarEvent } from '../lib/googleCalendar'
+import { bookingStamp, logVisitScheduled, bookingLabel } from '../lib/visitBooking'
 import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar, CalendarClock } from 'lucide-react'
 
 // Converte timestamp UTC p/ o formato do input datetime-local (hora local)
@@ -129,9 +130,16 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
       visit_confirmation:      null,
       visit_confirmation_note: null,
       visit_scheduled_by:      user.id,
+      ...bookingStamp(v, { isReschedule: true }),
     }).eq('id', clientId)
     setSaving(false)
     if (error) { setSaveError(clientId); return }
+
+    // A data antiga só sobrevive aqui — na coluna ela foi substituída
+    logVisitScheduled({
+      clientId, userId: user.id, userName: profile?.name,
+      from: v?.visit_scheduled_at, to: newIso,
+    })
 
     const rest = pending.filter(x => x.id !== clientId)
     setPending(rest)
@@ -228,6 +236,11 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   <span>🕐 {dateLabel} · {timeLabel}</span>
                   {v.city && <span style={{ color: '#6B6560' }} className="flex items-center gap-1"><MapPin size={10} /> {v.city}</span>}
                 </p>
+                {/* QUANDO a marcação foi feita — a linha de cima é quando a
+                    visita acontece. Some para registros sem carimbo (antigos). */}
+                {bookingLabel(v) && (
+                  <p className="text-[11px] mt-1" style={{ color: '#6B6560' }}>📌 {bookingLabel(v)}</p>
+                )}
               </div>
             </div>
 
