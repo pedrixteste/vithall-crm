@@ -1107,19 +1107,36 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <>
               <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Tem certeza?</p>
               <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
-                Vão ficar <b style={{ color: '#B0A99F' }}>dois eventos</b> no mesmo horário: a reserva e a visita.
+                A reserva <b style={{ color: '#B0A99F' }}>"{slotPrompt.slot.booked_note}"</b> continua no lugar.
+                E a visita, o que faz?
               </p>
               {slotPrompt.error && (
                 <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                   {slotPrompt.error}
                 </p>
               )}
+              {/* Cada botão diz o que ACONTECE, não só "sim/não" — as duas
+                  recusas levam a resultados bem diferentes no Google. */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <button type="button" onClick={manterReservaECriarVisita} disabled={slotPrompt.busy}
-                  className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
-                  {slotPrompt.busy ? 'Criando a visita...' : 'Não quero tirar a reserva'}
+                  className="rounded-xl w-full text-left" style={{ padding: '11px 13px', background: '#111', border: '1px solid #252525' }}>
+                  <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
+                    {slotPrompt.busy ? 'Criando a visita...' : 'Não quero tirar a reserva'}
+                  </span>
+                  <span className="text-[11px] block mt-0.5" style={{ color: '#555050' }}>
+                    Ficam dois eventos no horário: a reserva e a visita
+                  </span>
                 </button>
-                <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'substituir' }))}
+                <button type="button" onClick={finishAfterCalendar} disabled={slotPrompt.busy}
+                  className="rounded-xl w-full text-left" style={{ padding: '11px 13px', background: '#111', border: '1px solid #252525' }}>
+                  <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
+                    Essa marcação não vai para o Google
+                  </span>
+                  <span className="text-[11px] block mt-0.5" style={{ color: '#555050' }}>
+                    A visita fica só no CRM; o vendedor não recebe a ficha
+                  </span>
+                </button>
+                <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'substituir' }))} disabled={slotPrompt.busy}
                   className="text-xs font-bold rounded-xl py-3 w-full" style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.4)', color: '#C9A84C' }}>
                   Voltar e substituir
                 </button>
