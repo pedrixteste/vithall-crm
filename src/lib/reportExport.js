@@ -208,7 +208,9 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
     }
     // — Todas já efetivadas
     if (todas.every(e => e.status !== 'pendente')) {
-      add(66, '🔒', `<b>Todas as ${todas.length} matrículas do período já estão efetivadas</b> — nenhuma pendente.`)
+      // "fechadas" amarra com a tabela Matrículas Fechadas — a contagem dela é
+      // por crédito de comissão, diferente do card Matrículas (por cadastro)
+      add(66, '🔒', `<b>Todas as ${todas.length} matrículas fechadas no período já estão efetivadas</b> — nenhuma pendente.`)
     }
   }
 
