@@ -259,7 +259,13 @@ export default function VisitasHojePage() {
     const oldStage = visit.matricula_stage
     if (oldStage === newStage) return
     setTodayVisits(vs => vs.map(x => x.id === visit.id ? { ...x, matricula_stage: newStage } : x))
-    await updateClientStage({ client: visit, newStage, oldStage, userId: user.id, userName: profile?.name })
+    const { error } = await updateClientStage({ client: visit, newStage, oldStage, userId: user.id, userName: profile?.name })
+    // Falhou a gravação → desfaz na tela e avisa, senão o botão mostrava um
+    // estágio que o banco nunca recebeu
+    if (error) {
+      setTodayVisits(vs => vs.map(x => x.id === visit.id ? { ...x, matricula_stage: oldStage } : x))
+      alert('Não foi possível salvar — verifique sua internet e tente de novo.')
+    }
   }
 
   if (selected) return (

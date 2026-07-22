@@ -343,10 +343,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
+  const [notesError, setNotesError]       = useState(false)
   const [showRating, setShowRating]           = useState(false)
   const [ratingEdits, setRatingEdits]         = useState({})
   const [savingRatingId, setSavingRatingId]   = useState(null)
   const [savedVisitIds, setSavedVisitIds]     = useState(new Set())
+  const [ratingError, setRatingError]         = useState(null) // { visitId, msg } — salvamento falhou
   const [syncAfterSave, setSyncAfterSave]     = useState(null)
   const [listeningVisitId, setListeningVisitId] = useState(null)
   const [collapsedVisits, setCollapsedVisits]   = useState(new Set())
@@ -501,9 +503,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function saveNotes() {
     if (notesValue === currentClient.notes) return
     setSavingNotes(true)
-    await supabase.from('clients').update({ notes: notesValue }).eq('id', currentClient.id)
-    setCurrentClient(c => ({ ...c, notes: notesValue }))
+    // Só mostra "✓ Salvo" se a gravação confirmou — antes marcava salvo mesmo
+    // com a rede caída, e a observação se perdia no próximo reload.
+    const { error } = await supabase.from('clients').update({ notes: notesValue }).eq('id', currentClient.id)
     setSavingNotes(false)
+    if (error) { setNotesError(true); return }
+    setNotesError(false)
+    setCurrentClient(c => ({ ...c, notes: notesValue }))
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 2000)
   }
@@ -550,10 +556,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
   async function updatePediuLigar(callBackDate) {
     const oldStage = currentClient.matricula_stage
-    await supabase.from('clients').update({
+    const { error } = await supabase.from('clients').update({
       matricula_stage: 'pediu_ligar',
       call_back_at:    callBackDate || null,
     }).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
     await logEvent('stage_change', { from: oldStage, to: 'pediu_ligar' })
     setCurrentClient(c => ({ ...c, matricula_stage: 'pediu_ligar', call_back_at: callBackDate || null }))
     setEditingStage(false)
@@ -582,7 +589,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function updateStage(newStage) {
     const oldStage = currentClient.matricula_stage
     if (oldStage === newStage) { setEditingStage(false); return }
-    await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', currentClient.id)
+    // Confirma a gravação antes de creditar comissão e mover o estágio na
+    // tela: uma falha aqui dava/retirava crédito sobre um estágio que o banco
+    // nunca recebeu.
+    const { error } = await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
     await logEvent('stage_change', { from: oldStage, to: newStage })
     // Crédito de matrícula p/ comissão de quem marcou a visita atual
     if (newStage === 'matriculado')      await creditMatricula(currentClient, user.id)
@@ -672,9 +683,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function removeReminder() {
     if (!confirm('Remover o lembrete deste cliente? As notificações vão parar.')) return
     setRemovingReminder(true)
-    await supabase.from('clients').update({ reminder_config: null }).eq('id', currentClient.id)
-    setCurrentClient(c => ({ ...c, reminder_config: null }))
+    // Confirma antes de dizer que sumiu: a mensagem promete que as
+    // notificações param, mas se a gravação falha o reminder_config fica no
+    // banco e os pushes continuam — o mesmo tipo de "some calada" do OneSignal.
+    const { error } = await supabase.from('clients').update({ reminder_config: null }).eq('id', currentClient.id)
     setRemovingReminder(false)
+    if (error) { alert('Não foi possível remover — verifique sua internet e tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, reminder_config: null }))
   }
 
   async function toggleTreinamentoInteresse(training) {
@@ -682,7 +697,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const updated = current.includes(training)
       ? current.filter(t => t !== training)
       : [...current, training]
-    await supabase.from('clients').update({ treinamentos_interesse: updated }).eq('id', currentClient.id)
+    const { error } = await supabase.from('clients').update({ treinamentos_interesse: updated }).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
     setCurrentClient(c => ({ ...c, treinamentos_interesse: updated }))
   }
 
@@ -690,7 +706,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const current = currentClient.matriculas || []
     const isRemoving = current.includes(training)
     const updated = isRemoving ? current.filter(t => t !== training) : [...current, training]
-    await supabase.from('clients').update({ matriculas: updated }).eq('id', currentClient.id)
+    // Confirma antes de creditar/descreditar comissão e mexer na tela
+    const { error } = await supabase.from('clients').update({ matriculas: updated }).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
     await logEvent(isRemoving ? 'matricula_removed' : 'matricula_added', { training })
     // Crédito de comissão: matricular por aqui também conta (1 por cliente);
     // tirar a última matrícula (sem estágio matriculado) desfaz o crédito
@@ -801,6 +819,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         outcome_return_datetime: '',
         visit_possibilities:     customPoss ? [...stdPoss, 'outros_eventos'] : stdPoss,
         outros_eventos_text:     customPoss || '',
+        // Sem estes dois, uma visita matriculada REABRIA com nome e valor em
+        // branco: o painel parecia vazio ("não salvou"), e salvar de novo
+        // apagava os dados no banco. Recarregá-los conserta os dois problemas.
+        outcome_enrolled_name:   v.outcome_enrolled_name || '',
+        outcome_sale_value:      v.outcome_sale_value    || '',
       }
       // expande a visita alvo (vinda do histórico) ou, sem alvo, só a mais recente
       const expand = targetVisitId ? v.id === targetVisitId : i === 0
@@ -833,9 +856,14 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       if (edit.outros_eventos_text?.trim()) poss.push(edit.outros_eventos_text.trim())
     }
 
-    // Salva campos na tabela visits
+    // Salva campos na tabela visits.
+    // 🔥 O RESULTADO É VERIFICADO: antes o app marcava "Salvo" (botão verde)
+    // mesmo se a gravação falhasse (rede caiu) — a pessoa via "salvo" e nada
+    // persistia. `.select().single()` confirma a escrita E devolve a linha
+    // canônica para o estado local (evita o merge do form cru divergir do
+    // que foi de fato gravado).
     const trainingsArr = (edit.outcome_training || []).filter(Boolean)
-    await supabase.from('visits').update({
+    const payload = {
       rating:                edit.rating,
       visit_notes:           edit.visit_notes,
       visit_outcome:         edit.visit_outcome || null,
@@ -844,7 +872,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       outcome_enrolled_name: edit.outcome_enrolled_name?.trim() || null,
       outcome_sale_value:    edit.outcome_sale_value?.trim()    || null,
       rated_at:              new Date().toISOString(), // quando o feedback foi preenchido
-    }).eq('id', visitId)
+    }
+    const { data: savedRow, error: saveErr } = await supabase
+      .from('visits').update(payload).eq('id', visitId).select().single()
+    if (saveErr || !savedRow) {
+      setSavingRatingId(null)
+      setRatingError({ visitId, msg: 'Não foi possível salvar — verifique sua internet e tente de novo.' })
+      return // NÃO marca como salvo: a estrela continua editável
+    }
+    setRatingError(null)
 
     // Avisa quem marcou a visita que o feedback foi preenchido (push, fire-and-forget)
     const bookerId = currentClient.visit_scheduled_by || currentClient.created_by
@@ -859,16 +895,25 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       })
     }
 
-    // Matriculada → adiciona treinamentos + atualiza estágio
+    // Matriculada → adiciona treinamentos + atualiza estágio.
+    // Só credita a comissão e move o estágio na tela DEPOIS de confirmar a
+    // gravação: antes, uma falha aqui dava crédito de matrícula sem promover o
+    // cliente (ou vice-versa) e a tela mostrava "matriculado" sobre um banco
+    // que não mudou.
     if (edit.visit_outcome === 'matriculada' && trainingsArr.length > 0) {
       const current = currentClient.matriculas || []
       const toAdd = trainingsArr.filter(t => !current.includes(t))
       if (toAdd.length > 0) {
         const updated = [...current, ...toAdd]
-        await supabase.from('clients').update({
+        const { error: matErr } = await supabase.from('clients').update({
           matriculas:      updated,
           matricula_stage: 'matriculado',
         }).eq('id', currentClient.id)
+        if (matErr) {
+          setSavingRatingId(null)
+          setRatingError({ visitId, msg: 'Avaliação salva, mas a matrícula do cliente falhou. Tente de novo.' })
+          return
+        }
         for (const t of toAdd) {
           await logEvent('matricula_added', { training: t })
         }
@@ -886,7 +931,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const iso = new Date(edit.outcome_return_datetime).toISOString()
       // Data nova → confirmação antiga não vale mais; o retorno foi marcado
       // por quem preencheu a estrela (vendedor), então ele que confirma
-      await supabase.from('clients').update({
+      const { error: retErr } = await supabase.from('clients').update({
         visit_scheduled_at:       iso,
         google_calendar_event_id: null,
         visit_confirmation:       null,
@@ -894,6 +939,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         visit_scheduled_by:       user.id,
         ...bookingStamp(currentClient, { isReschedule: !!currentClient.visit_scheduled_at }),
       }).eq('id', currentClient.id)
+      if (retErr) {
+        setSavingRatingId(null)
+        setRatingError({ visitId, msg: 'Avaliação salva, mas a nova data do retorno não gravou. Tente de novo.' })
+        return
+      }
       logVisitScheduled({
         clientId: currentClient.id, userId: user.id, userName: profile?.name,
         from: currentClient.visit_scheduled_at, to: iso,
@@ -936,10 +986,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Cancela lembretes pendentes agora que a avaliacao foi preenchida (fire and forget)
     supabase.functions.invoke('cancel-rating-reminders', { body: { visitId } })
 
-    // Marca como salvo → botão fica verde
+    // Marca como salvo → botão fica verde. Usa a LINHA GRAVADA (savedRow), não
+    // o form cru: assim o que aparece bate exatamente com o que persistiu
+    // (ex.: 'outros_eventos' já vira o texto digitado em visit_possibilities).
     setSavedVisitIds(prev => new Set([...prev, visitId]))
     setSavingRatingId(null)
-    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...edit } : v))
+    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...savedRow } : v))
   }
 
   // A estrela é o feedback de quem FAZ a visita: só vendedor/gerente editam.
@@ -1308,10 +1360,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>Observações</p>
             {savingNotes && <p className="text-[10px]" style={{ color: '#6B6560' }}>Salvando...</p>}
             {notesSaved  && <p className="text-[10px]" style={{ color: '#4ADE80' }}>✓ Salvo</p>}
+            {notesError  && <p className="text-[10px]" style={{ color: '#E85555' }}>Não salvou — tente de novo</p>}
           </div>
           <textarea
             value={notesValue}
-            onChange={e => setNotesValue(e.target.value)}
+            onChange={e => { setNotesValue(e.target.value); if (notesError) setNotesError(false) }}
             placeholder="Nenhuma observação. Toque para adicionar..."
             rows={3}
             className="w-full text-sm outline-none resize-none rounded-xl transition-all"
@@ -2097,6 +2150,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             <p style={{ fontSize: '11px', color: '#E85555', marginTop: '4px', fontWeight: 600 }}>● Gravando... toque no microfone para parar</p>
                           )}
                         </div>
+
+                        {/* Erro de salvamento — o botão NÃO fica verde e a
+                            pessoa sabe que precisa tentar de novo */}
+                        {ratingError?.visitId === v.id && (
+                          <p className="text-[11px] font-semibold rounded-xl"
+                            style={{ padding: '8px 10px', marginBottom: '8px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                            {ratingError.msg}
+                          </p>
+                        )}
 
                         {/* CONCLUIR */}
                         {canRate && (

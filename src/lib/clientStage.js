@@ -24,9 +24,12 @@ export async function removeMatriculaCredit(clientId) {
 
 // Muda o estágio de matrícula do cliente e registra no histórico (client_history),
 // igual ao fluxo do ClienteDetalhe. Usado pelos botões de resultado da aba "Hoje".
+// Retorna { error }: os botões da aba Hoje mudam o estágio de forma OTIMISTA,
+// então precisam saber se a gravação falhou para desfazer na tela.
 export async function updateClientStage({ client, newStage, oldStage, userId, userName }) {
-  if (oldStage === newStage) return
-  await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', client.id)
+  if (oldStage === newStage) return { error: null }
+  const { error } = await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', client.id)
+  if (error) return { error }
   await supabase.from('client_history').insert({
     client_id:  client.id,
     user_id:    userId,
@@ -36,4 +39,5 @@ export async function updateClientStage({ client, newStage, oldStage, userId, us
   })
   if (newStage === 'matriculado')      await creditMatricula(client, userId)
   else if (oldStage === 'matriculado') await removeMatriculaCredit(client.id)
+  return { error: null }
 }
