@@ -25,10 +25,20 @@ const ORIGINS = [
   { key: 'indicacao',         label: 'Indicacao' },
 ]
 const PERIODS = [
+  { key: 'day',   label: 'Dia'    },
   { key: 'week',  label: 'Semana' },
   { key: 'month', label: 'Mês'   },
   { key: 'year',  label: 'Ano'   },
 ]
+
+// 'YYYY-Www' (input type=week) → Date da SEGUNDA daquela semana ISO
+function isoWeekMonday(str) {
+  const [y, w] = str.split('-W').map(Number)
+  const jan4 = new Date(y, 0, 4)
+  const mon1 = new Date(jan4); mon1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+  const d = new Date(mon1); d.setDate(mon1.getDate() + (w - 1) * 7)
+  return d
+}
 const ROLE_LABELS = {
   pre_vendas: 'Pre-vendas',
   vendedor:   'Vendedor',
@@ -315,8 +325,16 @@ export default function RelatoriosPage() {
   const [dailyLogs, setDailyLogs] = useState([])
   const [loading, setLoading]     = useState(true)
   const [period, setPeriod]           = useState('month')
+  // rolling = "últimos N dias"; specific = semana/mês/ano exatos do calendário
+  const [periodMode, setPeriodMode]   = useState('rolling')
+  const [specDay, setSpecDay]         = useState(localDateStr())
+  const [specWeek, setSpecWeek]       = useState('')  // 'YYYY-Www'
+  const [specMonth, setSpecMonth]     = useState('')  // 'YYYY-MM'
+  const [specYear, setSpecYear]       = useState(String(new Date().getFullYear()))
   const [customFrom, setCustomFrom]   = useState('')
   const [customTo, setCustomTo]       = useState('')
+  const [showMonthly, setShowMonthly] = useState(false) // resumo mês a mês (período anual)
+  const [matModal, setMatModal]       = useState(null)  // { title, items } — lista de matrículas
   const [selectedPerson, setSelectedPerson] = useState('all')
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportScope, setExportScope]         = useState('all')
@@ -370,18 +388,49 @@ export default function RelatoriosPage() {
 
   // ── Período ─────────────────────────────────────────────────────
 
+  const specific = periodMode === 'specific'
+
   const periodEnd = (() => {
     if (period === 'custom' && customTo) return new Date(customTo + 'T23:59:59')
+    if (period === 'day' && specDay) return new Date(specDay + 'T23:59:59')
+    if (specific && period === 'week' && specWeek) {
+      const e = isoWeekMonday(specWeek); e.setDate(e.getDate() + 6); e.setHours(23, 59, 59, 999); return e
+    }
+    if (specific && period === 'month' && specMonth) {
+      const [y, mo] = specMonth.split('-').map(Number)
+      return new Date(y, mo, 0, 23, 59, 59, 999) // último dia do mês
+    }
+    if (specific && period === 'year' && specYear) return new Date(Number(specYear), 11, 31, 23, 59, 59, 999)
     const d = new Date(); d.setHours(23, 59, 59, 999); return d
   })()
 
   const periodStart = (() => {
     if (period === 'custom') return customFrom ? new Date(customFrom + 'T00:00:00') : null
+    if (period === 'day' && specDay) return new Date(specDay + 'T00:00:00')
+    if (specific) {
+      if (period === 'week' && specWeek) { const m = isoWeekMonday(specWeek); m.setHours(0, 0, 0, 0); return m }
+      if (period === 'month' && specMonth) { const [y, mo] = specMonth.split('-').map(Number); return new Date(y, mo - 1, 1) }
+      if (period === 'year' && specYear) return new Date(Number(specYear), 0, 1)
+    }
     const d = new Date(); d.setHours(0, 0, 0, 0)
     if (period === 'week')  d.setDate(d.getDate() - 7)
     if (period === 'month') d.setDate(d.getDate() - 30)
     if (period === 'year')  d.setFullYear(d.getFullYear() - 1)
     return d
+  })()
+
+  // Rótulo único do período — usado na tela e no relatório exportado
+  const periodLabel = (() => {
+    const f = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    if (period === 'day')  return `Dia ${f(periodStart)}`
+    if (period === 'week') return specific && specWeek ? `Semana de ${f(periodStart)} a ${f(periodEnd)}` : 'Últimos 7 dias'
+    if (period === 'month') return specific && specMonth
+      ? periodStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      : 'Últimos 30 dias'
+    if (period === 'year') return specific && specYear ? `Ano de ${specYear}` : 'Últimos 12 meses'
+    if (customFrom && customTo) return `${f(new Date(customFrom + 'T12:00:00'))} a ${f(new Date(customTo + 'T12:00:00'))}`
+    if (customFrom) return `A partir de ${f(new Date(customFrom + 'T12:00:00'))}`
+    return 'Período personalizado'
   })()
 
   const periodDays = !periodStart ? 30
@@ -439,6 +488,28 @@ export default function RelatoriosPage() {
     creditsInPeriod.forEach(cr => { map[cr.credited_to] = (map[cr.credited_to] || 0) + 1 })
     return map
   })()
+
+  // Detalha cada crédito no cliente que fechou — é o que a lista clicável e o
+  // relatório exportado mostram (nome, empresa, valor, situação da matrícula)
+  const enrolledDetail = (crs) => crs.map(cr => {
+    const c = clients.find(x => x.id === cr.client_id)
+    if (!c) return null
+    const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada')
+      .sort((a, b) => (b.visit_date || '').localeCompare(a.visit_date || ''))[0]
+    return {
+      id: c.id,
+      nome: c.contact_name || c.company_name || '—',
+      empresa: c.company_name || '',
+      matriculado: mv?.outcome_enrolled_name || null,
+      valor: mv?.outcome_sale_value || null,
+      data: cr.credit_date,
+      status: c.matricula_status || 'efetivada',
+      nota: c.matricula_status_note || null,
+      credited_to: cr.credited_to,
+    }
+  }).filter(Boolean)
+
+  const abreMatriculas = (titulo, crs) => setMatModal({ title: titulo, items: enrolledDetail(crs) })
 
   // ── All-time ─────────────────────────────────────────────────────
 
@@ -622,26 +693,51 @@ export default function RelatoriosPage() {
         ? clients.filter(c => c.created_by === p.id)
         : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
       const logs = dailyLogs.filter(l => l.user_id === p.id)
-      // matrículas de clientes que a pessoa marcou (comissão), no período
-      const creditos = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00'))).length
-      return { ...p, memberClients, logs, creditos }
+      // matrículas de clientes que a pessoa marcou (comissão), no período —
+      // com a LISTA de quem fechou, que agora sai no relatório
+      const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
+      return { ...p, memberClients, logs, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
     })
 
-    const fmtDate = (s) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-    const pLabel = period === 'week'  ? 'Últimos 7 dias'
-      : period === 'month' ? 'Últimos 30 dias'
-      : period === 'year'  ? 'Últimos 12 meses'
-      : customFrom && customTo ? `${fmtDate(customFrom)} a ${fmtDate(customTo)}`
-      : customFrom ? `A partir de ${fmtDate(customFrom)}`
-      : 'Período personalizado'
+    const pLabel = periodLabel
+
+    // Resumo mês a mês no relatório — período anual, calculado sobre o
+    // ESCOPO exportado (não sobre o filtro que estiver na tela)
+    let monthly = null
+    if (period === 'year' && periodStart) {
+      const seen = new Set()
+      const uniq = []
+      for (const c of members.flatMap(m => m.memberClients)) {
+        if (!seen.has(c.id)) { seen.add(c.id); uniq.push(c) }
+      }
+      const allLogs = members.flatMap(m => m.logs)
+      const allVisits = uniq.flatMap(c => c.visits || [])
+      const months = []
+      const cur = new Date(periodStart.getFullYear(), periodStart.getMonth(), 1)
+      const endM = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), 1)
+      while (cur <= endM) { months.push(new Date(cur)); cur.setMonth(cur.getMonth() + 1) }
+      monthly = months.map(d => {
+        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        return {
+          label:      d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          marcacoes:  uniq.filter(c => c.created_at && localDateStr(c.created_at).startsWith(m)).length,
+          visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
+          calls:      allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
+          atendidas:  allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
+          matriculas: uniq.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at).startsWith(m)).length,
+        }
+      })
+    }
 
     const html = generateReportHTML({
       scope:       exportScope,
       members,
       periodDays:  periodDays,
       periodStart,
+      periodEnd,
       periodLabel: pLabel,
       exportedBy:  profile?.name || 'Gerente',
+      monthly,
     })
 
     const win = window.open('', '_blank')
@@ -744,6 +840,62 @@ export default function RelatoriosPage() {
           </button>
         </div>
 
+        {/* Dia específico */}
+        {period === 'day' && (
+          <input type="date" value={specDay} onChange={e => setSpecDay(e.target.value)}
+            style={{ width: '100%', background: '#161616', border: '1px solid #252525', borderRadius: '12px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
+        )}
+
+        {/* Semana/Mês/Ano: últimos N dias OU período exato do calendário */}
+        {['week', 'month', 'year'].includes(period) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', padding: '3px', borderRadius: '10px', gap: '3px', background: '#111', border: '1px solid #1F1F1F' }}>
+              {[
+                ['rolling', period === 'week' ? 'Últimos 7 dias' : period === 'month' ? 'Últimos 30 dias' : 'Últimos 12 meses'],
+                ['specific', period === 'week' ? 'Escolher semana' : period === 'month' ? 'Escolher mês' : 'Escolher ano'],
+              ].map(([k, label]) => (
+                <button key={k} onClick={() => setPeriodMode(k)}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    background: periodMode === k ? 'rgba(201,168,76,0.12)' : 'transparent',
+                    color: periodMode === k ? '#C9A84C' : '#555050',
+                    border: periodMode === k ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {specific && period === 'week' && (
+              <input type="week" value={specWeek} onChange={e => setSpecWeek(e.target.value)}
+                style={{ width: '100%', background: '#161616', border: '1px solid #252525', borderRadius: '12px', padding: '10px 12px', color: specWeek ? '#EFEFEF' : '#6B6560', fontSize: '13px', outline: 'none' }} />
+            )}
+            {specific && period === 'month' && (
+              <input type="month" value={specMonth} onChange={e => setSpecMonth(e.target.value)}
+                style={{ width: '100%', background: '#161616', border: '1px solid #252525', borderRadius: '12px', padding: '10px 12px', color: specMonth ? '#EFEFEF' : '#6B6560', fontSize: '13px', outline: 'none' }} />
+            )}
+            {specific && period === 'year' && (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {(() => {
+                  const atual = new Date().getFullYear()
+                  const anos = []
+                  for (let y = 2025; y <= atual; y++) anos.push(String(y))
+                  return anos.map(y => (
+                    <button key={y} onClick={() => setSpecYear(y)}
+                      style={{
+                        flex: 1, padding: '9px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+                        background: specYear === y ? 'rgba(201,168,76,0.12)' : '#161616',
+                        border: `1px solid ${specYear === y ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                        color: specYear === y ? '#C9A84C' : '#6B6560', cursor: 'pointer',
+                      }}>
+                      {y}
+                    </button>
+                  ))
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
         {period === 'custom' && (
           <div style={{ display: 'flex', gap: '10px' }}>
             <div style={{ flex: 1 }}>
@@ -803,14 +955,7 @@ export default function RelatoriosPage() {
             <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030', marginBottom: '4px' }}>
               Tendencia
             </p>
-            <p style={{ fontSize: '11px', color: '#2A2A2A' }}>
-              {period === 'week'  ? 'últimos 7 dias'
-               : period === 'month' ? 'últimos 30 dias'
-               : period === 'year'  ? 'últimos 12 meses'
-               : customFrom && customTo
-                 ? `${new Date(customFrom+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} – ${new Date(customTo+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}`
-                 : customFrom ? `a partir de ${new Date(customFrom+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}` : 'personalizado'}
-            </p>
+            <p style={{ fontSize: '11px', color: '#2A2A2A' }}>{periodLabel}</p>
           </div>
           {/* Toggle chips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
@@ -864,15 +1009,75 @@ export default function RelatoriosPage() {
         </div>
       </div>
 
-      {/* ── Comissões: matrículas por quem marcou a visita ── */}
-      {profile?.role === 'gerente' ? (
+      {/* ── Resumo mês a mês (período anual) ──
+          Cada mês com seus números; o melhor mês de cada métrica ganha 🔥 */}
+      {period === 'year' && trendData.length > 1 && (
+        <div>
+          <button onClick={() => setShowMonthly(m => !m)}
+            className="rounded-2xl" style={{ width: '100%', background: '#161616', border: '1px solid #252525', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>📅 Resumo mês a mês</p>
+            <span style={{ fontSize: '12px', color: '#C9A84C', fontWeight: 700 }}>{showMonthly ? 'ocultar ▲' : 'ver ▼'}</span>
+          </button>
+          {showMonthly && (() => {
+            const METS = [
+              { k: 'calls',      lbl: 'Lig.',   cor: '#E8834A' },
+              { k: 'atendidas',  lbl: 'Atend.', cor: '#22D3EE' },
+              { k: 'marcacoes',  lbl: 'Marc.',  cor: '#60A5FA' },
+              { k: 'visitas',    lbl: 'Vis.',   cor: '#A78BFA' },
+              { k: 'matriculas', lbl: 'Matr.',  cor: '#4ADE80' },
+            ]
+            // Melhor mês de cada métrica (só destaca se houver valor > 0)
+            const best = {}
+            METS.forEach(m => { best[m.k] = Math.max(...trendData.map(d => d[m.k] || 0)) })
+            return (
+              <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '14px', marginTop: '8px', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: '#444040', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Mês</th>
+                      {METS.map(m => (
+                        <th key={m.k} style={{ textAlign: 'right', padding: '6px 8px', color: m.cor, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.lbl}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trendData.map((d, i) => (
+                      <tr key={i} style={{ borderTop: '1px solid #1F1F1F' }}>
+                        <td style={{ padding: '7px 8px', color: '#B0A99F', fontWeight: 600, textTransform: 'capitalize' }}>{d.label}</td>
+                        {METS.map(m => {
+                          const v = d[m.k] || 0
+                          const top = v > 0 && v === best[m.k]
+                          return (
+                            <td key={m.k} className="tabular-nums" style={{ padding: '7px 8px', textAlign: 'right', fontWeight: top ? 800 : 500, color: top ? m.cor : v > 0 ? '#EFEFEF' : '#333030' }}>
+                              {top ? '🔥 ' : ''}{v}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p style={{ fontSize: '10px', color: '#444040', marginTop: '8px' }}>🔥 = melhor mês naquela métrica</p>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* ── Comissões: matrículas por quem marcou a visita ──
+          Pessoa selecionada → SÓ as dela (a lista de todos vazava aqui e
+          confundia). Tudo é clicável e abre a lista de quem fechou. */}
+      {profile?.role === 'gerente' && selectedPerson === 'all' ? (
         creditsInPeriod.length > 0 && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030' }}>
                 🎓 Comissoes — matriculas por marcador
               </p>
-              <p style={{ fontSize: '10px', color: '#2A2A2A' }}>periodo selecionado</p>
+              <button onClick={() => abreMatriculas(`Matrículas da equipe · ${periodLabel}`, creditsInPeriod)}
+                style={{ fontSize: '11px', fontWeight: 700, color: '#C9A84C', background: 'none', border: 'none', cursor: 'pointer' }}>
+                total {creditsInPeriod.length} →
+              </button>
             </div>
             <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {(() => {
@@ -882,31 +1087,40 @@ export default function RelatoriosPage() {
                   .sort((a, b) => b.count - a.count)
                 const maxC = Math.max(...rows.map(r => r.count), 1)
                 return rows.map(({ p, count }) => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ width: '90px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: '#B0A99F' }} className="truncate">
+                  <button key={p.id} onClick={() => abreMatriculas(`Matrículas de ${p.name?.split(' ')[0]} · ${periodLabel}`, creditsInPeriod.filter(cr => cr.credited_to === p.id))}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%' }}>
+                    <span style={{ width: '90px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: '#B0A99F', textAlign: 'left' }} className="truncate">
                       {p.name?.split(' ')[0] || '—'}
                     </span>
                     <div style={{ flex: 1, height: '8px', borderRadius: '99px', background: '#111' }}>
                       <div style={{ width: `${Math.round((count / maxC) * 100)}%`, height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7B1C3A, #C9A84C)' }} />
                     </div>
                     <span style={{ width: '28px', textAlign: 'right', fontSize: '15px', fontWeight: 800, color: '#C9A84C' }} className="tabular-nums">{count}</span>
-                  </div>
+                  </button>
                 ))
               })()}
               <p style={{ fontSize: '10px', color: '#444040', marginTop: '2px' }}>
-                Matrícula conta para quem marcou a visita atual do cliente (remarcou → de quem remarcou).
+                Matrícula conta para quem marcou a visita atual do cliente (remarcou → de quem remarcou). Toque para ver quem fechou.
               </p>
             </div>
           </div>
         )
       ) : (
-        <div className="rounded-2xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.18)', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button
+          onClick={() => filteredCredits.length && abreMatriculas(
+            `Matrículas ${selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'das suas marcações'} · ${periodLabel}`,
+            filteredCredits)}
+          className="rounded-2xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.18)', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: filteredCredits.length ? 'pointer' : 'default', width: '100%', textAlign: 'left' }}>
           <div>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>🎓 Matrículas das suas marcações</p>
-            <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>clientes que você marcou e matricularam · período selecionado</p>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>
+              🎓 Matrículas {selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'das suas marcações'}
+            </p>
+            <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '2px' }}>
+              {selectedProfile ? `clientes que ${selectedProfile.name?.split(' ')[0]} marcou e matricularam` : 'clientes que você marcou e matricularam'} · {filteredCredits.length ? 'toque para ver quem fechou' : 'período selecionado'}
+            </p>
           </div>
           <span className="tabular-nums" style={{ fontSize: '26px', fontWeight: 800, color: '#C9A84C' }}>{filteredCredits.length}</span>
-        </div>
+        </button>
       )}
 
       {/* ── Eficiência ── */}
@@ -1059,6 +1273,63 @@ export default function RelatoriosPage() {
       })()}
 
       {/* ── Modal de exportação ── */}
+      {/* ── Lista de matrículas (quem fechou) ── */}
+      {matModal && (
+        <div onClick={() => setMatModal(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div onClick={e => e.stopPropagation()}
+            className="rounded-2xl" style={{ background: '#161616', border: '1px solid #303030', width: '100%', maxWidth: '420px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid #252525' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: '#EFEFEF', lineHeight: 1.4 }}>{matModal.title}</p>
+                <button onClick={() => setMatModal(null)} style={{ background: 'none', border: 'none', color: '#6B6560', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}>✕</button>
+              </div>
+              {(() => {
+                const ef = matModal.items.filter(i => i.status !== 'pendente').length
+                const pe = matModal.items.length - ef
+                return (
+                  <p style={{ fontSize: '11px', color: '#6B6560', marginTop: '4px' }}>
+                    {matModal.items.length} no total · <span style={{ color: '#4ADE80' }}>{ef} efetivada{ef === 1 ? '' : 's'}</span>
+                    {pe > 0 && <> · <span style={{ color: '#E8834A' }}>{pe} pendente{pe === 1 ? '' : 's'}</span></>}
+                  </p>
+                )
+              })()}
+            </div>
+            <div style={{ overflowY: 'auto', padding: '12px 20px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {matModal.items.length === 0 && (
+                <p style={{ fontSize: '12px', color: '#6B6560', textAlign: 'center', padding: '20px 0' }}>Nenhuma matrícula no período.</p>
+              )}
+              {matModal.items.map(it => (
+                <div key={it.id} className="rounded-xl" style={{ background: '#111', border: '1px solid #1F1F1F', padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: '#EFEFEF' }} className="truncate">{it.nome}</p>
+                      {it.empresa && <p style={{ fontSize: '11px', color: '#6B6560' }} className="truncate">{it.empresa}</p>}
+                      {it.matriculado && it.matriculado !== it.nome && (
+                        <p style={{ fontSize: '11px', color: '#B0A99F', marginTop: '2px' }}>Matriculado: {it.matriculado}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold rounded-full flex-shrink-0"
+                      style={{ padding: '3px 9px', background: it.status === 'pendente' ? 'rgba(232,131,74,0.12)' : 'rgba(74,222,128,0.12)', color: it.status === 'pendente' ? '#E8834A' : '#4ADE80', border: `1px solid ${it.status === 'pendente' ? 'rgba(232,131,74,0.35)' : 'rgba(74,222,128,0.35)'}` }}>
+                      {it.status === 'pendente' ? '⏳ Pendente' : '✅ Efetivada'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+                    <span style={{ fontSize: '11px', color: '#6B6560' }}>
+                      {new Date(it.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                    {it.valor && <span style={{ fontSize: '11px', fontWeight: 700, color: '#C9A84C' }}>R$ {it.valor}</span>}
+                  </div>
+                  {it.status === 'pendente' && it.nota && (
+                    <p style={{ fontSize: '11px', color: '#B0A99F', marginTop: '6px', fontStyle: 'italic', lineHeight: 1.4 }}>"{it.nota}"</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showExportModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false) }}

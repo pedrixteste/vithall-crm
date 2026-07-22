@@ -199,10 +199,13 @@ serve(async (req) => {
         (p.role === 'gerente' || (isSeller ? c.assigned_to === p.id : c.created_by === p.id))
       ).length
 
+      // Só as visitas atribuídas à própria pessoa — mesmo p/ gerente. A aba
+      // Hoje passou a mostrar só as dele (visita dos outros causava confusão),
+      // então o briefing conta igual, senão os números divergem.
       const visitsToday = !isSeller ? 0 : clients.filter(c =>
         c.visit_scheduled_at && ['confirmada', 'tentativa'].includes(c.visit_confirmation) &&
         dateStr(new Date(c.visit_scheduled_at)) === todayStr &&
-        (p.role === 'gerente' || c.assigned_to === p.id)
+        c.assigned_to === p.id
       ).length
 
       const pending = toConfirm + reminders + callbacksToday + openTasks + callsToday + visitsToday

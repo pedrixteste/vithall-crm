@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
@@ -344,6 +344,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [savingNotes, setSavingNotes]     = useState(false)
   const [notesSaved, setNotesSaved]       = useState(false)
   const [notesError, setNotesError]       = useState(false)
+  // Situação da matrícula (efetivada/pendente) — editor inline na ficha
+  const [editingMatStatus, setEditingMatStatus]   = useState(false)
+  const [matStatusDraft, setMatStatusDraft]       = useState('efetivada')
+  const [matStatusNoteDraft, setMatStatusNoteDraft] = useState('')
+  const [savingMatStatus, setSavingMatStatus]     = useState(false)
   const [showRating, setShowRating]           = useState(false)
   const [ratingEdits, setRatingEdits]         = useState({})
   const [savingRatingId, setSavingRatingId]   = useState(null)
@@ -512,6 +517,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setCurrentClient(c => ({ ...c, notes: notesValue }))
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 2000)
+  }
+
+  // Salva a situação da matrícula editada na ficha (chip "Matrícula: ...")
+  async function saveMatStatus() {
+    setSavingMatStatus(true)
+    const payload = {
+      matricula_status:      matStatusDraft,
+      matricula_status_note: matStatusDraft === 'pendente' ? (matStatusNoteDraft.trim() || null) : null,
+    }
+    const { error } = await supabase.from('clients').update(payload).eq('id', currentClient.id)
+    setSavingMatStatus(false)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, ...payload }))
+    setEditingMatStatus(false)
   }
 
   async function toggleTask(task) {
@@ -824,6 +843,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         // apagava os dados no banco. Recarregá-los conserta os dois problemas.
         outcome_enrolled_name:   v.outcome_enrolled_name || '',
         outcome_sale_value:      v.outcome_sale_value    || '',
+        // Status da matrícula vive no CLIENTE (efetivada/pendente + descrição)
+        matricula_status:        currentClient.matricula_status || 'efetivada',
+        matricula_status_note:   currentClient.matricula_status_note || '',
       }
       // expande a visita alvo (vinda do histórico) ou, sem alvo, só a mais recente
       const expand = targetVisitId ? v.id === targetVisitId : i === 0
@@ -903,24 +925,32 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (edit.visit_outcome === 'matriculada' && trainingsArr.length > 0) {
       const current = currentClient.matriculas || []
       const toAdd = trainingsArr.filter(t => !current.includes(t))
+      const updated = toAdd.length > 0 ? [...current, ...toAdd] : current
+      // Situação da matrícula (efetivada/pendente + descrição) grava SEMPRE —
+      // re-salvar a estrela só para trocar o status também precisa persistir
+      const statusPayload = {
+        matricula_status:      edit.matricula_status || 'efetivada',
+        matricula_status_note: edit.matricula_status === 'pendente'
+          ? (edit.matricula_status_note?.trim() || null) : null,
+      }
+      const { error: matErr } = await supabase.from('clients').update({
+        matriculas:      updated,
+        matricula_stage: 'matriculado',
+        ...statusPayload,
+      }).eq('id', currentClient.id)
+      if (matErr) {
+        setSavingRatingId(null)
+        setRatingError({ visitId, msg: 'Avaliação salva, mas a matrícula do cliente falhou. Tente de novo.' })
+        return
+      }
       if (toAdd.length > 0) {
-        const updated = [...current, ...toAdd]
-        const { error: matErr } = await supabase.from('clients').update({
-          matriculas:      updated,
-          matricula_stage: 'matriculado',
-        }).eq('id', currentClient.id)
-        if (matErr) {
-          setSavingRatingId(null)
-          setRatingError({ visitId, msg: 'Avaliação salva, mas a matrícula do cliente falhou. Tente de novo.' })
-          return
-        }
         for (const t of toAdd) {
           await logEvent('matricula_added', { training: t })
         }
         await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'matriculado' })
         await creditMatricula(currentClient, user.id)
-        setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado' }))
       }
+      setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado', ...statusPayload }))
     }
 
     // Retorno → agenda nova data no cliente
@@ -1260,6 +1290,66 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 </div>
               )}
             </div>
+
+            {/* Situação da matrícula — efetivada/pendente (só p/ matriculado).
+                Pendente carrega a descrição do que falta; editável na ficha
+                para o vendedor efetivar depois sem reabrir a estrela. */}
+            {currentClient.matricula_stage === 'matriculado' && (() => {
+              const pend = currentClient.matricula_status === 'pendente'
+              const cor = pend ? '#E8834A' : '#4ADE80'
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <GraduationCap size={14} style={{ color: cor }} />
+                    <span style={{ color: '#6B6560' }}>Matrícula: </span>
+                    <button onClick={() => { if (!canRate) return; setMatStatusDraft(currentClient.matricula_status || 'efetivada'); setMatStatusNoteDraft(currentClient.matricula_status_note || ''); setEditingMatStatus(e => !e) }}
+                      className="text-xs font-semibold rounded-full transition-all"
+                      style={{ padding: '4px 12px', background: `${cor}18`, color: cor, border: `1px solid ${cor}40`, cursor: canRate ? 'pointer' : 'default' }}>
+                      {pend ? '⏳ Pendente' : '✅ Efetivada'}{canRate ? ' ▾' : ''}
+                    </button>
+                  </div>
+                  {pend && currentClient.matricula_status_note && !editingMatStatus && (
+                    <p className="text-xs" style={{ color: '#B0A99F', paddingLeft: '22px', lineHeight: 1.5 }}>
+                      "{currentClient.matricula_status_note}"
+                    </p>
+                  )}
+                  {editingMatStatus && (
+                    <div style={{ paddingLeft: '22px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {[['efetivada', '✅ Efetivada'], ['pendente', '⏳ Pendente']].map(([k, label]) => {
+                          const sel = matStatusDraft === k
+                          const c2 = k === 'efetivada' ? '#4ADE80' : '#E8834A'
+                          return (
+                            <button key={k} onClick={() => setMatStatusDraft(k)}
+                              className="text-xs font-semibold rounded-full"
+                              style={{ padding: '5px 12px', background: sel ? `${c2}22` : 'transparent', color: c2, border: `1px solid ${c2}${sel ? '60' : '25'}`, cursor: 'pointer' }}>
+                              {sel ? '✓ ' : ''}{label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {matStatusDraft === 'pendente' && (
+                        <textarea value={matStatusNoteDraft} onChange={e => setMatStatusNoteDraft(e.target.value)} rows={2}
+                          placeholder='Ex: "Foi matriculado para uma turma dia 6/7/2029"'
+                          style={{ width: '100%', background: '#111', border: '1px solid rgba(232,131,74,0.3)', borderRadius: '10px', padding: '9px 11px', color: '#EFEFEF', fontSize: '12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+                      )}
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button onClick={() => setEditingMatStatus(false)}
+                          className="text-xs font-semibold rounded-full"
+                          style={{ padding: '5px 12px', background: 'transparent', color: '#6B6560', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
+                          Cancelar
+                        </button>
+                        <button onClick={saveMatStatus} disabled={savingMatStatus}
+                          className="text-xs font-bold rounded-full"
+                          style={{ padding: '5px 14px', background: 'rgba(74,222,128,0.12)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.4)', cursor: 'pointer' }}>
+                          {savingMatStatus ? 'Salvando...' : 'Salvar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Data de retorno (pediu_ligar) */}
             {currentClient.matricula_stage === 'pediu_ligar' && currentClient.call_back_at && (
@@ -1836,6 +1926,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   outcome_sale_value: v.outcome_sale_value || '',
                   visit_possibilities: v.visit_possibilities || [],
                   outros_eventos_text: '',
+                  matricula_status: currentClient.matricula_status || 'efetivada',
+                  matricula_status_note: currentClient.matricula_status_note || '',
                 }
                 const isSaving     = savingRatingId === v.id
                 const justSaved    = syncAfterSave === v.id
@@ -2014,6 +2106,37 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                   onBlur={e => e.target.style.borderColor = '#2A2A2A'}
                                 />
                               </div>
+                            </div>
+
+                            {/* Situação da matrícula — efetivada (padrão) ou
+                                pendente com descrição do que falta */}
+                            <div>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4ADE80', marginBottom: '8px' }}>
+                                Situação da matrícula
+                              </p>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                {[['efetivada', '✅ Efetivada'], ['pendente', '⏳ Pendente']].map(([k, label]) => {
+                                  const sel = (edit.matricula_status || 'efetivada') === k
+                                  const cor = k === 'efetivada' ? '#4ADE80' : '#E8834A'
+                                  return (
+                                    <button key={k} disabled={!canRate}
+                                      onClick={() => setEdit({ matricula_status: k })}
+                                      style={{ padding: '9px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: sel ? `${cor}22` : 'transparent', color: sel ? cor : '#6B6560', border: `1px solid ${sel ? `${cor}66` : '#2A2A2A'}` }}>
+                                      {label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                              {edit.matricula_status === 'pendente' && (
+                                <textarea
+                                  value={edit.matricula_status_note || ''}
+                                  disabled={!canRate}
+                                  onChange={e => setEdit({ matricula_status_note: e.target.value })}
+                                  rows={2}
+                                  placeholder='Ex: "Foi matriculado para uma turma dia 6/7/2029"'
+                                  style={{ width: '100%', marginTop: '8px', background: '#111', border: '1px solid rgba(232,131,74,0.3)', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }}
+                                />
+                              )}
                             </div>
                           </div>
                         )}

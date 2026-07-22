@@ -66,6 +66,7 @@ export default function ClientesPage() {
   const [filterRating, setFilterRating]     = useState('')
   const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
   const [filterOutcome, setFilterOutcome]   = useState(() => searchParams.get('outcome') || '')
+  const [filterMatStatus, setFilterMatStatus] = useState('') // '' | 'efetivada' | 'pendente'
   const [preVendasIds, setPreVendasIds]     = useState(new Set())
   const [phoneCounts, setPhoneCounts]       = useState({}) // telefone → nº de registros (todos os usuários)
 
@@ -136,10 +137,11 @@ export default function ClientesPage() {
     setFilterRating('')
     setFilterSource('')
     setFilterOutcome('')
+    setFilterMatStatus('')
   }
 
   const activeFilters = [
-    filterStage, filterPeriod, filterCity, filterRating, filterSource, filterOutcome,
+    filterStage, filterPeriod, filterCity, filterRating, filterSource, filterOutcome, filterMatStatus,
     filterHasDone.length > 0 ? 'hasDone' : '',
     filterNotDone.length > 0 ? 'notDone' : '',
   ].filter(Boolean).length
@@ -203,7 +205,11 @@ export default function ClientesPage() {
       (filterSource === 'mine'       && c.created_by === user.id) ||
       (filterSource === 'pre_vendas' && preVendasIds.has(c.created_by))
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesOutcome && matchesSource
+    // Situação da matrícula: só faz sentido p/ matriculado; 'efetivada' é o padrão de quem não tem status gravado
+    const matchesMatStatus = !filterMatStatus ||
+      (c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === filterMatStatus)
+
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesOutcome && matchesSource && matchesMatStatus
   })
 
   if (selected) return (
@@ -309,6 +315,26 @@ export default function ClientesPage() {
                     color: filterStage === s.key ? s.color : '#6B6560',
                   }}>
                   {filterStage === s.key ? '✓ ' : ''}{s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Situação da matrícula */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+              Situação da matrícula
+            </p>
+            <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+              {[['efetivada', '✅ Efetivadas', '#4ADE80'], ['pendente', '⏳ Pendentes', '#E8834A']].map(([k, label, cor]) => (
+                <button key={k} type="button"
+                  onClick={() => setFilterMatStatus(f => f === k ? '' : k)}
+                  className="text-xs font-semibold rounded-full transition-all"
+                  style={{
+                    padding: '5px 12px',
+                    background: filterMatStatus === k ? cor + '18' : 'transparent',
+                    border: '1px solid ' + (filterMatStatus === k ? cor + '50' : '#2A2A2A'),
+                    color: filterMatStatus === k ? cor : '#6B6560',
+                  }}>
+                  {filterMatStatus === k ? '✓ ' : ''}{label}
                 </button>
               ))}
             </div>

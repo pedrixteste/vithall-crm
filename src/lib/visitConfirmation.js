@@ -38,24 +38,24 @@ export const isVisitTreated = (c) =>
 // pendência real mas continuava contando (estava só nao_visitado no filtro).
 const POST_VISITA = ['recebeu_visita', 'matriculado', 'nao_apareceu', 'cancelado']
 
-// Visitas agendadas para um dia (offset). Só para quem FAZ visita:
-// vendedor (atribuídas a ele) e gerente (todas). Pré-vendas → [].
+// Visitas agendadas para um dia (offset). Só para quem FAZ visita e SÓ as
+// atribuídas à própria pessoa — o gerente via as visitas da equipe toda com
+// os botões de resultado, e conseguia marcar "recebida/matriculada" numa
+// visita que era de outro vendedor. A visão de equipe fica nos Relatórios.
 // Só retorna visitas TRATADAS (confirmada/tentativa) e AINDA NÃO REALIZADAS.
 export async function fetchVisitsForDay(role, userId, offset = 0) {
   if (role !== 'vendedor' && role !== 'gerente') return []
   const { start, end } = getDayRange(offset)
-  let q = supabase
+  const { data } = await supabase
     .from('clients')
     .select('*')
+    .eq('assigned_to', userId)
     .not('visit_scheduled_at', 'is', null)
     .in('visit_confirmation', ['confirmada', 'tentativa'])
     .not('matricula_stage', 'in', `(${POST_VISITA.join(',')})`)
     .gte('visit_scheduled_at', start)
     .lte('visit_scheduled_at', end)
     .order('visit_scheduled_at', { ascending: true })
-  if (role === 'vendedor') q = q.eq('assigned_to', userId)
-  // gerente: vê todas
-  const { data } = await q
   return data || []
 }
 

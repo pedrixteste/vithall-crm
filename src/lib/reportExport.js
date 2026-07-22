@@ -29,15 +29,16 @@ function esc(s) {
 }
 
 /** Calcula métricas de um conjunto de clientes/logs */
-function calcMetrics(memberClients, logs, periodStart) {
-  const inPeriod   = memberClients.filter(c => new Date(c.created_at) >= periodStart)
+function calcMetrics(memberClients, logs, periodStart, periodEnd) {
+  const inR = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
+  const inPeriod   = memberClients.filter(c => inR(new Date(c.created_at)))
   const visits     = memberClients.flatMap(c =>
-    (c.visits || []).filter(v => new Date(v.visit_date + 'T12:00:00') >= periodStart))
+    (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
   const allEnrolled = memberClients.filter(c => c.matricula_stage === 'matriculado')
   const enrolled   = inPeriod.filter(c => c.matricula_stage === 'matriculado')
   const noShow     = inPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const canceled   = inPeriod.filter(c => c.matricula_stage === 'cancelado')
-  const logsInPeriod = logs.filter(l => new Date(l.log_date + 'T12:00:00') >= periodStart)
+  const logsInPeriod = logs.filter(l => inR(new Date(l.log_date + 'T12:00:00')))
   const calls    = logsInPeriod.reduce((s, l) => s + (l.calls || 0), 0)
   const answered = logsInPeriod.reduce((s, l) => s + (l.answered || 0), 0)
 
@@ -142,14 +143,86 @@ function originsSection(origins) {
     </div>`
 }
 
+/** Lista de matrículas fechadas por pessoa (quem marcou) — o número da tela
+ *  vira nomes no papel: cliente, empresa, data, valor e situação. */
+function enrolledSection(members) {
+  const withE = members.filter(m => (m.enrolled || []).length > 0)
+  if (!withE.length) return ''
+  return `
+  <div class="section">
+    <div class="section-title">Matrículas Fechadas — por quem marcou a visita</div>
+    ${withE.map(m => `
+      <div style="margin-bottom:22px">
+        <div style="font-weight:700;font-size:13px;color:#111;margin-bottom:10px">
+          ${esc(m.name)} <span style="color:#8C6D1F">· ${m.enrolled.length} matrícula${m.enrolled.length > 1 ? 's' : ''}</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Cliente</th><th style="text-align:left">Empresa</th>
+            <th>Data</th><th>Valor</th><th>Situação</th>
+          </tr></thead>
+          <tbody>
+            ${m.enrolled.map((e, i) => `
+            <tr style="background:${i % 2 === 0 ? '#fff' : '#FAFAFA'}">
+              <td style="padding:8px 14px;font-weight:600;color:#111;border-bottom:1px solid #EEE">${esc(e.matriculado || e.nome)}</td>
+              <td style="padding:8px 14px;color:#555;border-bottom:1px solid #EEE;text-align:left">${esc(e.empresa || '—')}</td>
+              <td style="padding:8px 14px;color:#555;border-bottom:1px solid #EEE;text-align:center">${new Date(e.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+              <td style="padding:8px 14px;color:#8C6D1F;font-weight:700;border-bottom:1px solid #EEE;text-align:center">${e.valor ? 'R$ ' + esc(e.valor) : '—'}</td>
+              <td style="padding:8px 14px;border-bottom:1px solid #EEE;text-align:center">
+                <span style="padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;${e.status === 'pendente' ? 'background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA' : 'background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0'}">${e.status === 'pendente' ? '⏳ Pendente' : '✅ Efetivada'}</span>
+                ${e.status === 'pendente' && e.nota ? `<div style="font-size:10px;color:#888;margin-top:3px;font-style:italic">${esc(e.nota)}</div>` : ''}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`).join('')}
+  </div>`
+}
+
+/** Resumo mês a mês (período anual) — 🔥 marca o melhor mês de cada métrica */
+function monthlySection(monthly) {
+  if (!monthly || monthly.length < 2) return ''
+  const METS = [
+    ['calls', 'Ligações', '#E8834A'], ['atendidas', 'Atendidas', '#0E7490'],
+    ['marcacoes', 'Marcações', '#60A5FA'], ['visitas', 'Visitas', '#A78BFA'],
+    ['matriculas', 'Matrículas', '#1A7F4B'],
+  ]
+  const best = {}
+  METS.forEach(([k]) => { best[k] = Math.max(...monthly.map(d => d[k] || 0)) })
+  return `
+  <div class="section">
+    <div class="section-title">Resumo Mês a Mês</div>
+    <table>
+      <thead><tr>
+        <th style="text-align:left">Mês</th>
+        ${METS.map(([, l, c]) => `<th style="color:${c}">${l}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${monthly.map((d, i) => `
+        <tr style="background:${i % 2 === 0 ? '#fff' : '#FAFAFA'}">
+          <td style="padding:8px 14px;font-weight:600;color:#111;border-bottom:1px solid #EEE;text-transform:capitalize">${esc(d.label)}</td>
+          ${METS.map(([k, , c]) => {
+            const v = d[k] || 0
+            const top = v > 0 && v === best[k]
+            return `<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #EEE;font-weight:${top ? 800 : 400};color:${top ? c : (v > 0 ? '#333' : '#CCC')}">${top ? '🔥 ' : ''}${v}</td>`
+          }).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:#999;margin-top:8px">🔥 = melhor mês naquela métrica</div>
+  </div>`
+}
+
 /** Gera o HTML completo do relatório */
 export function generateReportHTML({
   scope,        // 'individual' | 'pre_vendas' | 'vendedores' | 'all'
-  members,      // array de { ...profile, memberClients, logs }
+  members,      // array de { ...profile, memberClients, logs, enrolled }
   periodDays,
   periodStart,
+  periodEnd,
   periodLabel,
   exportedBy,
+  monthly,      // resumo mês a mês (período anual) ou null
 }) {
   const now = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -166,7 +239,7 @@ export function generateReportHTML({
   // Calcula métricas por membro
   const membersWithMetrics = members.map(m => ({
     ...m,
-    ...calcMetrics(m.memberClients, m.logs, periodStart),
+    ...calcMetrics(m.memberClients, m.logs, periodStart, periodEnd),
   }))
 
   // Total geral (soma de todos)
@@ -339,6 +412,8 @@ export function generateReportHTML({
     }).join('')}
   </div>
 
+  ${monthlySection(monthly)}
+
   <!-- ── TABELA COMPARATIVA (só para grupos) ── -->
   ${showTable ? `
   <div class="section ${members.length > 6 ? 'page-break' : ''}">
@@ -392,6 +467,8 @@ export function generateReportHTML({
       </div>
     </div>
   </div>
+
+  ${enrolledSection(membersWithMetrics)}
 
   <!-- ── INDIVIDUAL CARDS (para grupos) ── -->
   ${showTable ? `
