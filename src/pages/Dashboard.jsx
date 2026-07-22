@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded } from 'lucide-react'
+import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
+import TaskQuickForm from '../components/TaskQuickForm'
 import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
-import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount } from '../lib/visitConfirmation'
-import { localDateStr } from '../lib/utils'
+import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount, fetchAllOpenTasks } from '../lib/visitConfirmation'
+import { localDateStr, urgencyColor } from '../lib/utils'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -54,6 +55,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showClienteForm, setShowClienteForm]     = useState(false)
   const [showCallbackForm, setShowCallbackForm]   = useState(false)
+  const [showTaskForm, setShowTaskForm]           = useState(false)
+  const [tasks, setTasks]                         = useState([])
   const [showAddMenu, setShowAddMenu]             = useState(false)
   const [selectedCliente, setSelectedCliente]     = useState(null)
   const [period, setPeriod]           = useState('today') // padrão: o dia
@@ -75,6 +78,22 @@ export default function Dashboard() {
         .then(({ data }) => { if (data) setFreshProfile(data) })
     }
   }, [])
+
+  useEffect(() => { if (user?.id) fetchTasks() }, [user])
+
+  async function fetchTasks() {
+    setTasks(await fetchAllOpenTasks(user.id))
+  }
+
+  async function toggleTask(task) {
+    setTasks(ts => ts.filter(t => t.id !== task.id)) // otimista
+    await supabase.from('tasks').update({ completed: true }).eq('id', task.id)
+  }
+
+  async function deleteTask(id) {
+    setTasks(ts => ts.filter(t => t.id !== id)) // otimista
+    await supabase.from('tasks').delete().eq('id', id)
+  }
 
   // Pop-up = espelho da aba "Hoje". Roda uma vez, só após o profile carregar
   // (precisa do role para buscar a agenda de hoje de vendedor/gerente).
@@ -364,6 +383,66 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* Tarefas — lembretes soltos criados pelo usuário */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2.5">
+              <CheckSquare size={14} style={{ color: '#22D3EE' }} />
+              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas</span>
+              {tasks.length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(34,211,238,0.12)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.25)' }}>
+                  {tasks.length}
+                </span>
+              )}
+            </div>
+            <button onClick={() => setShowTaskForm(true)}
+              className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#C9A84C' }}>
+              <Plus size={14} /> Nova
+            </button>
+          </CardHeader>
+          {tasks.length === 0 ? (
+            <div className="text-center" style={{ padding: '40px 0' }}>
+              <p style={{ fontSize: '2rem', marginBottom: '12px' }}>✅</p>
+              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
+            </div>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+              {tasks.map(t => {
+                const overdue = t.due_date && t.due_date < localDateStr()
+                const color = urgencyColor(t.urgency)
+                return (
+                  <li key={t.id} style={{ padding: '14px 20px' }} className="flex items-center gap-3">
+                    <button onClick={() => toggleTask(t)} title="Concluir"
+                      className="flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                      style={{ width: '26px', height: '26px', border: '2px solid #2A2A2A', background: 'transparent' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: '#EFEFEF', lineHeight: 1.4 }}>{t.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {typeof t.urgency === 'number' && (
+                          <span className="text-[10px] font-bold rounded-full" style={{ padding: '1px 7px', background: `${color}1a`, color, border: `1px solid ${color}55` }}>
+                            urgência {t.urgency}
+                          </span>
+                        )}
+                        {t.due_date && (
+                          <span className="text-[11px] flex items-center gap-1" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
+                            <Clock size={10} />
+                            {overdue ? 'venceu ' : ''}{new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            {t.due_time ? ` · ${t.due_time.slice(0, 5)}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => deleteTask(t.id)} title="Excluir" className="flex-shrink-0">
+                      <Trash2 size={14} style={{ color: '#2A2A2A' }} />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Card>
+
         {/* Visitas agendadas — vendedor/gerente */}
         {profile?.role !== 'pre_vendas' && (
           <Card>
@@ -546,6 +625,14 @@ export default function Dashboard() {
           onClose={() => setShowAddMenu(false)}
           onNewClient={() => { setShowAddMenu(false); setShowClienteForm(true) }}
           onNewCallback={() => { setShowAddMenu(false); setShowCallbackForm(true) }}
+          onNewTask={() => { setShowAddMenu(false); setShowTaskForm(true) }}
+        />
+      )}
+
+      {showTaskForm && (
+        <TaskQuickForm
+          onClose={() => setShowTaskForm(false)}
+          onSaved={() => { setShowTaskForm(false); fetchTasks() }}
         />
       )}
 

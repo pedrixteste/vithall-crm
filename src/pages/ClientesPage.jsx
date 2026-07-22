@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Plus, Search, ChevronRight, X, SlidersHorizontal, Phone } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
+import TaskQuickForm from '../components/TaskQuickForm'
 import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import { Card } from '../components/ui/Card'
@@ -53,6 +54,7 @@ export default function ClientesPage() {
   const [loading, setLoading]       = useState(true)
   const [showForm, setShowForm]     = useState(false)
   const [showCallbackForm, setShowCallbackForm] = useState(false)
+  const [showTaskForm, setShowTaskForm]         = useState(false)
   const [showAddMenu, setShowAddMenu]           = useState(false)
   const [selected, setSelected]     = useState(null)
   const [showFilters, setShowFilters] = useState(false)
@@ -608,6 +610,7 @@ export default function ClientesPage() {
           onClose={() => setShowAddMenu(false)}
           onNewClient={() => { setShowAddMenu(false); setShowForm(true) }}
           onNewCallback={() => { setShowAddMenu(false); setShowCallbackForm(true) }}
+          onNewTask={() => { setShowAddMenu(false); setShowTaskForm(true) }}
         />
       )}
 
@@ -617,6 +620,10 @@ export default function ClientesPage() {
 
       {showCallbackForm && (
         <CallbackForm onClose={() => setShowCallbackForm(false)} onSaved={() => setShowCallbackForm(false)} />
+      )}
+
+      {showTaskForm && (
+        <TaskQuickForm onClose={() => setShowTaskForm(false)} onSaved={() => setShowTaskForm(false)} />
       )}
     </div>
   )

@@ -267,6 +267,21 @@ export async function fetchOpenTasks(userId) {
   return (data || []).filter(t => !t.due_date || t.due_date <= cutoff)
 }
 
+// TODAS as tarefas soltas em aberto do usuário (sem o corte de "até o próximo
+// dia útil" do fetchOpenTasks) — usado pela aba Tarefas do Dashboard, que é a
+// tela de gestão/backlog, não só o que cai em cima do dia.
+export async function fetchAllOpenTasks(userId) {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('seller_id', userId)
+    .eq('completed', false)
+    .order('urgency', { ascending: false, nullsFirst: false })
+    .order('due_date', { ascending: true, nullsFirst: false })
+  return data || []
+}
+
 // Quantas coisas estão esperando a pessoa HOJE — o mesmo conjunto que a aba
 // "Hoje" lista, então o card do Dashboard e a aba nunca divergem:
 // visitas a confirmar (hoje até o próximo dia útil — confirmar a de amanhã já

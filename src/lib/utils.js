@@ -44,6 +44,15 @@ export function reminderDates(cfg) {
   return []
 }
 
+// Cor da urgência de uma tarefa (0-10): verde → dourado → vermelho.
+export function urgencyColor(u) {
+  if (u === null || u === undefined) return '#6B6560'
+  if (u >= 8) return '#E85555'
+  if (u >= 5) return '#E8834A'
+  if (u >= 3) return '#C9A84C'
+  return '#4ADE80'
+}
+
 // Data LOCAL no formato YYYY-MM-DD. NÃO usar toISOString() para isso: ele
 // converte p/ UTC e, entre 21h e meia-noite (Brasil), cai no dia seguinte.
 export function localDateStr(d = new Date()) {

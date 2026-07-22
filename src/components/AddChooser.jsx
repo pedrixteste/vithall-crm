@@ -1,8 +1,8 @@
-import { UserPlus, PhoneCall } from 'lucide-react'
+import { UserPlus, PhoneCall, CheckSquare } from 'lucide-react'
 
 // Menu que aparece ao tocar no "+": escolher entre cadastrar um cliente
-// normal ou registrar um "pediu para ligar depois".
-export default function AddChooser({ onNewClient, onNewCallback, onClose }) {
+// normal, registrar um "pediu para ligar depois" ou criar uma tarefa solta.
+export default function AddChooser({ onNewClient, onNewCallback, onNewTask, onClose }) {
   const opt = (Icon, title, desc, color, onClick) => (
     <button type="button" onClick={onClick}
       className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
@@ -31,6 +31,7 @@ export default function AddChooser({ onNewClient, onNewCallback, onClose }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {opt(UserPlus, 'Adicionar novo cliente', 'Cadastro completo na lista de clientes', '#C9A84C', onNewClient)}
           {opt(PhoneCall, 'Cliente pediu p/ ligar depois', 'Só um lembrete de ligação, fora da lista', '#E8834A', onNewCallback)}
+          {opt(CheckSquare, 'Nova tarefa', 'Lembrete com dia, hora e urgência', '#22D3EE', onNewTask)}
         </div>
       </div>
     </div>

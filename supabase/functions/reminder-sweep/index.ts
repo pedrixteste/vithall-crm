@@ -74,11 +74,12 @@ serve(async (req) => {
     const hora  = agora.getUTCHours()
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    const [profRes, cbRes, cliRes, logRes] = await Promise.all([
+    const [profRes, cbRes, cliRes, logRes, taskRes] = await Promise.all([
       sb.from('profiles').select('id, name, role, onesignal_player_id').not('onesignal_player_id', 'is', null),
       sb.from('callbacks').select('id, created_by, contact_name, company_name, phone, reminder_config, done').eq('done', false),
       sb.from('clients').select('id, contact_name, company_name, created_by, assigned_to, matricula_stage, call_back_at, visit_scheduled_at, visit_confirmation'),
       sb.from('push_log').select('user_id, kind, ref, sent_at'),
+      sb.from('tasks').select('id, seller_id, title, due_date, due_time, completed').eq('completed', false).not('due_time', 'is', null),
     ])
     const profiles = profRes.data || []
     const byId: Record<string, any> = {}
@@ -125,6 +126,25 @@ serve(async (req) => {
       if (quando <= agora || quando > limite) continue
       const dono = c.created_by || c.assigned_to
       await avisarLigacao(dono, c.contact_name, c.company_name || '', quando, `cli:${c.id}:${hoje}`)
+    }
+
+    // ── A2) Tarefa chegando — tasks soltas do Dashboard com dia+hora marcados
+    const avisarTarefa = async (userId: string, titulo: string, quando: Date, ref: string) => {
+      const p = byId[userId]
+      if (!p || jaMandou(userId, 'task', ref)) return
+      const min = Math.max(1, Math.round((quando.getTime() - agora.getTime()) / 60000))
+      const heading = `✅ Tarefa em ${min} min`
+      const res = dryRun ? null : await push(p.onesignal_player_id, heading, titulo, 'https://vithall-crm.vercel.app/')
+      enviados.push({ user: p.name, tipo: 'tarefa', heading, content: titulo, res })
+      await registrar(userId, 'task', ref)
+    }
+
+    for (const t of (taskRes.data || [])) {
+      if (t.due_date !== hoje || !t.due_time) continue
+      const [h, m] = String(t.due_time).slice(0, 5).split(':').map(Number)
+      const quando = new Date(agora); quando.setUTCHours(h, m, 0, 0)
+      if (quando <= agora || quando > limite) continue
+      await avisarTarefa(t.seller_id, t.title, quando, `task:${t.id}:${hoje}`)
     }
 
     // ── B) Preencher as estrelas — SÓ vendedor e gerente ────────────

@@ -12,7 +12,7 @@ import {
   fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
-import { localDateStr, allPhones } from '../lib/utils'
+import { localDateStr, allPhones, urgencyColor } from '../lib/utils'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
@@ -530,17 +530,26 @@ export default function VisitasHojePage() {
           <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5">✓ A fazer</span></SectionLabel>
           {tasks.map(t => {
             const overdue = t.due_date && t.due_date < localDateStr()
+            const uColor  = urgencyColor(t.urgency)
             return (
               <div key={t.id} className="rounded-2xl flex items-center gap-3"
                 style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
                 <button onClick={() => t.clients && setSelected(t.clients)} className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
+                    {typeof t.urgency === 'number' && (
+                      <span className="text-[10px] font-bold rounded-full flex-shrink-0" style={{ padding: '1px 7px', background: `${uColor}1a`, color: uColor, border: `1px solid ${uColor}55` }}>
+                        {t.urgency}
+                      </span>
+                    )}
+                  </div>
                   {(t.clients?.contact_name || t.clients?.company_name) && (
                     <p className="text-xs truncate" style={{ color: '#6B6560' }}>{t.clients.contact_name || t.clients.company_name}</p>
                   )}
                   {t.due_date && (
                     <p className="text-[11px] mt-0.5" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
                       {overdue ? '⚠ venceu ' : 'até '}{new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      {t.due_time ? ` · ${t.due_time.slice(0, 5)}` : ''}
                     </p>
                   )}
                 </button>
