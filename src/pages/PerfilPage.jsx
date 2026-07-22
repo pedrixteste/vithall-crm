@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
-import { enablePushNotifications, getNotificationPermission } from '../lib/onesignal'
+import { enablePushNotifications, getNotificationPermission, reactivatePush } from '../lib/onesignal'
 import { colorInfo, GOOGLE_EVENT_COLORS } from '../lib/calendarColors'
 
 export default function PerfilPage() {
@@ -31,6 +31,16 @@ export default function PerfilPage() {
     await enablePushNotifications()
     setPushPerm(getNotificationPermission())
     setEnablingPush(false)
+  }
+
+  const [reactivating, setReactivating] = useState(false)
+  const [reactivated, setReactivated]   = useState(false)
+  async function handleReactivate() {
+    setReactivating(true)
+    const id = await reactivatePush()
+    setReactivating(false)
+    setReactivated(!!id)
+    if (!id) alert('Não consegui reativar. Feche o app, abra de novo e tente; se persistir, limpe os dados do site no navegador.')
   }
 
   useEffect(() => {
@@ -283,6 +293,23 @@ export default function PerfilPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}>
               <Bell size={15} /> {enablingPush ? 'Ativando...' : 'Ativar notificações'}
+            </button>
+          )}
+
+          {/* "Ativadas" mas não chega? A inscrição pode ter morrido num
+              bloquear→desbloquear. Reinscreve do zero e regrava o id. */}
+          {pushPerm === 'granted' && (
+            <button onClick={handleReactivate} disabled={reactivating}
+              style={{
+                width: '100%', padding: '11px', borderRadius: '14px',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                background: reactivated ? 'rgba(74,222,128,0.12)' : '#111',
+                color: reactivated ? '#4ADE80' : '#6B6560',
+                border: `1px solid ${reactivated ? 'rgba(74,222,128,0.3)' : '#252525'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}>
+              <Bell size={14} />
+              {reactivating ? 'Reativando...' : reactivated ? '✓ Reativado — teste agora' : 'Não está recebendo? Reativar'}
             </button>
           )}
           {pushPerm === 'denied' && (

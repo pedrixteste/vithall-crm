@@ -2,7 +2,37 @@ import { supabase } from './supabase'
 
 let initialized = false
 
-// Chama no load do app (silencioso, sem pedir permissao ainda)
+async function saveSubId(id) {
+  if (!id) return
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('profiles').update({ onesignal_player_id: id }).eq('id', user.id)
+}
+
+// Espera o OneSignal expor um id de inscrição ATIVO (optedIn), até `ms`.
+// Depois de (re)inscrever, o id demora um instante para aparecer; ler cedo
+// demais devolvia null ou o id ANTIGO (morto), que era o bug da Amanda.
+function waitForActiveSubId(OneSignal, ms = 6000) {
+  return new Promise((resolve) => {
+    const ps = OneSignal.User.PushSubscription
+    if (ps.optedIn && ps.id) { resolve(ps.id); return }
+    const onChange = (e) => {
+      if (e?.current?.optedIn && e.current.id) finish(e.current.id)
+    }
+    const finish = (id) => {
+      try { ps.removeEventListener('change', onChange) } catch { /* ok */ }
+      clearTimeout(timer)
+      resolve(id || null)
+    }
+    ps.addEventListener('change', onChange)
+    const timer = setTimeout(() => finish(ps.optedIn ? ps.id : null), ms)
+  })
+}
+
+// Chama no load do app (silencioso). Além de iniciar, resolve o caso do
+// player_id MORTO: se a pessoa bloqueou e depois desbloqueou as notificações,
+// a permissão volta mas a assinatura de push é destruída e recriada com um id
+// NOVO — que o app precisa capturar, senão segue mandando para o id velho.
 export function initOneSignal() {
   if (initialized || !import.meta.env.VITE_ONESIGNAL_APP_ID) return
   initialized = true
@@ -14,61 +44,77 @@ export function initOneSignal() {
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true,
     })
+
+    // Toda vez que a inscrição muda, salva o id atual. É a rede de segurança
+    // que captura uma assinatura recriada após um bloquear→desbloquear.
+    OneSignal.User.PushSubscription.addEventListener('change', (e) => {
+      if (e?.current?.optedIn && e.current.id) saveSubId(e.current.id)
+    })
+
+    // Já tem permissão mas a assinatura não está ativa → recria e salva o novo.
+    if (OneSignal.Notifications.permission) {
+      if (!OneSignal.User.PushSubscription.optedIn) {
+        try { await OneSignal.User.PushSubscription.optIn() } catch { /* ok */ }
+      }
+      const id = await waitForActiveSubId(OneSignal, 6000)
+      if (id) saveSubId(id)
+    }
   })
 }
 
-// Pede permissao e salva o ID de assinatura no perfil do usuario
+// Pede permissão e salva a assinatura ATIVA no perfil.
 async function requestAndSaveSubscription() {
   return new Promise((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || []
     window.OneSignalDeferred.push(async (OneSignal) => {
       const granted = await OneSignal.Notifications.requestPermission()
       if (!granted) { resolve(null); return }
-
-      // Tenta pegar o ID imediatamente
-      let subId = OneSignal.User?.PushSubscription?.id
-      if (!subId) {
-        // Aguarda ate 5s pela assinatura
-        await new Promise(r => {
-          const handler = () => { r(); OneSignal.User.PushSubscription.removeEventListener('change', handler) }
-          OneSignal.User.PushSubscription.addEventListener('change', handler)
-          setTimeout(r, 5000)
-        })
-        subId = OneSignal.User?.PushSubscription?.id
-      }
-
-      if (subId) {
-        await saveSubId(subId)
-        resolve(subId)
-      } else {
-        resolve(null)
-      }
+      // Força a (re)inscrição: depois de desbloquear, a permissão volta mas a
+      // assinatura não é recriada sozinha.
+      try { await OneSignal.User.PushSubscription.optIn() } catch { /* ok */ }
+      const id = await waitForActiveSubId(OneSignal, 6000)
+      if (id) { await saveSubId(id); resolve(id) } else resolve(null)
     })
   })
 }
 
-async function saveSubId(id) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  await supabase.from('profiles').update({ onesignal_player_id: id }).eq('id', user.id)
-}
-
-// Botão "Ativar notificações" (Perfil): pede permissão e salva a assinatura.
-// Retorna o id da assinatura, ou null se a pessoa recusou.
+// Botão "Ativar notificações" (Perfil).
 export async function enablePushNotifications() {
   return requestAndSaveSubscription()
 }
 
-// Silencioso, no load do app: se a permissão JÁ foi concedida antes, garante
-// que o player_id atual esteja salvo no perfil (sem mostrar nenhum prompt).
+// Reinscrição FORÇADA — para quem a permissão já está concedida mas parou de
+// receber (o player_id salvo apontava para uma assinatura morta). optOut +
+// optIn garante uma assinatura nova, com id novo.
+export async function reactivatePush() {
+  return new Promise((resolve) => {
+    window.OneSignalDeferred = window.OneSignalDeferred || []
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      try {
+        if (!OneSignal.Notifications.permission) {
+          const granted = await OneSignal.Notifications.requestPermission()
+          if (!granted) { resolve(null); return }
+        }
+        try { await OneSignal.User.PushSubscription.optOut() } catch { /* ok */ }
+        try { await OneSignal.User.PushSubscription.optIn() } catch { /* ok */ }
+        const id = await waitForActiveSubId(OneSignal, 8000)
+        if (id) { await saveSubId(id); resolve(id) } else resolve(null)
+      } catch { resolve(null) }
+    })
+  })
+}
+
+// Silencioso, no load: se já permitido e a assinatura está ativa, garante o
+// id atual salvo. (O grosso do trabalho é do initOneSignal.)
 export async function syncPushIfGranted() {
   if (!import.meta.env.VITE_ONESIGNAL_APP_ID) return
   window.OneSignalDeferred = window.OneSignalDeferred || []
   window.OneSignalDeferred.push(async (OneSignal) => {
     try {
-      if (!OneSignal.Notifications.permission) return // ainda não permitiu
-      const subId = OneSignal.User?.PushSubscription?.id
-      if (subId) await saveSubId(subId)
+      if (OneSignal.Notifications.permission && OneSignal.User.PushSubscription.optedIn) {
+        const id = OneSignal.User.PushSubscription.id
+        if (id) await saveSubId(id)
+      }
     } catch { /* ignora */ }
   })
 }
