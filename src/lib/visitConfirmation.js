@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { localDateStr, reminderDates } from './utils'
+import { localDateStr, reminderDates, taskIsRecurring, taskDueToday, taskDoneToday } from './utils'
 
 // Faixa de um dia (local) + label amigável. offset 0 = hoje, 1 = amanhã, etc.
 export function getDayRange(offset = 0) {
@@ -255,6 +255,7 @@ export async function fetchTodayCallbacks(userId) {
 // Tarefas em aberto do usuário (follow-ups criados na estrela + manuais) que
 // já venceram, não têm prazo, ou vencem até o próximo dia útil. Aparecem na
 // aba Hoje ("A fazer") — a página global de Tarefas foi removida.
+// Tarefa que REPETE entra só no dia dela e some depois do ✓ daquele dia.
 export async function fetchOpenTasks(userId) {
   if (!userId) return []
   const cutoff = localDateStr(new Date(Date.now() + daysAheadWindow() * 86400000))
@@ -264,7 +265,9 @@ export async function fetchOpenTasks(userId) {
     .eq('seller_id', userId)
     .eq('completed', false)
     .order('due_date', { ascending: true })
-  return (data || []).filter(t => !t.due_date || t.due_date <= cutoff)
+  return (data || []).filter(t => taskIsRecurring(t)
+    ? taskDueToday(t) && !taskDoneToday(t)
+    : (!t.due_date || t.due_date <= cutoff))
 }
 
 // TODAS as tarefas soltas em aberto do usuário (sem o corte de "até o próximo
@@ -332,7 +335,7 @@ export async function fetchVisitsToConfirm(userId) {
 
   const { data } = await supabase
     .from('clients')
-    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, google_calendar_event_id, visit_booked_at, visit_first_booked_at, visit_reschedule_count')
+    .select('id, contact_name, company_name, city, phone, phone_type, phones, phone2, visit_scheduled_at, visit_confirmation, google_calendar_event_id, visit_booked_at, visit_first_booked_at, visit_reschedule_count')
     .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .is('visit_confirmation', null)

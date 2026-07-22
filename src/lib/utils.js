@@ -44,6 +44,45 @@ export function reminderDates(cfg) {
   return []
 }
 
+// Dias da semana — mesma convenção do reminder_config de clients/callbacks
+export const DOW_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
+const DOW_LABELS = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb' }
+const UTEIS = ['seg', 'ter', 'qua', 'qui', 'sex']
+
+// ── Tarefas soltas ──────────────────────────────────────────────────
+// `due_time` é sempre a HORA do lembrete. O que muda é o PADRÃO: sem
+// reminder_config a tarefa é de uma data só (due_date); com ele, repete.
+// O `last_done` mora dentro do próprio reminder_config de propósito — a
+// coluna já existia, então repetição não precisou de migração.
+
+export const taskIsRecurring = (t) =>
+  t?.reminder_config?.type === 'daily' || t?.reminder_config?.type === 'weekly'
+
+/** A tarefa cai HOJE? Data única também conta quando já venceu. */
+export function taskDueToday(t, ref = new Date()) {
+  const cfg = t?.reminder_config
+  if (cfg?.type === 'daily')  return true
+  if (cfg?.type === 'weekly') return (cfg.days || []).includes(DOW_KEYS[ref.getDay()])
+  return !!t?.due_date && t.due_date <= localDateStr(ref)
+}
+
+/** Tarefa que repete e já foi resolvida hoje — o ✓ dela vale só para o dia. */
+export const taskDoneToday = (t, ref = new Date()) =>
+  !!t?.reminder_config?.last_done && t.reminder_config.last_done === localDateStr(ref)
+
+/** Rótulo curto da repetição para os cards ("Todo dia", "Seg, Qua"). */
+export function taskRecurrenceLabel(t) {
+  const cfg = t?.reminder_config
+  if (cfg?.type === 'daily') return 'Todo dia'
+  if (cfg?.type === 'weekly') {
+    const ds = cfg.days || []
+    if (!ds.length) return 'Toda semana'
+    if (ds.length === 5 && UTEIS.every(d => ds.includes(d))) return 'Dias úteis'
+    return DOW_KEYS.filter(k => ds.includes(k)).map(k => DOW_LABELS[k]).join(', ')
+  }
+  return null
+}
+
 // Cor da urgência de uma tarefa (0-10): verde → dourado → vermelho.
 export function urgencyColor(u) {
   if (u === null || u === undefined) return '#6B6560'

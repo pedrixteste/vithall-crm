@@ -79,7 +79,7 @@ serve(async (req) => {
       sb.from('callbacks').select('id, created_by, contact_name, company_name, phone, reminder_config, done').eq('done', false),
       sb.from('clients').select('id, contact_name, company_name, created_by, assigned_to, matricula_stage, call_back_at, visit_scheduled_at, visit_confirmation'),
       sb.from('push_log').select('user_id, kind, ref, sent_at'),
-      sb.from('tasks').select('id, seller_id, title, due_date, due_time, completed').eq('completed', false).not('due_time', 'is', null),
+      sb.from('tasks').select('id, seller_id, title, due_date, due_time, reminder_config, completed').eq('completed', false).not('due_time', 'is', null),
     ])
     const profiles = profRes.data || []
     const byId: Record<string, any> = {}
@@ -140,7 +140,14 @@ serve(async (req) => {
     }
 
     for (const t of (taskRes.data || [])) {
-      if (t.due_date !== hoje || !t.due_time) continue
+      if (!t.due_time) continue
+      const cfg = t.reminder_config
+      const repete = cfg?.type === 'daily' || cfg?.type === 'weekly'
+      if (repete) {
+        // Mesma regra de dia dos callbacks (daily sempre; weekly no dia marcado)
+        if (!callbackDueToday(cfg, agora)) continue
+        if (cfg.last_done === hoje) continue // já marcou como feita hoje
+      } else if (t.due_date !== hoje) continue
       const [h, m] = String(t.due_time).slice(0, 5).split(':').map(Number)
       const quando = new Date(agora); quando.setUTCHours(h, m, 0, 0)
       if (quando <= agora || quando > limite) continue

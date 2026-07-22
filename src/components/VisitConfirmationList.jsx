@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { getValidToken, deleteCalendarEvent, createCalendarEvent } from '../lib/googleCalendar'
 import { bookingStamp, logVisitScheduled, bookingLabel } from '../lib/visitBooking'
-import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar, CalendarClock, ChevronDown } from 'lucide-react'
+import { CheckCircle2, XCircle, PhoneCall, MapPin, Calendar, CalendarClock, ChevronDown, Phone } from 'lucide-react'
+import { allPhones } from '../lib/utils'
 
 // Converte timestamp UTC p/ o formato do input datetime-local (hora local)
 function toLocalInputValue(iso) {
@@ -255,6 +256,22 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   style={{ color: '#6B6560', marginTop: '2px', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
               )}
             </button>
+
+            {/* Telefones — tocar liga direto, igual ao "Ligar depois". Fica FORA
+                do botão do cabeçalho: <a> dentro de <button> não é HTML válido
+                e o toque no link acabaria só abrindo/fechando o card. */}
+            {allPhones(v).length > 0 && (
+              <div className="flex flex-wrap gap-1.5" style={{ marginTop: '8px' }}>
+                {allPhones(v).map((p, i) => (
+                  <a key={i} href={`tel:${p.n}`} onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-full transition-all active:scale-95"
+                    style={{ padding: '5px 11px', background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A', textDecoration: 'none' }}>
+                    <Phone size={11} /> {p.n}
+                    {p.t === 'empresa' && <span style={{ color: '#6B6560', fontWeight: 500 }}>empresa</span>}
+                  </a>
+                ))}
+              </div>
+            )}
 
             {!isOpen ? null : !isActive ? (
               /* 4 botões (2×2) */

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil } from 'lucide-react'
+import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil, Repeat } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalhe'
 import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES } from '../components/ui/Badge'
@@ -12,7 +12,7 @@ import {
   fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
-import { localDateStr, allPhones, urgencyColor } from '../lib/utils'
+import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel } from '../lib/utils'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
@@ -242,10 +242,16 @@ export default function VisitasHojePage() {
     })
   }
 
-  // Concluir uma tarefa/follow-up direto da aba Hoje
-  async function completeTask(taskId) {
-    setTasks(ts => ts.filter(t => t.id !== taskId)) // otimista
-    await supabase.from('tasks').update({ completed: true }).eq('id', taskId)
+  // Concluir uma tarefa/follow-up direto da aba Hoje. A que REPETE não é
+  // encerrada: marca só o dia de hoje como feito e volta na próxima vez.
+  async function completeTask(task) {
+    const antes = tasks
+    setTasks(ts => ts.filter(t => t.id !== task.id)) // otimista
+    const patch = taskIsRecurring(task)
+      ? { reminder_config: { ...(task.reminder_config || {}), last_done: localDateStr() } }
+      : { completed: true }
+    const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
+    if (error) { setTasks(antes); alert('Não foi possível salvar — tente de novo.') }
   }
 
   // Marcar um "pediu p/ ligar depois" como concluído (some do Hoje)
@@ -531,6 +537,7 @@ export default function VisitasHojePage() {
           {tasks.map(t => {
             const overdue = t.due_date && t.due_date < localDateStr()
             const uColor  = urgencyColor(t.urgency)
+            const repete  = taskRecurrenceLabel(t)
             return (
               <div key={t.id} className="rounded-2xl flex items-center gap-3"
                 style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
@@ -542,18 +549,25 @@ export default function VisitasHojePage() {
                         {t.urgency}
                       </span>
                     )}
+                    {repete && (
+                      <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                        style={{ padding: '1px 7px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
+                        <Repeat size={9} /> {repete}
+                      </span>
+                    )}
                   </div>
                   {(t.clients?.contact_name || t.clients?.company_name) && (
                     <p className="text-xs truncate" style={{ color: '#6B6560' }}>{t.clients.contact_name || t.clients.company_name}</p>
                   )}
-                  {t.due_date && (
+                  {(t.due_date || t.due_time) && (
                     <p className="text-[11px] mt-0.5" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
-                      {overdue ? '⚠ venceu ' : 'até '}{new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                      {t.due_time ? ` · ${t.due_time.slice(0, 5)}` : ''}
+                      {t.due_date && `${overdue ? '⚠ venceu ' : 'até '}${new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                      {t.due_date && t.due_time ? ' · ' : ''}
+                      {t.due_time ? t.due_time.slice(0, 5) : ''}
                     </p>
                   )}
                 </button>
-                <button onClick={() => completeTask(t.id)} title="Concluir"
+                <button onClick={() => completeTask(t)} title={repete ? 'Feito hoje' : 'Concluir'}
                   className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
                   style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
                   ✓

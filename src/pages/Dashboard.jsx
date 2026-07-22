@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2 } from 'lucide-react'
+import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2, Repeat } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
@@ -14,7 +14,7 @@ import { requestNotificationPermission, scheduleTodayReminders } from '../lib/re
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
 import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount, fetchAllOpenTasks } from '../lib/visitConfirmation'
-import { localDateStr, urgencyColor } from '../lib/utils'
+import { localDateStr, urgencyColor, taskIsRecurring, taskDoneToday, taskRecurrenceLabel } from '../lib/utils'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -85,14 +85,33 @@ export default function Dashboard() {
     setTasks(await fetchAllOpenTasks(user.id))
   }
 
+  // Tarefa que REPETE não some ao concluir — o ✓ dela vale só para o dia,
+  // senão "ligar toda segunda" morria no primeiro ✓.
   async function toggleTask(task) {
+    if (taskIsRecurring(task)) {
+      const antes = task.reminder_config || {}
+      const feito = taskDoneToday(task)
+      const cfg = { ...antes, last_done: feito ? null : localDateStr() }
+      setTasks(ts => ts.map(t => t.id === task.id ? { ...t, reminder_config: cfg } : t))
+      const { error } = await supabase.from('tasks').update({ reminder_config: cfg }).eq('id', task.id)
+      if (error) {
+        setTasks(ts => ts.map(t => t.id === task.id ? { ...t, reminder_config: antes } : t))
+        alert('Não foi possível salvar — verifique sua internet e tente de novo.')
+      }
+      return
+    }
+    const antes = tasks
     setTasks(ts => ts.filter(t => t.id !== task.id)) // otimista
-    await supabase.from('tasks').update({ completed: true }).eq('id', task.id)
+    const { error } = await supabase.from('tasks').update({ completed: true }).eq('id', task.id)
+    if (error) { setTasks(antes); alert('Não foi possível concluir — tente de novo.') }
   }
 
   async function deleteTask(id) {
+    if (!confirm('Excluir esta tarefa?')) return
+    const antes = tasks
     setTasks(ts => ts.filter(t => t.id !== id)) // otimista
-    await supabase.from('tasks').delete().eq('id', id)
+    const { error } = await supabase.from('tasks').delete().eq('id', id)
+    if (error) { setTasks(antes); alert('Não foi possível excluir — tente de novo.') }
   }
 
   // Pop-up = espelho da aba "Hoje". Roda uma vez, só após o profile carregar
@@ -410,25 +429,41 @@ export default function Dashboard() {
             <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
               {tasks.map(t => {
                 const overdue = t.due_date && t.due_date < localDateStr()
-                const color = urgencyColor(t.urgency)
+                const color   = urgencyColor(t.urgency)
+                const repete  = taskRecurrenceLabel(t)
+                const feito   = taskDoneToday(t)
                 return (
-                  <li key={t.id} style={{ padding: '14px 20px' }} className="flex items-center gap-3">
-                    <button onClick={() => toggleTask(t)} title="Concluir"
+                  <li key={t.id} style={{ padding: '14px 20px', opacity: feito ? 0.5 : 1 }} className="flex items-center gap-3">
+                    <button onClick={() => toggleTask(t)} title={repete ? (feito ? 'Feito hoje' : 'Marcar feito hoje') : 'Concluir'}
                       className="flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                      style={{ width: '26px', height: '26px', border: '2px solid #2A2A2A', background: 'transparent' }} />
+                      style={{
+                        width: '26px', height: '26px',
+                        border: `2px solid ${feito ? '#4ADE80' : '#2A2A2A'}`,
+                        background: feito ? 'rgba(74,222,128,0.15)' : 'transparent',
+                        color: '#4ADE80', fontSize: '11px',
+                      }}>
+                      {feito ? '✓' : ''}
+                    </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium" style={{ color: '#EFEFEF', lineHeight: 1.4 }}>{t.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <p className="text-sm font-medium" style={{ color: '#EFEFEF', lineHeight: 1.4, textDecoration: feito ? 'line-through' : 'none' }}>{t.title}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {typeof t.urgency === 'number' && (
                           <span className="text-[10px] font-bold rounded-full" style={{ padding: '1px 7px', background: `${color}1a`, color, border: `1px solid ${color}55` }}>
                             urgência {t.urgency}
                           </span>
                         )}
-                        {t.due_date && (
+                        {repete && (
+                          <span className="text-[10px] font-bold rounded-full flex items-center gap-1"
+                            style={{ padding: '1px 7px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
+                            <Repeat size={9} /> {repete}
+                          </span>
+                        )}
+                        {(t.due_date || t.due_time) && (
                           <span className="text-[11px] flex items-center gap-1" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
                             <Clock size={10} />
-                            {overdue ? 'venceu ' : ''}{new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                            {t.due_time ? ` · ${t.due_time.slice(0, 5)}` : ''}
+                            {t.due_date && `${overdue ? 'venceu ' : ''}${new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                            {t.due_date && t.due_time ? ' · ' : ''}
+                            {t.due_time ? t.due_time.slice(0, 5) : ''}
                           </span>
                         )}
                       </div>
