@@ -6,7 +6,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
-import { CONFIRMATION_INFO } from '../lib/visitConfirmation'
+import { CONFIRMATION_INFO, NO_SHOW_RATING } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
@@ -855,9 +855,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Visitas já completamente salvas no banco começam "verdes"
     const alreadySaved = new Set(
       visits.filter(v =>
-        v.rating && v.visit_outcome && v.visit_notes?.trim() &&
-        (v.visit_possibilities || []).length > 0 &&
-        (v.visit_outcome !== 'matriculada' || (Array.isArray(v.outcome_training) ? v.outcome_training.length > 0 : !!v.outcome_training))
+        v.rating === NO_SHOW_RATING || (
+          v.rating && v.visit_outcome && v.visit_notes?.trim() &&
+          (v.visit_possibilities || []).length > 0 &&
+          (v.visit_outcome !== 'matriculada' || (Array.isArray(v.outcome_training) ? v.outcome_training.length > 0 : !!v.outcome_training))
+        )
       ).map(v => v.id)
     )
     setSavedVisitIds(alreadySaved)
@@ -904,6 +906,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       return // NÃO marca como salvo: a estrela continua editável
     }
     setRatingError(null)
+
+    // Não compareceu → move o cliente para "não apareceu" (mesmo efeito do
+    // botão da aba Hoje). A visita não aconteceu: sem crédito, sem retorno.
+    if (edit.rating === NO_SHOW_RATING && currentClient.matricula_stage !== 'nao_apareceu') {
+      const { error: nsErr } = await supabase.from('clients')
+        .update({ matricula_stage: 'nao_apareceu' }).eq('id', currentClient.id)
+      if (nsErr) {
+        setSavingRatingId(null)
+        setRatingError({ visitId, msg: 'Avaliação salva, mas o estágio do cliente não gravou. Tente de novo.' })
+        return
+      }
+      await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'nao_apareceu' })
+      setCurrentClient(c => ({ ...c, matricula_stage: 'nao_apareceu' }))
+    }
 
     // Avisa quem marcou a visita que o feedback foi preenchido (push, fire-and-forget)
     const bookerId = currentClient.visit_scheduled_by || currentClient.created_by
@@ -1962,15 +1978,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const isListening  = listeningVisitId === v.id
                 const poss         = edit.visit_possibilities || []
                 const hasOutros    = poss.includes('outros_eventos')
+                // "Não teve": o cliente não compareceu. A visita não aconteceu,
+                // então some tudo que se avaliaria e o marcador sozinho já basta.
+                const isNoShow     = edit.rating === NO_SHOW_RATING
 
                 // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
-                const isComplete = !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
+                const isComplete = isNoShow || (
+                  !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
                   (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
                   (edit.visit_outcome !== 'matriculada' || (
                     (edit.outcome_training || []).length > 0 &&
                     !!edit.outcome_enrolled_name?.trim() &&
                     !!edit.outcome_sale_value?.trim()
-                  ))
+                  )))
 
                 const isSavedClean = isComplete && savedVisitIds.has(v.id)
 
@@ -2010,8 +2030,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           {visitLabel} · {visitDate}
                         </p>
                         {/* Resumo quando colapsado */}
-                        {isCollapsed && (outcomeObj || ratingObj || poss.length > 0) && (
+                        {isCollapsed && (isNoShow || outcomeObj || ratingObj || poss.length > 0) && (
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {isNoShow && (
+                              <span style={{ fontSize: '11px', fontWeight: 600, color: '#B0A99F' }}>🚷 Não teve</span>
+                            )}
                             {outcomeObj && (
                               <span style={{ fontSize: '11px', fontWeight: 600, color: outcomeObj.color }}>
                                 {outcomeObj.icon} {outcomeObj.label}
@@ -2041,7 +2064,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                     {!isCollapsed && (
                       <div style={{ padding: '0 18px 18px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                        {/* RESULTADO */}
+                        {/* RESULTADO — não se aplica quando a visita não aconteceu */}
+                        {!isNoShow && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
                             ✱ Resultado <span style={{ color: '#333' }}>(obrigatório)</span>
@@ -2066,6 +2090,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             })}
                           </div>
                         </div>
+                        )}
 
                         {/* Treinamento + dados de matrícula */}
                         {edit.visit_outcome === 'matriculada' && (
@@ -2209,7 +2234,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           </div>
                         )}
 
-                        {/* POSSIBILIDADE (multi-select) */}
+                        {/* POSSIBILIDADE (multi-select) — não se aplica no não comparecimento */}
+                        {!isNoShow && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
                             ✱ Possibilidade <span style={{ color: '#333' }}>(pode marcar mais de 1 · obrigatório)</span>
@@ -2240,29 +2266,48 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             />
                           )}
                         </div>
+                        )}
 
                         {/* NOTA DA VISITA */}
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
                             ✱ Nota da visita <span style={{ color: '#333' }}>(obrigatório)</span>
                           </p>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                            {RATINGS.map(r => {
-                              const active = edit.rating === r.key
-                              return (
-                                <button key={r.key} disabled={!canRate} onClick={() => setEdit({ rating: active ? null : r.key })}
-                                  style={{ padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? r.bg : '#111', color: active ? r.color : '#3A3A3A', border: `1px solid ${active ? r.color + '55' : '#252525'}` }}>
-                                  {r.label}
-                                </button>
-                              )
-                            })}
-                          </div>
+                          {/* Não teve — cliente não compareceu. Marca a visita como
+                              não realizada e dispensa nota/resultado/possibilidade. */}
+                          <button disabled={!canRate}
+                            onClick={() => setEdit(isNoShow
+                              ? { rating: null }
+                              : { rating: NO_SHOW_RATING, visit_outcome: null, visit_possibilities: [], outcome_training: [], outros_eventos_text: '' })}
+                            style={{
+                              width: '100%', marginBottom: '6px', padding: '11px', borderRadius: '12px',
+                              fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                              background: isNoShow ? 'rgba(138,130,123,0.18)' : '#111',
+                              color: isNoShow ? '#B0A99F' : '#6B6560',
+                              border: `1px solid ${isNoShow ? '#8A827B' : '#252525'}`,
+                            }}>
+                            🚷 Não teve <span style={{ fontWeight: 500, opacity: 0.8 }}>· cliente não compareceu</span>
+                          </button>
+                          {!isNoShow && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                              {RATINGS.map(r => {
+                                const active = edit.rating === r.key
+                                return (
+                                  <button key={r.key} disabled={!canRate} onClick={() => setEdit({ rating: active ? null : r.key })}
+                                    style={{ padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? r.bg : '#111', color: active ? r.color : '#3A3A3A', border: `1px solid ${active ? r.color + '55' : '#252525'}` }}>
+                                    {r.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
 
                         {/* ANOTAÇÕES (obrigatório) + voice-to-text */}
                         <div>
-                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
-                            ✱ Observações do vendedor <span style={{ color: '#333' }}>(obrigatório)</span>
+                          <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: isNoShow ? '#6B6560' : '#E85555', marginBottom: '8px' }}>
+                            {isNoShow ? 'Observações do vendedor' : '✱ Observações do vendedor'} <span style={{ color: '#333' }}>({isNoShow ? 'opcional' : 'obrigatório'})</span>
                           </p>
                           <div style={{ position: 'relative' }}>
                             <textarea

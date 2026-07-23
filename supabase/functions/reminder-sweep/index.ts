@@ -187,6 +187,7 @@ serve(async (req) => {
           .select('client_id, rating, visit_outcome, visit_notes, visit_possibilities, outcome_training')
           .in('client_id', ids).eq('visit_date', hoje)
         const completa = (v: any) => {
+          if (v.rating === 'nao_teve') return true // não compareceu: nada a preencher
           const temTrein = Array.isArray(v.outcome_training) ? v.outcome_training.length > 0 : !!v.outcome_training
           return !!(v.rating && v.visit_outcome && v.visit_notes?.trim() &&
             (v.visit_possibilities || []).length > 0 &&
@@ -221,6 +222,7 @@ serve(async (req) => {
           .lt('visit_date', hoje)
           .eq('clients.assigned_to', p.id)
         const incompletas = (pend || []).filter(v =>
+          v.rating !== 'nao_teve' && // não compareceu já conta como resolvida
           !(v.rating && v.visit_outcome && v.visit_notes?.trim() && (v.visit_possibilities || []).length > 0))
         if (!incompletas.length) continue
         const heading = '🔒 Avaliações pendentes'

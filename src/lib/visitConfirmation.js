@@ -91,9 +91,15 @@ export async function fetchCallbacksForDay(role, userId, offset = 0) {
   return data || []
 }
 
+// Valor de `rating` que marca "o cliente não compareceu". A visita não
+// aconteceu, então não há nota, resultado nem possibilidade a preencher —
+// esse único marcador já basta para a estrela estar completa e a trava soltar.
+export const NO_SHOW_RATING = 'nao_teve'
+
 // Uma visita está "avaliada" (estrela completa) — mesma regra que o app usa
 // para deixar a visita "verde" no painel de avaliação.
 export function isVisitRated(v) {
+  if (v.rating === NO_SHOW_RATING) return true // não compareceu: nada a avaliar
   const hasTraining = Array.isArray(v.outcome_training)
     ? v.outcome_training.length > 0
     : !!v.outcome_training
