@@ -181,19 +181,22 @@ export default function Dashboard() {
       return q
     }
 
+    // O Dashboard é o resumo DA PESSOA — do gerente também. Ele era o único
+    // perfil sem filtro de dono, então somava a produção da equipe inteira e
+    // mostrava matrícula/visita de outra pessoa como se fosse dele. A visão
+    // de equipe fica nos Relatórios (mesma regra do "gerente não age em
+    // visita de outro vendedor" na aba Hoje).
     const applyRole = (q) => {
       if (profile?.role === 'pre_vendas') return q.eq('created_by', user.id)
-      if (profile?.role === 'vendedor')   return q.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
-      return q
+      return q.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
     }
 
     // busca IDs dos clientes do usuário para filtrar visitas e tarefas
     const { data: myClients } = await applyRole(supabase.from('clients').select('id'))
     const ids = (myClients || []).map(c => c.id)
-    const noClients = ids.length === 0 && profile?.role !== 'gerente'
+    const noClients = ids.length === 0
 
     const applyClientFilter = (q) => {
-      if (profile?.role === 'gerente') return q
       if (noClients) return q.in('client_id', ['00000000-0000-0000-0000-000000000000'])
       return q.in('client_id', ids)
     }
@@ -210,9 +213,9 @@ export default function Dashboard() {
     }
 
     // Matrículas: crédito de comissão (mesma fonte do "Produzido hoje"),
-    // que vai p/ quem marcou a visita. Gerente vê as da equipe toda.
-    let matq = porDia(supabase.from('matricula_credits').select('id', { count: 'exact' }), 'credit_date')
-    if (profile?.role !== 'gerente') matq = matq.eq('credited_to', user.id)
+    // que vai p/ quem marcou a visita — SEMPRE só as da própria pessoa.
+    const matq = porDia(supabase.from('matricula_credits').select('id', { count: 'exact' }), 'credit_date')
+      .eq('credited_to', user.id)
 
     const [ret, v, pend, cl, rv, mc, dl] = await Promise.all([
       porDia(applyClientFilter(supabase.from('visits').select('id', { count: 'exact' }).in('visit_outcome', ['retorno_pessoalmente', 'retorno_ligacao'])), 'visit_date'),

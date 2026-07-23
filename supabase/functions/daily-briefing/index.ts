@@ -141,7 +141,7 @@ serve(async (req) => {
       sb.from('profiles').select('id, name, role, onesignal_player_id').not('onesignal_player_id', 'is', null),
       sb.from('clients').select('id, created_by, assigned_to, visit_scheduled_by, visit_scheduled_at, visit_confirmation, reminder_config, matricula_stage, call_back_at, created_at'),
       sb.from('callbacks').select('created_by, reminder_config, done'),
-      sb.from('tasks').select('seller_id, completed, due_date'),
+      sb.from('tasks').select('seller_id, completed, due_date, reminder_config'),
       sb.from('daily_logs').select('user_id, log_date, calls, answered'),
       sb.from('matricula_credits').select('credited_to, credit_date'),
       sb.from('visits').select('client_id, visit_date'),
@@ -190,6 +190,13 @@ serve(async (req) => {
 
       const openTasks = tasks.filter(t => {
         if (t.seller_id !== p.id || t.completed) return false
+        const cfg = t.reminder_config
+        // Tarefa que REPETE não tem due_date, então cairia no "sem prazo, conta
+        // sempre" e apareceria como pendente todo dia. Ela conta só no dia dela,
+        // e não depois do ✓ daquele dia — mesma regra do fetchOpenTasks do app.
+        if (cfg?.type === 'daily' || cfg?.type === 'weekly') {
+          return callbackDueToday(cfg, today) && cfg.last_done !== todayStr
+        }
         return !t.due_date || t.due_date <= windowEndStr
       }).length
 
