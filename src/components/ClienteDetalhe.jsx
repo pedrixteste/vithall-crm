@@ -60,6 +60,13 @@ const OUTCOMES = [
   { key: 'remarcar',             label: 'Remarcar',             icon: '📅', color: '#22D3EE' },
 ]
 
+// Papéis que podem receber a tarefa de remarcar a visita
+const REMARCAR_ROLES = [
+  { key: 'pre_vendas', label: 'Pré-vendas', color: '#60A5FA' },
+  { key: 'vendedor',   label: 'Vendedor',   color: '#A78BFA' },
+  { key: 'gerente',    label: 'Gerente',    color: '#C9A84C' },
+]
+
 // ── Helpers de histórico ───────────────────────────────────────────
 
 function formatTimeAgo(dateStr) {
@@ -338,6 +345,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [removingReminder, setRemovingReminder] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
   const [creator, setCreator]             = useState(null) // quem marcou a visita (created_by)
+  const [teamProfiles, setTeamProfiles]   = useState([])   // equipe — seletor de quem vai remarcar
   const [phoneCount, setPhoneCount]       = useState(1)    // registros com o mesmo telefone
   const [showHistorico, setShowHistorico] = useState(false) // pop-up do histórico do contato
   const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
@@ -369,6 +377,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // Busca perfil fresco para garantir tokens do Google atualizados (uma vez)
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => { if (data) setFreshProfile(data) })
+    // Equipe inteira — alimenta o seletor de quem vai remarcar a visita
+    supabase.from('profiles').select('id, name, role')
+      .then(({ data }) => { if (data) setTeamProfiles(data) })
   }, [])
 
   // Recarrega os dados do registro exibido — refaz ao trocar de cliente
@@ -1017,16 +1028,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       })
     }
 
-    // Remarcar → cria tarefa pendente no dashboard
+    // Remarcar → cria a tarefa pendente para QUEM foi escolhido remarcar
+    // (papel + pessoa na estrela). Sem escolha, cai em quem preencheu.
     if (edit.visit_outcome === 'remarcar') {
       const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
+      const assignee = edit.remarcar_person || user.id
+      const encaminhada = assignee !== user.id
       await supabase.from('tasks').insert({
         title:     'Remarcar visita — ' + clientLabel,
         client_id: currentClient.id,
-        seller_id: user.id,
+        seller_id: assignee,
         completed: false,
         priority:  'alta',
-        notes:     'Gerado automaticamente após visita marcada para remarcar.',
+        notes:     'Gerado automaticamente após visita marcada para remarcar.'
+                   + (encaminhada ? ` Encaminhada por ${profile?.name || 'um colega'}.` : ''),
       })
     }
 
@@ -1986,6 +2001,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const isComplete = isNoShow || (
                   !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
                   (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
+                  // Remarcar: escolher quem vai remarcar (a menos que a equipe nem
+                  // tenha carregado — aí não trava, cai no próprio usuário no save)
+                  (edit.visit_outcome !== 'remarcar' || !!edit.remarcar_person || teamProfiles.length === 0) &&
                   (edit.visit_outcome !== 'matriculada' || (
                     (edit.outcome_training || []).length > 0 &&
                     !!edit.outcome_enrolled_name?.trim() &&
@@ -2231,6 +2249,52 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               disabled={!canRate}
                               onChange={e => setEdit({ outcome_followup_datetime: e.target.value })}
                               style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
+                          </div>
+                        )}
+
+                        {/* Remarcar → escolher quem vai remarcar: papel e depois a pessoa */}
+                        {edit.visit_outcome === 'remarcar' && (
+                          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.2)' }}>
+                            <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
+                              📅 Quem vai remarcar? <span style={{ color: '#333' }}>(obrigatório)</span>
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                              {REMARCAR_ROLES.map(r => {
+                                const active = edit.remarcar_role === r.key
+                                return (
+                                  <button key={r.key} disabled={!canRate}
+                                    onClick={() => setEdit({ remarcar_role: r.key, remarcar_person: null })}
+                                    style={{ padding: '9px 6px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? `${r.color}22` : '#111', color: active ? r.color : '#6B6560', border: `1px solid ${active ? `${r.color}66` : '#252525'}` }}>
+                                    {r.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {edit.remarcar_role && (() => {
+                              const people = teamProfiles.filter(p => p.role === edit.remarcar_role)
+                              if (people.length === 0) return (
+                                <p style={{ fontSize: '12px', color: '#6B6560', marginTop: '10px' }}>Ninguém com esse papel na equipe.</p>
+                              )
+                              return (
+                                <div style={{ marginTop: '10px' }}>
+                                  <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#444040', marginBottom: '8px' }}>Quem?</p>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {people.map(p => {
+                                      const active = edit.remarcar_person === p.id
+                                      const nome = (p.name || '').split(' ')[0] || p.name || '—'
+                                      return (
+                                        <button key={p.id} disabled={!canRate}
+                                          onClick={() => setEdit({ remarcar_person: p.id })}
+                                          style={{ padding: '7px 13px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(34,211,238,0.15)' : 'transparent', color: active ? '#22D3EE' : '#6B6560', border: `1px solid ${active ? 'rgba(34,211,238,0.45)' : '#2A2A2A'}` }}>
+                                          {active ? '✓ ' : ''}{nome}{p.id === user.id ? ' (você)' : ''}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </div>
                         )}
 
