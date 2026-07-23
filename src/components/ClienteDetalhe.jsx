@@ -1035,11 +1035,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const assignee = edit.remarcar_person || user.id
       const encaminhada = assignee !== user.id
       await supabase.from('tasks').insert({
-        title:     'Remarcar visita — ' + clientLabel,
+        title:     'Ligar para remarcar — ' + clientLabel,
         client_id: currentClient.id,
         seller_id: assignee,
         completed: false,
         priority:  'alta',
+        // "Quando ligar": vira o prazo. A partir dele a tarefa fica pendente na
+        // aba Hoje de quem foi escolhido; com hora, o reminder-sweep avisa antes.
+        due_date:  edit.remarcar_date || null,
+        due_time:  edit.remarcar_date ? (edit.remarcar_time || null) : null,
         notes:     'Gerado automaticamente após visita marcada para remarcar.'
                    + (encaminhada ? ` Encaminhada por ${profile?.name || 'um colega'}.` : ''),
       })
@@ -2295,6 +2299,29 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 </div>
                               )
                             })()}
+
+                            {/* Quando LIGAR para remarcar — vira o prazo da tarefa.
+                                A partir desse dia ela fica pendente na aba Hoje
+                                da pessoa escolhida. Hora é opcional (push 5 min antes). */}
+                            <div style={{ marginTop: '12px', borderTop: '1px solid rgba(34,211,238,0.15)', paddingTop: '12px' }}>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
+                                Quando ligar para remarcar? <span style={{ color: '#333' }}>(opcional)</span>
+                              </p>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <input type="date" value={edit.remarcar_date || ''} disabled={!canRate}
+                                  min={localDateStr()}
+                                  onChange={e => setEdit({ remarcar_date: e.target.value })}
+                                  style={{ flex: 2, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
+                                <input type="time" value={edit.remarcar_time || ''} disabled={!canRate || !edit.remarcar_date}
+                                  onChange={e => setEdit({ remarcar_time: e.target.value })}
+                                  style={{ flex: 1, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: edit.remarcar_date ? '#EFEFEF' : '#3A3A3A', fontSize: '13px', outline: 'none' }} />
+                              </div>
+                              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px', lineHeight: 1.4 }}>
+                                {edit.remarcar_date
+                                  ? `Fica pendente na aba Hoje da pessoa a partir de ${new Date(edit.remarcar_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}${edit.remarcar_time ? ` · aviso ${edit.remarcar_time}` : ''}.`
+                                  : 'Sem data, entra como pendente já.'}
+                              </p>
+                            </div>
                           </div>
                         )}
 
