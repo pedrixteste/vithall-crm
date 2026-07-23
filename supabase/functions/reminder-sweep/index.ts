@@ -53,6 +53,11 @@ async function push(playerId: string, heading: string, content: string, url: str
       headings: { pt: heading, en: heading },
       contents: { pt: content, en: content },
       url,
+      // Prioridade alta p/ acordar o Android do sono profundo. TTL curto de
+      // propósito: "Ligar em 3 min" que chega uma hora depois está errado —
+      // melhor não chegar do que chegar mentindo a hora.
+      priority: 10,
+      ttl: 900,
     }),
   })
   // A resposta é sempre lida: o OneSignal devolve 200 com erro no corpo, e

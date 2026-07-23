@@ -345,6 +345,12 @@ serve(async (req) => {
             include_player_ids: [p.onesignal_player_id],
             headings: { pt: heading, en: heading },
             contents: { pt: content, en: content },
+            // Android põe o app em sono profundo de madrugada e engole o push
+            // do service worker — prioridade alta pede pro FCM acordar o
+            // aparelho. TTL de 4h: se não der pra entregar, um "Bom dia" que
+            // chega à noite é pior que nenhum.
+            priority: 10,
+            ttl: 14400,
             url: 'https://vithall-crm.vercel.app/agenda',
           }),
         })
@@ -375,6 +381,12 @@ serve(async (req) => {
             include_player_ids: [playerId],
             headings: { pt: heading, en: heading },
             contents: { pt: content, en: content },
+            // Android põe o app em sono profundo de madrugada e engole o push
+            // do service worker — prioridade alta pede pro FCM acordar o
+            // aparelho. TTL de 4h: se não der pra entregar, um "Bom dia" que
+            // chega à noite é pior que nenhum.
+            priority: 10,
+            ttl: 14400,
             url: 'https://vithall-crm.vercel.app/relatorios',
           }),
         })
