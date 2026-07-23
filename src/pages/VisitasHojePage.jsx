@@ -120,6 +120,8 @@ export default function VisitasHojePage() {
   const [loading, setLoading]           = useState(true)
   const [selected, setSelected]         = useState(null)
   const [editingCallback, setEditingCallback] = useState(null)
+  const [taskPanel, setTaskPanel]       = useState(null) // tarefa solta aberta (opções)
+  const [taskToDelete, setTaskToDelete] = useState(null) // confirmação de exclusão
   const [toConfirm, setToConfirm]       = useState([])
   const [confirmHidden, setConfirmHidden] = useState(false)
   const [todayVisits, setTodayVisits]   = useState([])
@@ -252,6 +254,17 @@ export default function VisitasHojePage() {
       : { completed: true }
     const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
     if (error) { setTasks(antes); alert('Não foi possível salvar — tente de novo.') }
+  }
+
+  // Desativar o lembrete de uma tarefa = excluir a tarefa. O ✓ tira ela só do
+  // dia; quem não quer mais ver a tarefa repetindo usa isto.
+  async function deleteTask(taskId) {
+    const antes = tasks
+    setTasks(ts => ts.filter(t => t.id !== taskId)) // otimista
+    setTaskToDelete(null)
+    setTaskPanel(null)
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
+    if (error) { setTasks(antes); alert('Não foi possível excluir — tente de novo.') }
   }
 
   // Marcar um "pediu p/ ligar depois" como concluído (some do Hoje)
@@ -541,7 +554,7 @@ export default function VisitasHojePage() {
             return (
               <div key={t.id} className="rounded-2xl flex items-center gap-3"
                 style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
-                <button onClick={() => t.clients && setSelected(t.clients)} className="flex-1 min-w-0 text-left">
+                <button onClick={() => t.clients ? setSelected(t.clients) : setTaskPanel(t)} className="flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
                     {typeof t.urgency === 'number' && (
@@ -565,6 +578,9 @@ export default function VisitasHojePage() {
                       {t.due_date && t.due_time ? ' · ' : ''}
                       {t.due_time ? t.due_time.slice(0, 5) : ''}
                     </p>
+                  )}
+                  {!t.clients && (
+                    <p className="text-[10px] mt-1" style={{ color: '#2A2A2A' }}>Toque para opções →</p>
                   )}
                 </button>
                 <button onClick={() => completeTask(t)} title={repete ? 'Feito hoje' : 'Concluir'}
@@ -829,6 +845,103 @@ export default function VisitasHojePage() {
             </>
           )}
         </>
+      )}
+
+      {/* Opções da tarefa — aberto ao tocar numa tarefa solta em "A fazer" */}
+      {taskPanel && (
+        <div className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)' }} onClick={() => setTaskPanel(null)}>
+          <div className="w-full max-w-lg slide-up sm:animate-in"
+            style={{ background: '#1A1A1A', border: '1px solid #252525', borderRadius: '20px 20px 0 0', padding: '20px' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center pb-3">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#2A2A2A' }} />
+            </div>
+
+            <p className="text-sm font-semibold" style={{ color: '#EFEFEF', lineHeight: 1.5 }}>{taskPanel.title}</p>
+            <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '8px' }}>
+              {typeof taskPanel.urgency === 'number' && (() => {
+                const c = urgencyColor(taskPanel.urgency)
+                return (
+                  <span className="text-[10px] font-bold rounded-full"
+                    style={{ padding: '2px 8px', background: `${c}1a`, color: c, border: `1px solid ${c}55` }}>
+                    urgência {taskPanel.urgency}
+                  </span>
+                )
+              })()}
+              {taskRecurrenceLabel(taskPanel) && (
+                <span className="text-[10px] font-bold rounded-full flex items-center gap-1"
+                  style={{ padding: '2px 8px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
+                  <Repeat size={9} /> {taskRecurrenceLabel(taskPanel)}
+                </span>
+              )}
+              {taskPanel.due_time && (
+                <span className="text-[11px] flex items-center gap-1" style={{ color: '#6B6560' }}>
+                  <Clock size={10} /> {taskPanel.due_time.slice(0, 5)}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+              <button type="button" onClick={() => { completeTask(taskPanel); setTaskPanel(null) }}
+                className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
+                style={{ background: '#161616', border: '1px solid #303030', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div className="rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ width: '42px', height: '42px', background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.25)', color: '#4ADE80' }}>✓</div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#EFEFEF' }}>
+                    {taskIsRecurring(taskPanel) ? 'Marcar como feita hoje' : 'Concluir tarefa'}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.4 }}>
+                    {taskIsRecurring(taskPanel) ? 'Some por hoje e volta na próxima vez' : 'Encerra a tarefa'}
+                  </p>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setTaskToDelete(taskPanel)}
+                className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
+                style={{ background: '#161616', border: '1px solid rgba(232,85,85,0.3)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div className="rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ width: '42px', height: '42px', background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.25)', color: '#E85555' }}>
+                  <Bell size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#E85555' }}>Desativar lembrete da tarefa</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.4 }}>Para de aparecer de vez</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação — desativar o lembrete apaga a tarefa, então isso é dito */}
+      {taskToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.8)', padding: '24px' }} onClick={() => setTaskToDelete(null)}>
+          <div className="w-full max-w-sm animate-in" onClick={e => e.stopPropagation()}
+            style={{ background: '#1A1A1A', border: '1px solid #303030', borderRadius: '20px', padding: '24px' }}>
+            <div className="flex items-center justify-center rounded-2xl"
+              style={{ width: '48px', height: '48px', background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.25)', color: '#E85555', margin: '0 auto 16px' }}>
+              <AlertTriangle size={22} />
+            </div>
+            <p className="text-sm text-center" style={{ color: '#EFEFEF', lineHeight: 1.6 }}>
+              Essa tarefa será <b>excluída</b> e o lembrete não vai mais aparecer.
+            </p>
+            <p className="text-xs text-center mt-2" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+              "{taskToDelete.title}"
+            </p>
+            <button type="button" onClick={() => deleteTask(taskToDelete.id)}
+              className="w-full text-sm font-bold rounded-xl transition-all active:scale-95"
+              style={{ marginTop: '20px', padding: '13px', background: 'rgba(232,85,85,0.12)', border: '1px solid #E85555', color: '#E85555' }}>
+              OK
+            </button>
+            <button type="button" onClick={() => setTaskToDelete(null)}
+              className="w-full text-xs font-semibold" style={{ marginTop: '10px', padding: '8px', color: '#6B6560', background: 'transparent', border: 'none' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {editingCallback && (
