@@ -41,7 +41,7 @@ const PERIOD_OPTIONS = [
 // Estilo do status de confirmação da visita (definido por quem marcou)
 const CONFIRMATION_STYLES = {
   confirmada:     { label: 'Confirmada',     color: '#4ADE80', bg: 'rgba(74,222,128,0.08)',  icon: CheckCircle2 },
-  nao_confirmada: { label: 'Não confirmada', color: '#E85555', bg: 'rgba(232,85,85,0.08)',   icon: XCircle },
+  nao_confirmada: { label: 'Cancelou visita', color: '#E85555', bg: 'rgba(232,85,85,0.08)',   icon: XCircle },
   tentativa:      { label: 'Tentou confirmar', color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', icon: PhoneCall },
 }
 

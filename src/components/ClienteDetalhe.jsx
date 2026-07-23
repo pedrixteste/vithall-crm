@@ -6,6 +6,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
+import { CONFIRMATION_INFO } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
@@ -1468,11 +1469,35 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         {currentClient.visit_scheduled_at && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Visita agendada</p>
-            <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>
-              {new Date(currentClient.visit_scheduled_at).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-              {' às '}
-              {new Date(currentClient.visit_scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+            {(() => {
+              // Situação da marcação (respondida por quem marcou, no lembrete).
+              // Antes só quem viu o pop-up sabia que a visita tinha caído — a
+              // ficha mostrava a data em verde como se estivesse de pé.
+              const conf = CONFIRMATION_INFO[currentClient.visit_confirmation]
+              return (<>
+                <p className="text-sm font-semibold" style={{ color: conf ? conf.color : '#4ADE80' }}>
+                  {new Date(currentClient.visit_scheduled_at).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                  {' às '}
+                  {new Date(currentClient.visit_scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+                {conf ? (
+                  <div className="rounded-xl" style={{ marginTop: '10px', background: `${conf.color}14`, border: `1px solid ${conf.color}40`, padding: '9px 11px' }}>
+                    <p className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: conf.color }}>
+                      <span>{conf.icon}</span> {conf.label}
+                    </p>
+                    {currentClient.visit_confirmation_note && (
+                      <p className="text-[11px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.45 }}>
+                        "{currentClient.visit_confirmation_note}"
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px]" style={{ marginTop: '8px', color: '#6B6560' }}>
+                    Aguardando confirmação de quem marcou
+                  </p>
+                )}
+              </>)
+            })()}
 
             {/* Botão de sincronização com Google Agenda */}
             {profile?.google_connected && (

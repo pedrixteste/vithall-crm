@@ -19,11 +19,11 @@ function toLocalInputValue(iso) {
 
 // Lista reutilizável de visitas de amanhã para confirmar, com o fluxo de 3 botões:
 //   ✓ Confirmado      → visit_confirmation = 'confirmada'  (verde)
-//   ✕ Não confirmada  → 'nao_confirmada' + motivo          (vermelho)
+//   ✕ Cancelou visita → 'nao_confirmada' + motivo          (vermelho)
 //   ☎ Tentei confirmar→ 'tentativa' + descrição            (roxo)
 // Usada tanto no modal do Dashboard quanto inline na aba "Hoje".
 const NOTE_CONFIG = {
-  nao_confirmada: { label: 'Por que não foi confirmada?', placeholder: 'Ex: cliente desmarcou, pediu para remarcar...', color: '#E85555' },
+  nao_confirmada: { label: 'Por que a visita foi cancelada?', placeholder: 'Ex: cliente desmarcou, pediu para remarcar...', color: '#E85555' },
   tentativa:      { label: 'Descreva as tentativas de confirmação', placeholder: 'Ex: liguei 2x e mandei WhatsApp, não respondeu...', color: '#A78BFA' },
 }
 
@@ -290,7 +290,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
                   style={{ minHeight: '68px', background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.3)', color: '#E85555' }}>
                   <XCircle size={17} />
-                  <span className="text-[11px] font-bold leading-snug text-center">Não confirmada</span>
+                  <span className="text-[11px] font-bold leading-snug text-center">Cancelou visita</span>
                 </button>
                 <button
                   disabled={saving}

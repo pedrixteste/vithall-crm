@@ -89,7 +89,7 @@ function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick,
 // Status respondido pelo pré-vendas (as 3 opções, cada uma numa cor)
 const ANSWERED_DISPLAY = {
   confirmada:     { label: 'Confirmada',       color: '#4ADE80' },
-  nao_confirmada: { label: 'Não confirmada',   color: '#E85555' },
+  nao_confirmada: { label: 'Cancelou visita',  color: '#E85555' },
   tentativa:      { label: 'Tentou confirmar', color: '#A78BFA' },
 }
 

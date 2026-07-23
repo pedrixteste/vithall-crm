@@ -28,6 +28,15 @@ export function daysAheadWindow(d = new Date()) {
   return 1
 }
 
+// Rótulo/cor de cada situação da marcação — FONTE ÚNICA. O valor gravado no
+// banco continua 'nao_confirmada'; o que o usuário lê é "Cancelou visita",
+// que é o que de fato aconteceu quando alguém marca esse botão.
+export const CONFIRMATION_INFO = {
+  confirmada:     { label: 'Confirmada',       color: '#4ADE80', icon: '✓' },
+  nao_confirmada: { label: 'Cancelou visita',  color: '#E85555', icon: '✕' },
+  tentativa:      { label: 'Tentou confirmar', color: '#A78BFA', icon: '☎' },
+}
+
 // Visita "tratada" por quem marcou: confirmada ou tentativa. Sem resposta
 // (null) ou nao_confirmada → NÃO aparece na agenda do vendedor/gerente.
 export const isVisitTreated = (c) =>
