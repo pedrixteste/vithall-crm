@@ -621,7 +621,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2.5">
               <MapPin size={14} style={{ color: '#C9A84C' }} />
               <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>
-                {profile?.role === 'pre_vendas' ? 'Visitas que marquei' : 'Visitas recentes'}
+                {profile?.role === 'pre_vendas' ? 'Marcações que foram visitadas' : 'Visitas recentes'}
               </span>
             </div>
             <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
