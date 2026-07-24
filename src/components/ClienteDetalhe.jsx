@@ -19,6 +19,7 @@ const TRAININGS_INTERESSE = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia V
 const STAGES = {
   nao_marcou:     { label: 'Nao marcou ainda', color: '#6B6560', bg: 'rgba(107,101,96,0.12)' },
   pediu_ligar:    { label: 'Pediu para ligar', color: '#E8834A', bg: 'rgba(232,131,74,0.12)'  },
+  marcacao_futura:{ label: 'Marcação futura',  color: '#818CF8', bg: 'rgba(129,140,248,0.12)' },
   marcado:        { label: 'Marcado',          color: '#22D3EE', bg: 'rgba(34,211,238,0.12)'  },
   nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)'  },
   nao_apareceu:   { label: 'Nao apareceu',     color: '#E85555', bg: 'rgba(232,85,85,0.12)'   },
@@ -113,6 +114,7 @@ function getEventColor(type, data) {
       matriculado: '#4ADE80', nao_apareceu: '#E85555', cancelado: '#F97316',
       recebeu_visita: '#A78BFA', nao_visitado: '#60A5FA',
       marcado: '#22D3EE', pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
+      marcacao_futura: '#818CF8',
     }
     return map[data?.to] || '#6B6560'
   }
@@ -138,6 +140,7 @@ function getEventIcon(type, data) {
     if (data?.to === 'marcado')        return '📋'
     if (data?.to === 'nao_visitado')   return '📅'
     if (data?.to === 'pediu_ligar')    return '📞'
+    if (data?.to === 'marcacao_futura') return '🔮'
     return '🔄'
   }
   return '•'
@@ -223,6 +226,17 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
               {event.event_type === 'stage_change' && event.event_data?.from && (
                 <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
                   anterior: {STAGES[event.event_data.from]?.label || event.event_data.from}
+                </p>
+              )}
+              {/* Descrição da marcação futura (o que aconteceu) + quando lembrar */}
+              {event.event_type === 'stage_change' && event.event_data?.remind_at && (
+                <p style={{ fontSize: '11px', color: '#818CF8', marginTop: '3px', fontWeight: 600 }}>
+                  🔮 lembrar em {new Date(event.event_data.remind_at + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                </p>
+              )}
+              {event.event_type === 'stage_change' && event.event_data?.note && (
+                <p style={{ fontSize: '12px', color: '#B0A99F', marginTop: '4px', lineHeight: 1.45, fontStyle: 'italic' }}>
+                  "{event.event_data.note}"
                 </p>
               )}
               {event.user_name && (
@@ -341,6 +355,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [pendingStage, setPendingStage]   = useState(null)
   const [pendingPediuLigar, setPendingPediuLigar] = useState(false)
   const [callBackAt, setCallBackAt]       = useState('')
+  const [pendingFutura, setPendingFutura] = useState(false) // pop-up "marcação futura"
+  const [futuraDate, setFuturaDate]       = useState('')
+  const [futuraNote, setFuturaNote]       = useState('')
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [removingReminder, setRemovingReminder] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
@@ -618,6 +635,34 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       priority:  'alta',
       due_date:  dueDate,
       notes:     'Criado automaticamente: cliente pediu para ligar depois.',
+    })
+  }
+
+  // Marcação futura: o cliente não vai marcar agora, mas quer ser contatado de
+  // novo numa data pra tentar marcar. Guarda a descrição no HISTÓRICO (não
+  // polui a ficha) e cria uma tarefa com prazo = a data escolhida, que cai na
+  // aba Hoje ("A fazer") no dia pra lembrar de marcar de novo.
+  async function updateMarcacaoFutura(remindDate, note) {
+    const oldStage = currentClient.matricula_stage
+    const { error } = await supabase.from('clients')
+      .update({ matricula_stage: 'marcacao_futura' }).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
+    // A descrição vai no event_data do histórico (renderizado na timeline)
+    await logEvent('stage_change', { from: oldStage, to: 'marcacao_futura', note: note?.trim() || null, remind_at: remindDate || null })
+    setCurrentClient(c => ({ ...c, matricula_stage: 'marcacao_futura' }))
+    setEditingStage(false)
+    setPendingFutura(false)
+    fetchHistory()
+
+    const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
+    await supabase.from('tasks').insert({
+      title:     'Tentar marcar de novo — ' + clientLabel,
+      client_id: currentClient.id,
+      seller_id: user.id,
+      completed: false,
+      priority:  'media',
+      due_date:  remindDate || null,
+      notes:     note?.trim() ? ('Marcação futura: ' + note.trim()) : 'Marcação futura — tentar marcar a visita de novo.',
     })
   }
 
@@ -1325,7 +1370,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
                   {Object.entries(STAGES).map(([key, s]) => (
                     <button key={key}
-                      onClick={() => key === 'cancelado' ? setPendingStage('cancelado') : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true)) : updateStage(key)}
+                      onClick={() => key === 'cancelado' ? setPendingStage('cancelado')
+                        : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true))
+                        : key === 'marcacao_futura' ? (setFuturaDate(''), setFuturaNote(''), setPendingFutura(true))
+                        : updateStage(key)}
                       className="text-xs font-semibold rounded-full transition-all"
                       style={{
                         padding: '5px 12px',
@@ -1944,6 +1992,53 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   background: 'rgba(232,131,74,0.12)', color: '#E8834A',
                   border: '1px solid rgba(232,131,74,0.3)', cursor: 'pointer',
                 }}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: marcação futura (data de lembrete + o que aconteceu) ── */}
+      {pendingFutura && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) setPendingFutura(false) }}>
+          <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #303030', width: '100%', maxWidth: '360px', padding: '28px 24px 24px' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(129,140,248,0.14)', border: '1px solid rgba(129,140,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 16px' }}>🔮</div>
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '6px', textAlign: 'center' }}>Marcação futura</p>
+            <p style={{ fontSize: '13px', color: '#6B6560', lineHeight: 1.5, marginBottom: '20px', textAlign: 'center' }}>
+              Quando lembrar de tentar marcar{' '}
+              <span style={{ color: '#EFEFEF', fontWeight: 600 }}>{currentClient.contact_name || currentClient.company_name}</span> de novo?
+            </p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>Lembrar em</p>
+              <input type="date" value={futuraDate} min={localDateStr()}
+                onChange={e => setFuturaDate(e.target.value)}
+                style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '14px', outline: 'none' }} />
+              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Vira uma tarefa na aba Hoje nesse dia.</p>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>O que aconteceu?</p>
+              <textarea value={futuraNote} onChange={e => setFuturaNote(e.target.value)} rows={3}
+                placeholder="Ex: cliente vai reformar e só quer receber a visita em setembro..."
+                style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '13px', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Fica registrado no histórico do cliente.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setPendingFutura(false)}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: '#1A1A1A', color: '#6B6560', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
+                Voltar
+              </button>
+              <button onClick={() => updateMarcacaoFutura(futuraDate, futuraNote)}
+                disabled={!futuraDate}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: 'rgba(129,140,248,0.14)', color: '#818CF8', border: '1px solid rgba(129,140,248,0.35)', cursor: futuraDate ? 'pointer' : 'not-allowed', opacity: futuraDate ? 1 : 0.5 }}>
                 Confirmar
               </button>
             </div>
