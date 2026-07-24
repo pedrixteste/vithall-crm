@@ -385,9 +385,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // Recarrega os dados do registro exibido — refaz ao trocar de cliente
   // (usado pelo histórico do contato, que troca o registro internamente)
   useEffect(() => {
-    fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount()
+    fetchFullClient(); fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentClient.id])
+
+  // Recarrega o CLIENTE completo por id. Várias origens abrem a ficha com um
+  // objeto PARCIAL (a lista "Visitas de hoje" traz só ~6 colunas, o histórico
+  // de telefone idem) — sem isso a ficha aparecia vazia/sem estágio conforme
+  // por onde foi aberta. Buscar a linha inteira garante os mesmos dados sempre.
+  async function fetchFullClient() {
+    if (!currentClient?.id) return
+    const { data } = await supabase.from('clients').select('*').eq('id', currentClient.id).single()
+    if (data) setCurrentClient(c => ({ ...c, ...data }))
+  }
 
   // Após trocar de registro pedindo a estrela, abre-a quando as visitas carregam
   useEffect(() => {
