@@ -1120,6 +1120,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setSavedVisitIds(prev => new Set([...prev, visitId]))
     setSavingRatingId(null)
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...savedRow } : v))
+
+    // Salvou com sucesso → fecha a estrela e volta para a ficha do cliente.
+    // Exceção: retorno presencial com Google conectado ainda mostra o botão
+    // "Adicionar ao Google Agenda" dentro da estrela, então mantém aberta para
+    // a pessoa concluir esse passo.
+    const keepOpenForGoogle = edit.visit_outcome === 'retorno_pessoalmente' && profile?.google_connected
+    if (!keepOpenForGoogle) { setShowRating(false); setSyncAfterSave(null) }
   }
 
   // A estrela é o feedback de quem FAZ a visita: só o vendedor/gerente
@@ -1173,8 +1180,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     h => h.event_type === 'stage_change' && h.event_data?.to === 'nao_apareceu'
   ).length
 
+  // Aviso "cancelou Xx" só conta o que o CLIENTE cancelou. Cancelamento nosso
+  // (by === 'nos') não mancha a ficha. Registros antigos sem `by` continuam
+  // contando (predam a distinção; a intenção deles já era "o cliente desmarcou").
   const cancelCount  = history.filter(
     h => h.event_type === 'stage_change' && h.event_data?.to === 'cancelado'
+      && h.event_data?.by !== 'nos'
   ).length
 
   const stage  = STAGES[currentClient.matricula_stage] || STAGES.nao_marcou

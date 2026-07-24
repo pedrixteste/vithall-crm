@@ -122,6 +122,7 @@ export default function VisitasHojePage() {
   const [editingCallback, setEditingCallback] = useState(null)
   const [taskPanel, setTaskPanel]       = useState(null) // tarefa solta aberta (opções)
   const [taskToDelete, setTaskToDelete] = useState(null) // confirmação de exclusão
+  const [cancelChooser, setCancelChooser] = useState(null) // visitId escolhendo quem cancelou
   const [toConfirm, setToConfirm]       = useState([])
   const [confirmHidden, setConfirmHidden] = useState(false)
   const [todayVisits, setTodayVisits]   = useState([])
@@ -274,11 +275,12 @@ export default function VisitasHojePage() {
   }
 
   // Clicou num botão de resultado → muda o estágio automaticamente (otimista)
-  async function handleStageChange(visit, newStage) {
+  async function handleStageChange(visit, newStage, canceledBy = null) {
     const oldStage = visit.matricula_stage
     if (oldStage === newStage) return
+    setCancelChooser(null)
     setTodayVisits(vs => vs.map(x => x.id === visit.id ? { ...x, matricula_stage: newStage } : x))
-    const { error } = await updateClientStage({ client: visit, newStage, oldStage, userId: user.id, userName: profile?.name })
+    const { error } = await updateClientStage({ client: visit, newStage, oldStage, userId: user.id, userName: profile?.name, canceledBy })
     // Falhou a gravação → desfaz na tela e avisa, senão o botão mostrava um
     // estágio que o banco nunca recebeu
     if (error) {
@@ -446,8 +448,13 @@ export default function VisitasHojePage() {
                   <div className="grid grid-cols-2 gap-2">
                     {STAGE_ACTIONS.map(a => {
                       const active = v.matricula_stage === a.key
+                      // "Cancelada" pergunta antes QUEM cancelou (cliente x nós):
+                      // só o cancelamento do cliente conta para o aviso na ficha.
+                      const onClick = a.key === 'cancelado'
+                        ? () => setCancelChooser(cur => cur === v.id ? null : v.id)
+                        : () => handleStageChange(v, a.key)
                       return (
-                        <button key={a.key} onClick={() => handleStageChange(v, a.key)}
+                        <button key={a.key} onClick={onClick}
                           className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
                           style={active
                             ? { background: a.color, color: '#0A0A0A', border: `1px solid ${a.color}` }
@@ -457,6 +464,25 @@ export default function VisitasHojePage() {
                       )
                     })}
                   </div>
+
+                  {/* Quem cancelou? Só "cliente cancelou" conta no aviso da ficha */}
+                  {cancelChooser === v.id && (
+                    <div className="mt-2 rounded-xl" style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)', padding: '10px' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: '#F97316' }}>Quem cancelou?</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => handleStageChange(v, 'cancelado', 'cliente')}
+                          className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                          style={{ background: 'rgba(232,85,85,0.12)', color: '#E85555', border: '1px solid rgba(232,85,85,0.4)' }}>
+                          Cliente cancelou
+                        </button>
+                        <button onClick={() => handleStageChange(v, 'cancelado', 'nos')}
+                          className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                          style={{ background: 'rgba(107,101,96,0.12)', color: '#B0A99F', border: '1px solid rgba(107,101,96,0.4)' }}>
+                          Cancelamos nós
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )

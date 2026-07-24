@@ -26,7 +26,10 @@ export async function removeMatriculaCredit(clientId) {
 // igual ao fluxo do ClienteDetalhe. Usado pelos botões de resultado da aba "Hoje".
 // Retorna { error }: os botões da aba Hoje mudam o estágio de forma OTIMISTA,
 // então precisam saber se a gravação falhou para desfazer na tela.
-export async function updateClientStage({ client, newStage, oldStage, userId, userName }) {
+// `canceledBy` ('cliente' | 'nos') só se aplica ao estágio 'cancelado': registra
+// no histórico QUEM desmarcou. Só quando o CLIENTE cancela é que conta para o
+// aviso "cancelou Xx" na ficha (cancelamento nosso não mancha o cliente).
+export async function updateClientStage({ client, newStage, oldStage, userId, userName, canceledBy = null }) {
   if (oldStage === newStage) return { error: null }
   const { error } = await supabase.from('clients').update({ matricula_stage: newStage }).eq('id', client.id)
   if (error) return { error }
@@ -35,7 +38,7 @@ export async function updateClientStage({ client, newStage, oldStage, userId, us
     user_id:    userId,
     user_name:  userName || null,
     event_type: 'stage_change',
-    event_data: { from: oldStage, to: newStage },
+    event_data: { from: oldStage, to: newStage, ...(canceledBy ? { by: canceledBy } : {}) },
   })
   if (newStage === 'matriculado')      await creditMatricula(client, userId)
   else if (oldStage === 'matriculado') await removeMatriculaCredit(client.id)
