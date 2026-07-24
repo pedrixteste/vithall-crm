@@ -1318,7 +1318,8 @@ export default function RelatoriosPage() {
                     <span style={{ fontSize: '11px', color: '#6B6560' }}>
                       {new Date(it.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </span>
-                    {it.valor && <span style={{ fontSize: '11px', fontWeight: 700, color: '#C9A84C' }}>R$ {it.valor}</span>}
+                    {/* Valor vendido é do vendedor — pré-vendas não vê */}
+                    {it.valor && profile?.role !== 'pre_vendas' && <span style={{ fontSize: '11px', fontWeight: 700, color: '#C9A84C' }}>R$ {it.valor}</span>}
                   </div>
                   {it.status === 'pendente' && it.nota && (
                     <p style={{ fontSize: '11px', color: '#B0A99F', marginTop: '6px', fontStyle: 'italic', lineHeight: 1.4 }}>"{it.nota}"</p>

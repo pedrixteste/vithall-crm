@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2, Repeat } from 'lucide-react'
+import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2, Repeat, Star } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
@@ -13,7 +13,7 @@ import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
-import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount, fetchAllOpenTasks } from '../lib/visitConfirmation'
+import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount, fetchAllOpenTasks, fetchRecentFeedbacks } from '../lib/visitConfirmation'
 import { localDateStr, urgencyColor, taskIsRecurring, taskDoneToday, taskRecurrenceLabel } from '../lib/utils'
 
 function getGreeting() {
@@ -37,6 +37,14 @@ const PERIOD_OPTIONS = [
   { key: 'custom', label: 'Personalizado' },
   { key: 'max',    label: 'Maximo' },
 ]
+
+// Resultado da estrela (preenchido pelo vendedor) — mostrado ao pré-vendas
+// no "Visitas recentes" para ele ver como foi a visita que marcou.
+const FEEDBACK_OUTCOMES = {
+  matriculada: 'Matriculada 🎉', grandes_chances: 'Grandes chances', chance_futura: 'Chance futura',
+  sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno por ligação', remarcar: 'Remarcar',
+}
+const RATING_LABELS = { pessima: 'Péssima', razoavel: 'Razoável', boa: 'Boa', otima: 'Ótima', nao_teve: 'Não teve' }
 
 // Estilo do status de confirmação da visita (definido por quem marcou)
 const CONFIRMATION_STYLES = {
@@ -239,7 +247,14 @@ export default function Dashboard() {
       retornos: ret.count || 0, visits: v.count || 0, pending: pend, closed: cl.count || 0,
       marcacoes: mc.count || 0, callsToday: somaLogs.calls, answeredToday: somaLogs.answered,
     })
-    setRecentVisits(rv.data || [])
+    // Pré-vendas não faz visita: em vez das visitas "dele", mostra as que ele
+    // MARCOU e o vendedor já avaliou (feedback da estrela). Os demais seguem
+    // vendo as visitas que realizaram.
+    if (profile?.role === 'pre_vendas') {
+      setRecentVisits(await fetchRecentFeedbacks(user.id))
+    } else {
+      setRecentVisits(rv.data || [])
+    }
 
     // Visitas agendadas — apenas para vendedor/gerente
     if (profile?.role !== 'pre_vendas') {
@@ -600,20 +615,51 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Visitas recentes */}
+        {/* Visitas recentes — pré-vendas vê o FEEDBACK das que marcou */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2.5">
               <MapPin size={14} style={{ color: '#C9A84C' }} />
-              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas recentes</span>
+              <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>
+                {profile?.role === 'pre_vendas' ? 'Visitas que marquei' : 'Visitas recentes'}
+              </span>
             </div>
             <Link to="/clientes" className="text-xs font-medium" style={{ color: '#C9A84C' }}>Ver todas</Link>
           </CardHeader>
           {recentVisits.length === 0 ? (
             <div className="text-center" style={{ padding: '48px 0' }}>
               <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
-              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
+              <p className="text-sm" style={{ color: '#333030' }}>
+                {profile?.role === 'pre_vendas' ? 'Nenhuma visita avaliada ainda' : 'Nenhuma visita registrada'}
+              </p>
             </div>
+          ) : profile?.role === 'pre_vendas' ? (
+            <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
+              {recentVisits.map(v => {
+                const c = v.clients || {}
+                return (
+                  <li key={v.id}>
+                    <button onClick={() => setSelectedCliente(c)}
+                      className="w-full text-left transition-all active:opacity-70"
+                      style={{ padding: '16px 24px' }}>
+                      <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name || c.company_name}</p>
+                      {c.company_name && c.contact_name && (
+                        <p className="text-xs truncate" style={{ color: '#6B6560' }}>{c.company_name}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: '#F472B6' }}>
+                          <Star size={11} /> {FEEDBACK_OUTCOMES[v.visit_outcome] || v.visit_outcome || '—'}
+                        </span>
+                        {v.rating && (
+                          <span className="text-[11px]" style={{ color: '#6B6560' }}>· nota {RATING_LABELS[v.rating] || v.rating}</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] mt-1.5" style={{ color: '#2A2A2A' }}>Toque para ver como foi →</p>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           ) : (
             <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
               {recentVisits.map(v => (

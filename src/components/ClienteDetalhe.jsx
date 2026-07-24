@@ -2159,7 +2159,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               </p>
                             </div>
 
-                            {/* Valor da venda */}
+                            {/* Valor da venda — só vendedor/gerente. Pré-vendas
+                                não vê o valor vendido pelo vendedor. */}
+                            {canRate && (
                             <div>
                               <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '6px' }}>
                                 ✱ Valor vendido (R$)
@@ -2179,6 +2181,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 />
                               </div>
                             </div>
+                            )}
 
                             {/* Situação da matrícula — efetivada (padrão) ou
                                 pendente com descrição do que falta */}

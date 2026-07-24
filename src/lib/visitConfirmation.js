@@ -334,6 +334,22 @@ export async function fetchTodayFeedbacks(userId) {
   return data || []
 }
 
+// Visitas que o usuário MARCOU (visit_scheduled_by, fallback created_by) e já
+// foram AVALIADAS pelo vendedor (rated_at preenchido). Usado no "Visitas
+// recentes" do pré-vendas: ele não faz visita, então vê como foi a avaliação
+// das que marcou. NÃO traz outcome_sale_value — pré-vendas não vê o valor.
+export async function fetchRecentFeedbacks(userId, limit = 6) {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('visits')
+    .select('id, rating, visit_outcome, rated_at, visit_date, clients!inner(*)')
+    .not('rated_at', 'is', null)
+    .or(scheduledByMe(userId), { referencedTable: 'clients' })
+    .order('rated_at', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
 // Visitas que o usuário MARCOU (visit_scheduled_by, fallback created_by)
 // e ainda não confirmou, agendadas para HOJE até o próximo dia ÚTIL
 // (na sexta inclui sábado, domingo e segunda — confirmação de segunda é na
