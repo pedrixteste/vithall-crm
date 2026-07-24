@@ -1070,9 +1070,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setVisits(prev => prev.map(v => v.id === visitId ? { ...v, ...savedRow } : v))
   }
 
-  // A estrela é o feedback de quem FAZ a visita: só vendedor/gerente editam.
-  // Pré-vendas abre o painel apenas para visualizar o que foi preenchido.
-  const canRate = profile?.role === 'vendedor' || profile?.role === 'gerente'
+  // A estrela é o feedback de quem FAZ a visita: só o vendedor/gerente
+  // DESIGNADO (assigned_to) edita — nem outro vendedor, nem um gerente que não
+  // é o responsável. Quem marcou define o assigned_to; é ele quem avalia.
+  // Todos os outros (pré-vendas, colegas) abrem o painel só para visualizar.
+  // Alinha com a trava (fetchPendingRatings filtra por assigned_to).
+  const canRate = (profile?.role === 'vendedor' || profile?.role === 'gerente')
+    && currentClient.assigned_to === user.id
 
   // ── Timeline montada (histórico + visitas derivadas + criação) ──
 
