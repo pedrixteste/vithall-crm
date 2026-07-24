@@ -358,6 +358,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [pendingFutura, setPendingFutura] = useState(false) // pop-up "marcação futura"
   const [futuraDate, setFuturaDate]       = useState('')
   const [futuraNote, setFuturaNote]       = useState('')
+  const [futuraRole, setFuturaRole]       = useState(null)  // papel de quem será lembrado
+  const [futuraPerson, setFuturaPerson]   = useState(null)  // pessoa que será lembrada (default: quem marcou)
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [removingReminder, setRemovingReminder] = useState(false)
   const [assignedName, setAssignedName]   = useState(null)
@@ -642,7 +644,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // novo numa data pra tentar marcar. Guarda a descrição no HISTÓRICO (não
   // polui a ficha) e cria uma tarefa com prazo = a data escolhida, que cai na
   // aba Hoje ("A fazer") no dia pra lembrar de marcar de novo.
-  async function updateMarcacaoFutura(remindDate, note) {
+  async function updateMarcacaoFutura(remindDate, note, assigneeId) {
     const oldStage = currentClient.matricula_stage
     const { error } = await supabase.from('clients')
       .update({ matricula_stage: 'marcacao_futura' }).eq('id', currentClient.id)
@@ -654,15 +656,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setPendingFutura(false)
     fetchHistory()
 
+    // Lembrete p/ QUEM foi escolhido (default: quem marcou). A tarefa cai na
+    // aba Hoje da pessoa a partir de ~1 dia antes da data (regra do "A fazer").
+    const assignee = assigneeId || user.id
+    const encaminhada = assignee !== user.id
     const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
     await supabase.from('tasks').insert({
       title:     'Tentar marcar de novo — ' + clientLabel,
       client_id: currentClient.id,
-      seller_id: user.id,
+      seller_id: assignee,
       completed: false,
       priority:  'media',
       due_date:  remindDate || null,
-      notes:     note?.trim() ? ('Marcação futura: ' + note.trim()) : 'Marcação futura — tentar marcar a visita de novo.',
+      notes:     (note?.trim() ? ('Marcação futura: ' + note.trim()) : 'Marcação futura — tentar marcar a visita de novo.')
+                 + (encaminhada ? ` (Encaminhada por ${profile?.name || 'um colega'}.)` : ''),
     })
   }
 
@@ -1372,7 +1379,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                     <button key={key}
                       onClick={() => key === 'cancelado' ? setPendingStage('cancelado')
                         : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true))
-                        : key === 'marcacao_futura' ? (setFuturaDate(''), setFuturaNote(''), setPendingFutura(true))
+                        : key === 'marcacao_futura' ? (setFuturaDate(''), setFuturaNote(''), setFuturaRole(null), setFuturaPerson(null), setPendingFutura(true))
                         : updateStage(key)}
                       className="text-xs font-semibold rounded-full transition-all"
                       style={{
@@ -2020,7 +2027,43 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <input type="date" value={futuraDate} min={localDateStr()}
                 onChange={e => setFuturaDate(e.target.value)}
                 style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '14px', outline: 'none' }} />
-              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Vira uma tarefa na aba Hoje nesse dia.</p>
+              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Aparece na aba Hoje da pessoa ~1 dia antes e no dia.</p>
+            </div>
+
+            {/* Quem será lembrado — igual ao remarcar da estrela. Vazio = quem marcou. */}
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>
+                Quem deve ser lembrado? <span style={{ color: '#3A3A3A', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(padrão: você)</span>
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                {REMARCAR_ROLES.map(r => {
+                  const active = futuraRole === r.key
+                  return (
+                    <button key={r.key} onClick={() => { setFuturaRole(r.key); setFuturaPerson(null) }}
+                      style={{ padding: '9px 6px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', background: active ? `${r.color}22` : '#1A1A1A', color: active ? r.color : '#6B6560', border: `1px solid ${active ? `${r.color}66` : '#303030'}` }}>
+                      {r.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {futuraRole && (() => {
+                const people = teamProfiles.filter(p => p.role === futuraRole)
+                if (people.length === 0) return <p style={{ fontSize: '12px', color: '#6B6560', marginTop: '10px' }}>Ninguém com esse papel.</p>
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+                    {people.map(p => {
+                      const active = futuraPerson === p.id
+                      const nome = (p.name || '').split(' ')[0] || p.name || '—'
+                      return (
+                        <button key={p.id} onClick={() => setFuturaPerson(p.id)}
+                          style={{ padding: '7px 13px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(129,140,248,0.15)' : 'transparent', color: active ? '#818CF8' : '#6B6560', border: `1px solid ${active ? 'rgba(129,140,248,0.45)' : '#2A2A2A'}` }}>
+                          {active ? '✓ ' : ''}{nome}{p.id === user.id ? ' (você)' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -2036,7 +2079,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: '#1A1A1A', color: '#6B6560', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
                 Voltar
               </button>
-              <button onClick={() => updateMarcacaoFutura(futuraDate, futuraNote)}
+              <button onClick={() => updateMarcacaoFutura(futuraDate, futuraNote, futuraPerson)}
                 disabled={!futuraDate}
                 style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: 'rgba(129,140,248,0.14)', color: '#818CF8', border: '1px solid rgba(129,140,248,0.35)', cursor: futuraDate ? 'pointer' : 'not-allowed', opacity: futuraDate ? 1 : 0.5 }}>
                 Confirmar

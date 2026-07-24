@@ -551,11 +551,16 @@ export default function VisitasHojePage() {
             const overdue = t.due_date && t.due_date < localDateStr()
             const uColor  = urgencyColor(t.urgency)
             const repete  = taskRecurrenceLabel(t)
+            // Tarefa de "marcação futura" (lembrar de marcar de novo) — roxo,
+            // pra destacar das outras tarefas. Detecta pelo título gerado.
+            const futura  = t.title?.startsWith('Tentar marcar de novo')
+            const barra   = futura ? '#818CF8' : '#E8834A'
             return (
               <div key={t.id} className="rounded-2xl flex items-center gap-3"
-                style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
+                style={{ background: '#161616', border: `1px solid ${overdue ? 'rgba(232,85,85,0.3)' : '#252525'}`, borderLeft: `3px solid ${barra}`, padding: '14px 16px' }}>
                 <button onClick={() => t.clients ? setSelected(t.clients) : setTaskPanel(t)} className="flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-2">
+                    {futura && <span style={{ fontSize: '13px', flexShrink: 0 }}>🔮</span>}
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
                     {typeof t.urgency === 'number' && (
                       <span className="text-[10px] font-bold rounded-full flex-shrink-0" style={{ padding: '1px 7px', background: `${uColor}1a`, color: uColor, border: `1px solid ${uColor}55` }}>
