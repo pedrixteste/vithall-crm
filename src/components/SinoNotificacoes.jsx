@@ -133,13 +133,16 @@ export default function SinoNotificacoes() {
                 </div>
               ) : itens.map(n => {
                 const nova = novasNaAbertura.has(n.id)
+                // Os títulos vindos das functions já começam com emoji ("📅 Nova
+                // visita agendada") — aí o ícone do tipo sairia duplicado.
+                const icone = /^\p{Extended_Pictographic}/u.test(n.title) ? null : (ICONE[n.kind] || '🔔')
                 return (
                   <button key={n.id} onClick={() => tocar(n)}
                     className="w-full text-left px-4 py-3 border-b transition-all"
                     style={{ borderColor: '#161616', background: nova ? 'rgba(201,168,76,0.05)' : 'transparent',
                              cursor: n.url ? 'pointer' : 'default' }}>
                     <div className="flex items-start gap-2.5">
-                      <span className="text-base leading-none mt-0.5">{ICONE[n.kind] || '🔔'}</span>
+                      {icone && <span className="text-base leading-none mt-0.5">{icone}</span>}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold truncate"
