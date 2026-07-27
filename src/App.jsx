@@ -1,18 +1,24 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { RatingsGateProvider, useRatingsGate } from './contexts/RatingsGateContext'
 import LoginPage from './pages/LoginPage'
-import Dashboard from './pages/Dashboard'
-import ClientesPage from './pages/ClientesPage'
-import PipelinePage from './pages/PipelinePage'
-import PerfilPage from './pages/PerfilPage'
-import EquipePage from './pages/EquipePage'
-import RelatoriosPage from './pages/RelatoriosPage'
-import LigacoesPage from './pages/LigacoesPage'
-import VisitasHojePage from './pages/VisitasHojePage'
-import AgendaPage from './pages/AgendaPage'
-import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import Layout from './components/Layout'
+
+// Cada tela vira um arquivo separado, baixado só quando a pessoa abre aquela
+// aba. Antes o app baixava TUDO de uma vez (Relatórios, Ligações, Agenda...)
+// antes de mostrar a primeira tela — pesado em celular fraco e internet ruim.
+// O Login fica junto do principal de propósito: é a primeira coisa que abre.
+const Dashboard          = lazy(() => import('./pages/Dashboard'))
+const ClientesPage       = lazy(() => import('./pages/ClientesPage'))
+const PipelinePage       = lazy(() => import('./pages/PipelinePage'))
+const PerfilPage         = lazy(() => import('./pages/PerfilPage'))
+const EquipePage         = lazy(() => import('./pages/EquipePage'))
+const RelatoriosPage     = lazy(() => import('./pages/RelatoriosPage'))
+const LigacoesPage       = lazy(() => import('./pages/LigacoesPage'))
+const VisitasHojePage    = lazy(() => import('./pages/VisitasHojePage'))
+const AgendaPage         = lazy(() => import('./pages/AgendaPage'))
+const GoogleCallbackPage = lazy(() => import('./pages/GoogleCallbackPage'))
 
 function Spinner() {
   return (
@@ -104,7 +110,10 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <RatingsGateProvider>
-          <AppRoutes />
+          {/* Enquanto o pedaço da tela baixa, mostra o mesmo spinner de sempre */}
+          <Suspense fallback={<Spinner />}>
+            <AppRoutes />
+          </Suspense>
         </RatingsGateProvider>
       </AuthProvider>
     </BrowserRouter>

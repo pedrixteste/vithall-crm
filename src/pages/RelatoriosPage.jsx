@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { generateReportHTML } from '../lib/reportExport'
+// O gerador do relatório (HTML completo + Destaques) só é usado ao exportar —
+// carregado sob demanda para não pesar quem só abre a tela pra ver os números.
 import { localDateStr } from '../lib/utils'
 import RelatoriosListas from '../components/RelatoriosListas'
 
@@ -674,7 +675,7 @@ export default function RelatoriosPage() {
 
   // ── Exportar relatório ─────────────────────────────────────────────
 
-  function handleExport() {
+  async function handleExport() {
     let exportProfiles = []
     if (exportScope === 'all') {
       exportProfiles = profiles.filter(p => p.role !== 'gerente')
@@ -729,6 +730,7 @@ export default function RelatoriosPage() {
       })
     }
 
+    const { generateReportHTML } = await import('../lib/reportExport')
     const html = generateReportHTML({
       scope:       exportScope,
       members,

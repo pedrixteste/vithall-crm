@@ -8,6 +8,7 @@ import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import { CONFIRMATION_INFO, NO_SHOW_RATING } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
+import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
@@ -407,6 +408,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     fetchFullClient(); fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentClient.id])
+
+  // Voltou pro app com a ficha aberta → busca de novo, senão ela mostraria o
+  // que um colega mudou só depois de fechar e abrir o app.
+  // NÃO recarrega com a estrela ou a edição abertas: o que está sendo digitado
+  // ali ainda não foi salvo e seria trocado por baixo da pessoa.
+  useRefreshOnFocus(() => {
+    if (showRating || showEdit) return
+    fetchFullClient(); fetchVisits(); fetchTasks(); fetchHistory()
+  })
 
   // Recarrega o CLIENTE completo por id. Várias origens abrem a ficha com um
   // objeto PARCIAL (a lista "Visitas de hoje" traz só ~6 colunas, o histórico

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Badge } from '../components/ui/Badge'
-import ClienteDetalhe from '../components/ClienteDetalhe'
+import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 

@@ -8,13 +8,14 @@ import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
 import TaskQuickForm from '../components/TaskQuickForm'
 import AddChooser from '../components/AddChooser'
-import ClienteDetalhe from '../components/ClienteDetalhe'
+import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
 import { requestNotificationPermission, scheduleTodayReminders } from '../lib/reminders'
 import { initOneSignal, syncPushIfGranted } from '../lib/onesignal'
 import { getValidToken, createCalendarEvent, buildEventSummary, buildEventDescription } from '../lib/googleCalendar'
 import { fetchVisitsToConfirm, fetchTodayVisits, fetchPendingCount, fetchAllOpenTasks, fetchBookedVisitFeedbacks } from '../lib/visitConfirmation'
 import { localDateStr, urgencyColor, taskIsRecurring, taskDoneToday, taskRecurrenceLabel } from '../lib/utils'
+import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -165,6 +166,13 @@ export default function Dashboard() {
     if (period === 'custom' && !customFrom) return
     fetchData()
   }, [period, customFrom, customTo, profile])
+
+  // Voltou pro app → atualiza os números do dia sem precisar recarregar a página
+  useRefreshOnFocus(() => {
+    if (!profile) return
+    if (period === 'custom' && !customFrom) return
+    fetchData()
+  })
 
   async function setupReminders() {
     initOneSignal()

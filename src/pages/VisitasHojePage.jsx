@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil, Repeat } from 'lucide-react'
-import ClienteDetalhe from '../components/ClienteDetalhe'
+import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
@@ -13,6 +13,7 @@ import {
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
 import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel } from '../lib/utils'
+import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
 // Botões de resultado da visita (mudam o estágio automaticamente ao clicar)
@@ -146,6 +147,9 @@ export default function VisitasHojePage() {
   const isVisitor = profile?.role === 'vendedor' || profile?.role === 'gerente'
 
   useEffect(() => { fetchData() }, [profile])
+
+  // Voltou pro app → busca de novo (confirmações e tarefas mudam o dia inteiro)
+  useRefreshOnFocus(fetchData)
 
   async function fetchData() {
     if (!user?.id) return

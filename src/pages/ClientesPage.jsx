@@ -6,12 +6,13 @@ import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
 import TaskQuickForm from '../components/TaskQuickForm'
 import AddChooser from '../components/AddChooser'
-import ClienteDetalhe from '../components/ClienteDetalhe'
+import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import { Card } from '../components/ui/Card'
 import { STAGE_BADGES } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
 import { phoneDigits, allPhones, allPhoneDigits } from '../lib/utils'
+import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 
 const OUTCOME_OPTIONS = [
   { key: 'matriculada',          label: 'Matriculada',        icon: '✅', color: '#4ADE80' },
@@ -86,6 +87,9 @@ export default function ClientesPage() {
   }, [profile])
 
   useEffect(() => { fetchClients() }, [profile])
+
+  // Voltou pro app → relê a lista (estágio/badge podem ter mudado)
+  useRefreshOnFocus(fetchClients)
 
   // /clientes?open=<id> abre a ficha do cliente direto (usado pelo pop-up de
   // "número já registrado" do cadastro)
