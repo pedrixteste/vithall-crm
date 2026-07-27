@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { User, LogOut, Check, Calendar, Unlink, Smartphone, Bell } from 'lucide-react'
+import { User, LogOut, Check, Calendar, Unlink, Smartphone, Bell, Send } from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getGoogleAuthUrl, clearGoogleTokens } from '../lib/googleCalendar'
 import { enablePushNotifications, getNotificationPermission, reactivatePush } from '../lib/onesignal'
 import { colorInfo, GOOGLE_EVENT_COLORS } from '../lib/calendarColors'
+import { TELEGRAM_BOT, linkConectarTelegram } from '../lib/telegram'
+import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 
 export default function PerfilPage() {
   const { profile: authProfile, signOut, user } = useAuth()
@@ -43,11 +45,26 @@ export default function PerfilPage() {
     if (!id) alert('Não consegui reativar. Feche o app, abra de novo e tente; se persistir, limpe os dados do site no navegador.')
   }
 
-  useEffect(() => {
+  const recarregarPerfil = useCallback(() => {
     if (!user?.id) return
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [user?.id])
+
+  useEffect(() => { recarregarPerfil() }, [recarregarPerfil])
+  // A pessoa sai para o Telegram, aperta "Iniciar" e volta. Recarregar ao
+  // voltar é o que faz o cartão virar "Conectado" sozinho, sem ela precisar
+  // fechar e abrir o app para entender se deu certo.
+  useRefreshOnFocus(recarregarPerfil)
+
+  const telegramOk = !!freshProfile?.telegram_chat_id
+  const [desligandoTg, setDesligandoTg] = useState(false)
+  async function desconectarTelegram() {
+    setDesligandoTg(true)
+    await supabase.from('profiles').update({ telegram_chat_id: null }).eq('id', user.id)
+    recarregarPerfil()
+    setDesligandoTg(false)
+  }
 
   useEffect(() => {
     const onReady = () => setCanInstall(true)
@@ -312,6 +329,50 @@ export default function PerfilPage() {
               {reactivating ? 'Reativando...' : reactivated ? '✓ Reativado — teste agora' : 'Não está recebendo? Reativar'}
             </button>
           )}
+          {/* Telegram — o canal que chega na hora.
+              O push do navegador não consegue acordar o celular quando ele
+              entra em soneca; mensagem de Telegram consegue, e nunca é
+              descartada. Só aparece depois que o robô estiver criado. */}
+          {TELEGRAM_BOT && (
+            <div className="rounded-xl" style={{ padding: '14px', background: '#111', border: '1px solid #1C1C1C' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <Send size={15} style={{ color: telegramOk ? '#4ADE80' : '#22D3EE', flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>
+                    Avisos pelo Telegram
+                  </p>
+                  <p style={{ fontSize: '11px', color: telegramOk ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+                    {telegramOk
+                      ? 'Conectado — seus avisos chegam lá na hora certa'
+                      : 'Chega mesmo com o celular parado há horas'}
+                  </p>
+                </div>
+              </div>
+
+              {telegramOk ? (
+                <button onClick={desconectarTelegram} disabled={desligandoTg}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '12px',
+                    fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                    background: 'transparent', color: '#6B6560', border: '1px solid #252525',
+                  }}>
+                  {desligandoTg ? 'Desconectando...' : 'Desconectar'}
+                </button>
+              ) : (
+                <a href={linkConectarTelegram(user?.id)} target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    width: '100%', padding: '12px', borderRadius: '12px', textDecoration: 'none',
+                    fontSize: '13px', fontWeight: 600,
+                    background: 'rgba(34,211,238,0.1)', color: '#22D3EE',
+                    border: '1px solid rgba(34,211,238,0.3)',
+                  }}>
+                  <Send size={14} /> Conectar Telegram
+                </a>
+              )}
+            </div>
+          )}
+
           {pushPerm === 'denied' && (
             <div className="rounded-xl" style={{ padding: '12px 14px', background: '#111', border: '1px solid #1C1C1C' }}>
               <p style={{ fontSize: '12px', color: '#B0A99F', lineHeight: 1.6 }}>

@@ -28,10 +28,34 @@ const NTFY_TOPICS: Record<string, string> = (() => {
   try { return JSON.parse(Deno.env.get('NTFY_TOPICS') || '{}') } catch { return {} }
 })()
 
+const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || ''
+const escaparHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+// Telegram: chega na hora (FCM nativo acorda o aparelho) e nunca é
+// descartado, ao contrário do push do PWA. Conversa privada, então leva o
+// conteúdo completo. Só recebe quem conectou pelo Perfil.
+async function enviarTelegram(userId: string, title: string, body: string, rota: string) {
+  if (!TELEGRAM_BOT_TOKEN) return
+  const { data } = await sbNotif.from('profiles').select('telegram_chat_id').eq('id', userId).single()
+  if (!data?.telegram_chat_id) return
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: data.telegram_chat_id,
+      text: `<b>${escaparHtml(title)}</b>\n${escaparHtml(body)}`,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: 'Abrir no app', url: APP + rota }]] },
+    }),
+  })
+}
+
 async function registrarNoSino(userId: string, title: string, body: string, rota: string, kind: string) {
   try {
     await sbNotif.from('notifications').insert({ user_id: userId, title, body, url: rota, kind })
   } catch { /* o sino falhar não pode derrubar o push */ }
+
+  try { await enviarTelegram(userId, title, body, rota) } catch { /* canal extra é bônus */ }
 
   const topic = NTFY_TOPICS[userId]
   if (!topic) return

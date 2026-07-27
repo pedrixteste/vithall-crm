@@ -45,11 +45,40 @@ const AVISO_GENERICO: Record<string, string> = {
   recorde:  'Você tem uma novidade boa no app.',
 }
 
+const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || ''
+const escaparHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+// Telegram: o canal que chega NA HORA. Push de PWA não consegue acordar o
+// Chrome quando o Android entra em soneca (limitação da plataforma), e o
+// OneSignal DESCARTA o que não entregou dentro do ttl. Mensagem de Telegram
+// chega por FCM nativo — acorda o aparelho como qualquer app de mensagem — e
+// nunca é descartada: fica no servidor até o celular conectar.
+//
+// A conversa é privada, então aqui vai o conteúdo COMPLETO (ao contrário do
+// ntfy, cujo tópico é público). Só recebe quem conectou pelo Perfil.
+async function enviarTelegram(userId: string, title: string, body: string, rota: string) {
+  if (!TELEGRAM_BOT_TOKEN) return
+  const { data } = await sb.from('profiles').select('telegram_chat_id').eq('id', userId).single()
+  if (!data?.telegram_chat_id) return
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: data.telegram_chat_id,
+      text: `<b>${escaparHtml(title)}</b>\n${escaparHtml(body)}`,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: 'Abrir no app', url: APP + rota }]] },
+    }),
+  })
+}
+
 async function registrarNoSino(userId: string, title: string, body: string, rota: string, kind: string) {
   // Nem o sino nem o canal externo podem derrubar o push: são complementos.
   try {
     await sb.from('notifications').insert({ user_id: userId, title, body, url: rota, kind })
   } catch { /* segue o jogo */ }
+
+  try { await enviarTelegram(userId, title, body, rota) } catch { /* canal extra é bônus */ }
 
   const topic = NTFY_TOPICS[userId]
   if (!topic) return
