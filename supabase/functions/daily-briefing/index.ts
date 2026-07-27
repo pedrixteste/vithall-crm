@@ -19,6 +19,54 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+const APP = 'https://vithall-crm.vercel.app'
+
+// ── Sino do app + canal externo ─────────────────────────────────────
+// O OneSignal pode despachar e o aparelho não exibir: em 27/jul a Amanda
+// não recebeu este "Bom dia" com o OneSignal confirmando o envio (Android
+// agressivo com bateria engole o push do PWA). Então toda notificação
+// também é GRAVADA no sino do app — que passa a ser a fonte da verdade —
+// e opcionalmente espelhada num canal externo.
+//
+// NTFY_TOPICS é um secret com { "<user_id>": "<topico>" }, só para quem
+// tem celular problemático. Sem o secret, nada muda.
+const NTFY_TOPICS: Record<string, string> = (() => {
+  try { return JSON.parse(Deno.env.get('NTFY_TOPICS') || '{}') } catch { return {} }
+})()
+
+// ⚠️ Tópico do ntfy.sh é PÚBLICO — quem souber o nome lê tudo que passa.
+// Por isso a mensagem externa não leva nome de cliente, telefone, número
+// nem o nome da pessoa: ela só avisa que EXISTE algo. O conteúdo fica
+// atrás do login do app.
+const AVISO_GENERICO: Record<string, string> = {
+  briefing: 'Seu resumo do dia chegou.',
+  recorde:  'Você tem uma novidade boa no app.',
+}
+
+async function registrarNoSino(userId: string, title: string, body: string, rota: string, kind: string) {
+  // Nem o sino nem o canal externo podem derrubar o push: são complementos.
+  try {
+    await sb.from('notifications').insert({ user_id: userId, title, body, url: rota, kind })
+  } catch { /* segue o jogo */ }
+
+  const topic = NTFY_TOPICS[userId]
+  if (!topic) return
+  try {
+    await fetch('https://ntfy.sh', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic,
+        title: 'Vithall CRM',
+        message: AVISO_GENERICO[kind] || 'Você tem uma notificação.',
+        click: APP + rota,
+        priority: 4,
+      }),
+    })
+  } catch { /* canal extra é bônus */ }
+}
+
 // ── Datas em horário de Brasília ────────────────────────────────────
 // O Deno roda em UTC; o negócio é BRT (-3). Sem esse deslocamento, entre
 // 21h e 00h o "hoje" do robô viraria o "amanhã" da equipe.
@@ -126,8 +174,6 @@ serve(async (req) => {
         { headers: { ...cors, 'Content-Type': 'application/json' } })
     }
 
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
     const todayStr = dateStr(today)
     const windowEnd = new Date(today)
     windowEnd.setUTCDate(windowEnd.getUTCDate() + daysAheadWindow(today))
@@ -164,7 +210,7 @@ serve(async (req) => {
     const results: any[] = []
     // Recordes do dia — replicados p/ os gerentes depois do laço, para eles
     // saberem que a pessoa bateu e que ela já foi avisada.
-    const recordes: { nome: string, texto: string }[] = []
+    const recordes: any[] = []
 
     for (const p of profiles) {
       if (onlyUser && p.id !== onlyUser) continue
@@ -305,6 +351,7 @@ serve(async (req) => {
         }
         if (escopoRecorde) {
           recordes.push({
+            userId: p.id,
             playerId: p.onesignal_player_id,
             nome: p.name || '—',
             rotulo,
@@ -337,6 +384,7 @@ serve(async (req) => {
       results.push({ user: p.name, heading, content, pending })
 
       if (!dryRun) {
+        await registrarNoSino(p.id, heading, content, '/agenda', 'briefing')
         const push = await fetch('https://onesignal.com/api/v1/notifications', {
           method: 'POST',
           headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
@@ -371,8 +419,9 @@ serve(async (req) => {
     // chegou como parabéns pessoal.
     // ⚠️ Com muitos gerentes isso vira N×M notificações; revisar se a equipe crescer.
     if (slot === 'morning' && recordes.length) {
-      const enviar = async (playerId: string, heading: string, content: string, quem: string) => {
+      const enviar = async (userId: string, playerId: string, heading: string, content: string, quem: string) => {
         if (dryRun) { results.push({ user: quem, heading, content, recorde: true }); return }
+        await registrarNoSino(userId, heading, content, '/relatorios', 'recorde')
         const push = await fetch('https://onesignal.com/api/v1/notifications', {
           method: 'POST',
           headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
@@ -397,12 +446,12 @@ serve(async (req) => {
       const gerentes = profiles.filter(x => x.role === 'gerente')
       for (const r of recordes) {
         const quando = lastDay.getUTCDay() === 5 && today.getUTCDay() === 1 ? 'Na sexta' : 'Ontem'
-        await enviar(r.playerId, `🏆 Recorde ${r.escopo}!`,
+        await enviar(r.userId, r.playerId, `🏆 Recorde ${r.escopo}!`,
           `${quando} você fez ${r.rotulo} — seu melhor dia ${r.escopo}. Parabéns!`, r.nome)
 
         for (const g of gerentes) {
           if (g.name === r.nome) continue // já recebeu o parabéns pessoal
-          await enviar(g.onesignal_player_id, '🏆 Recorde na equipe',
+          await enviar(g.id, g.onesignal_player_id, '🏆 Recorde na equipe',
             `${r.nome} fez ${r.rotulo} — melhor dia ${r.escopo}. Já foi avisado(a).`, `${g.name} (sobre ${r.nome})`)
         }
       }

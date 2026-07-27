@@ -43,7 +43,61 @@ function callbackDueToday(cfg: any, hoje: Date) {
   return false
 }
 
-async function push(playerId: string, heading: string, content: string, url: string) {
+const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+const APP = 'https://vithall-crm.vercel.app'
+
+// ── Sino do app + canal externo ─────────────────────────────────────
+// O push do OneSignal pode ser despachado e o aparelho não exibir: em
+// 27/jul a Amanda não recebeu o "Bom dia" com o OneSignal confirmando o
+// envio (Android agressivo com bateria engole o push do PWA). Então toda
+// notificação também é GRAVADA no sino do app — que passa a ser a fonte
+// da verdade — e opcionalmente espelhada num canal externo.
+//
+// NTFY_TOPICS é um secret com { "<user_id>": "<topico>" }, só para quem
+// tem celular problemático. Sem o secret, nada muda.
+const NTFY_TOPICS: Record<string, string> = (() => {
+  try { return JSON.parse(Deno.env.get('NTFY_TOPICS') || '{}') } catch { return {} }
+})()
+
+// ⚠️ Tópico do ntfy.sh é PÚBLICO — quem souber o nome lê tudo que passa.
+// Por isso a mensagem externa não leva nome de cliente, telefone, número
+// nem o nome da pessoa: ela só avisa que EXISTE algo. O conteúdo fica
+// atrás do login do app.
+const AVISO_GENERICO: Record<string, string> = {
+  briefing: 'Seu resumo do dia chegou.',
+  recorde:  'Você tem uma novidade boa no app.',
+  visita:   'Novidade em uma visita.',
+  estrela:  'Tem avaliação de visita esperando.',
+  lembrete: 'Você tem um lembrete agora.',
+  tarefa:   'Você tem uma tarefa agora.',
+}
+
+async function registrarNoSino(userId: string, title: string, body: string, rota: string, kind: string) {
+  // Nem o sino nem o canal externo podem derrubar o push: são complementos.
+  try {
+    await sb.from('notifications').insert({ user_id: userId, title, body, url: rota, kind })
+  } catch { /* segue o jogo */ }
+
+  const topic = NTFY_TOPICS[userId]
+  if (!topic) return
+  try {
+    await fetch('https://ntfy.sh', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic,
+        title: 'Vithall CRM',
+        message: AVISO_GENERICO[kind] || 'Você tem uma notificação.',
+        click: APP + rota,
+        priority: 4,
+      }),
+    })
+  } catch { /* canal extra é bônus */ }
+}
+
+async function push(p: any, heading: string, content: string, rota: string, kind: string) {
+  await registrarNoSino(p.id, heading, content, rota, kind)
+  const url = APP + rota
   const r = await fetch('https://onesignal.com/api/v1/notifications', {
     method: 'POST',
     headers: { Authorization: OS_AUTH, 'Content-Type': 'application/json' },
@@ -77,8 +131,6 @@ serve(async (req) => {
     const hoje  = dateStr(agora)
     const dow   = agora.getUTCDay()
     const hora  = agora.getUTCHours()
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
     const [profRes, cbRes, cliRes, logRes, taskRes] = await Promise.all([
       sb.from('profiles').select('id, name, role, onesignal_player_id').not('onesignal_player_id', 'is', null),
       sb.from('callbacks').select('id, created_by, contact_name, company_name, phone, reminder_config, done').eq('done', false),
@@ -110,7 +162,7 @@ serve(async (req) => {
       const min = Math.max(1, Math.round((quando.getTime() - agora.getTime()) / 60000))
       const heading = `⏰ Ligar em ${min} min`
       const content = `${nome}${sub ? ` — ${sub}` : ''} (${hhmm(quando)})`
-      const res = dryRun ? null : await push(p.onesignal_player_id, heading, content, 'https://vithall-crm.vercel.app/agenda')
+      const res = dryRun ? null : await push(p, heading, content, '/agenda', 'lembrete')
       enviados.push({ user: p.name, tipo: 'ligacao', heading, content, res })
       await registrar(userId, 'callback', ref)
     }
@@ -139,7 +191,7 @@ serve(async (req) => {
       if (!p || jaMandou(userId, 'task', ref)) return
       const min = Math.max(1, Math.round((quando.getTime() - agora.getTime()) / 60000))
       const heading = `✅ Tarefa em ${min} min`
-      const res = dryRun ? null : await push(p.onesignal_player_id, heading, titulo, 'https://vithall-crm.vercel.app/')
+      const res = dryRun ? null : await push(p, heading, titulo, '/', 'tarefa')
       enviados.push({ user: p.name, tipo: 'tarefa', heading, content: titulo, res })
       await registrar(userId, 'task', ref)
     }
@@ -205,8 +257,8 @@ serve(async (req) => {
 
         const heading = '⭐ Preencha as informações das suas visitas de hoje!'
         const content = `${faltam} ${faltam === 1 ? 'visita ainda sem avaliação' : 'visitas ainda sem avaliação'}.`
-        const res = dryRun ? null : await push(p.onesignal_player_id, heading, content,
-          'https://vithall-crm.vercel.app/agenda?view=produzido')
+        const res = dryRun ? null : await push(p, heading, content,
+          '/agenda?view=produzido', 'estrela')
         enviados.push({ user: p.name, tipo: 'estrela', heading, content, faltam, res })
         await registrar(p.id, 'visit_rating', `${hoje}#${meus.length + 1}`)
       }
@@ -227,8 +279,8 @@ serve(async (req) => {
         if (!incompletas.length) continue
         const heading = '🔒 Avaliações pendentes'
         const content = `${incompletas.length} ${incompletas.length === 1 ? 'visita' : 'visitas'} sem avaliação travam o app até você preencher.`
-        const res = dryRun ? null : await push(p.onesignal_player_id, heading, content,
-          'https://vithall-crm.vercel.app/agenda')
+        const res = dryRun ? null : await push(p, heading, content,
+          '/agenda', 'estrela')
         enviados.push({ user: p.name, tipo: 'trava', heading, content, res })
         await registrar(p.id, 'visit_rating_trava', hoje)
       }

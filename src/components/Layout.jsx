@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LayoutDashboard, Users, UserCircle, Users2, BarChart2, Phone, CalendarDays, CalendarClock } from 'lucide-react'
+import SinoNotificacoes from './SinoNotificacoes'
 
 // "Hoje" fica em 2ª posição (ao lado do Dashboard) para todos os perfis
 const BASE_NAV = [
@@ -54,6 +55,7 @@ export default function Layout({ children }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <SinoNotificacoes />
           <Link to="/perfil"
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all"
             style={{ background: '#1A1A1A', border: '1px solid #252525' }}>
