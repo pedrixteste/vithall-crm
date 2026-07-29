@@ -213,7 +213,10 @@ serve(async (req) => {
     // Uma leitura de cada tabela; o agrupamento por pessoa é feito aqui.
     // A equipe é pequena, então isso é mais barato que N consultas por pessoa.
     const [profilesRes, clientsRes, callbacksRes, tasksRes, logsRes, creditsRes, visitsRes, sentRes] = await Promise.all([
-      sb.from('profiles').select('id, name, role, onesignal_player_id').not('onesignal_player_id', 'is', null),
+      // ⚠️ NÃO filtrar por onesignal_player_id: desde que existe o Telegram,
+      // quem conectou só por lá (ou que só usa o sino) ficaria de fora do
+      // briefing inteiro, calado. O push é pulado adiante quando não há id.
+      sb.from('profiles').select('id, name, role, onesignal_player_id, briefing_equipe'),
       sb.from('clients').select('id, created_by, assigned_to, visit_scheduled_by, visit_scheduled_at, visit_confirmation, reminder_config, matricula_stage, call_back_at, created_at'),
       sb.from('callbacks').select('created_by, reminder_config, done'),
       sb.from('tasks').select('seller_id, completed, due_date, reminder_config'),
@@ -237,12 +240,16 @@ serve(async (req) => {
     for (const c of clients) clientById[c.id] = c
 
     const results: any[] = []
+    // Uma linha por pessoa para o resumo da equipe (contas com `briefing_equipe`).
+    const linhasEquipe: any[] = []
     // Recordes do dia — replicados p/ os gerentes depois do laço, para eles
     // saberem que a pessoa bateu e que ela já foi avisada.
     const recordes: any[] = []
 
     for (const p of profiles) {
-      if (onlyUser && p.id !== onlyUser) continue
+      // `onlyUser` restringe só o ENVIO, não o cálculo: o resumo da equipe
+      // precisa das linhas de todo mundo mesmo num teste para uma pessoa.
+      const podeEnviar = !onlyUser || p.id === onlyUser
       const isSeller = p.role === 'vendedor' || p.role === 'gerente'
       // Quem marcou a visita atual (registros antigos caem no created_by)
       const scheduledByMe = (c: any) =>
@@ -396,6 +403,18 @@ serve(async (req) => {
           ? `${lastDay.getUTCDay() === 5 && today.getUTCDay() === 1 ? 'Na sexta' : 'Ontem'}: ${feitos.join(', ')}.`
           : ''
         content = [recap, pendFrase ? `Hoje: ${pendFrase}` : ''].filter(Boolean).join(' ')
+
+        // Linha desta pessoa no resumo da equipe — coletada ANTES do corte de
+        // "nada a dizer", porque no resumo até o dia zerado é informação.
+        // A própria conta supervisora fica de fora (não se supervisiona).
+        if (!p.briefing_equipe) {
+          linhasEquipe.push({
+            nome: primeiro || p.name || '—',
+            feitos: feitos.join(', '),
+            pend: pendFrase,
+          })
+        }
+
         if (!content) continue // nada a dizer: não notifica
       } else {
         const tinhaDeManha = (morningBy[p.id] || 0) > 0
@@ -410,31 +429,37 @@ serve(async (req) => {
         }
       }
 
+      if (!podeEnviar) continue
+
       results.push({ user: p.name, heading, content, pending })
 
       if (!dryRun) {
         await registrarNoSino(p.id, heading, content, '/agenda', 'briefing')
-        const push = await fetch('https://onesignal.com/api/v1/notifications', {
-          method: 'POST',
-          headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            app_id: ONESIGNAL_APP_ID,
-            include_player_ids: [p.onesignal_player_id],
-            headings: { pt: heading, en: heading },
-            contents: { pt: content, en: content },
-            // Android põe o app em sono profundo de madrugada e engole o push
-            // do service worker — prioridade alta pede pro FCM acordar o
-            // aparelho. TTL de 4h: se não der pra entregar, um "Bom dia" que
-            // chega à noite é pior que nenhum.
-            priority: 10,
-            ttl: 14400,
-            url: 'https://vithall-crm.vercel.app/agenda',
-          }),
-        })
-        // O OneSignal responde 200 mesmo quando não entrega (inscrição morta,
-        // por exemplo) — o motivo vem no corpo, então ele precisa ser lido.
-        const resp = await push.json().catch(() => ({}))
-        results[results.length - 1].onesignal = { status: push.status, ...resp }
+        // Sem inscrição de push a pessoa segue recebendo pelo sino e pelo
+        // Telegram — o OneSignal é que fica de fora, não ela.
+        if (p.onesignal_player_id) {
+          const push = await fetch('https://onesignal.com/api/v1/notifications', {
+            method: 'POST',
+            headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              app_id: ONESIGNAL_APP_ID,
+              include_player_ids: [p.onesignal_player_id],
+              headings: { pt: heading, en: heading },
+              contents: { pt: content, en: content },
+              // Android põe o app em sono profundo de madrugada e engole o push
+              // do service worker — prioridade alta pede pro FCM acordar o
+              // aparelho. TTL de 4h: se não der pra entregar, um "Bom dia" que
+              // chega à noite é pior que nenhum.
+              priority: 10,
+              ttl: 14400,
+              url: 'https://vithall-crm.vercel.app/agenda',
+            }),
+          })
+          // O OneSignal responde 200 mesmo quando não entrega (inscrição morta,
+          // por exemplo) — o motivo vem no corpo, então ele precisa ser lido.
+          const resp = await push.json().catch(() => ({}))
+          results[results.length - 1].onesignal = { status: push.status, ...resp }
+        }
         await sb.from('briefing_log').upsert({
           user_id: p.id, log_date: todayStr, slot, pending_count: pending,
         }, { onConflict: 'user_id,log_date,slot' })
@@ -449,8 +474,10 @@ serve(async (req) => {
     // ⚠️ Com muitos gerentes isso vira N×M notificações; revisar se a equipe crescer.
     if (slot === 'morning' && recordes.length) {
       const enviar = async (userId: string, playerId: string, heading: string, content: string, quem: string) => {
+        if (onlyUser && userId !== onlyUser) return // teste restrito a uma pessoa
         if (dryRun) { results.push({ user: quem, heading, content, recorde: true }); return }
         await registrarNoSino(userId, heading, content, '/relatorios', 'recorde')
+        if (!playerId) { results.push({ user: quem, heading, content, recorde: true, onesignal: 'sem inscrição' }); return }
         const push = await fetch('https://onesignal.com/api/v1/notifications', {
           method: 'POST',
           headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
@@ -482,6 +509,51 @@ serve(async (req) => {
           if (g.name === r.nome) continue // já recebeu o parabéns pessoal
           await enviar(g.id, g.onesignal_player_id, '🏆 Recorde na equipe',
             `${r.nome} fez ${r.rotulo} — melhor dia ${r.escopo}. Já foi avisado(a).`, `${g.name} (sobre ${r.nome})`)
+        }
+      }
+    }
+
+    // ── Resumo da equipe (contas com profiles.briefing_equipe) ──────
+    // A conta supervisora recebe, num aviso só, o espelho do "Bom dia" de
+    // cada pessoa: o que produziu no último dia útil e o que tem pendente
+    // hoje. Vai junto do briefing da manhã; quem é fica no banco (hoje só
+    // a conta "pedro") — trocar de conta é um UPDATE, não um deploy.
+    if (slot === 'morning' && linhasEquipe.length) {
+      const supervisores = profiles.filter(x => x.briefing_equipe)
+      const quando = lastDay.getUTCDay() === 5 && today.getUTCDay() === 1 ? 'sexta' : 'ontem'
+
+      const linhas = linhasEquipe.map(l => {
+        const partes = []
+        partes.push(l.feitos ? `${quando}: ${l.feitos}` : `${quando}: sem movimento`)
+        partes.push(l.pend ? `hoje: ${l.pend}` : 'hoje: nada pendente')
+        return `• ${l.nome} — ${partes.join(' · ')}`
+      })
+
+      const heading = '📋 Resumo da equipe'
+      const content = linhas.join('\n')
+
+      for (const s of supervisores) {
+        if (onlyUser && s.id !== onlyUser) continue
+        if (dryRun) { results.push({ user: s.name, heading, content, equipe: true }); continue }
+        await registrarNoSino(s.id, heading, content, '/relatorios', 'briefing')
+        if (s.onesignal_player_id) {
+          const push = await fetch('https://onesignal.com/api/v1/notifications', {
+            method: 'POST',
+            headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              app_id: ONESIGNAL_APP_ID,
+              include_player_ids: [s.onesignal_player_id],
+              headings: { pt: heading, en: heading },
+              contents: { pt: content, en: content },
+              priority: 10,
+              ttl: 14400,
+              url: 'https://vithall-crm.vercel.app/relatorios',
+            }),
+          })
+          results.push({ user: s.name, heading, equipe: true,
+            onesignal: { status: push.status, ...(await push.json().catch(() => ({}))) } })
+        } else {
+          results.push({ user: s.name, heading, equipe: true, onesignal: 'sem inscrição' })
         }
       }
     }
