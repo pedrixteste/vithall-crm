@@ -40,6 +40,14 @@ export default function AgendaPage() {
   const [calPrompt, setCalPrompt]     = useState(null) // { slot, busy, done, error }
 
   const isOwner = sellerId === user?.id
+  // O gerente coordena a equipe, então mexe na agenda de qualquer um: abre,
+  // apaga e libera horário sem depender da pessoa estar por perto. O banco já
+  // permitia (RLS é aberta por autenticação) — a trava era só desta tela.
+  const isGerente = profile?.role === 'gerente'
+  const podeGerir = isOwner || isGerente
+  // Está mexendo na agenda DE OUTRA PESSOA? O texto muda para deixar claro.
+  const agendaDeOutro = !isOwner && isGerente
+  const donoNome = profilesMap[sellerId]?.name?.split(' ')[0] || 'essa pessoa'
 
   // Perfis: donos de agenda (vendedor/gerente) + mapa de nomes de todo mundo
   useEffect(() => {
@@ -85,7 +93,10 @@ export default function AgendaPage() {
     if (!newTime) return
     setSaving(true); setErrorMsg('')
     const slotAt = new Date(`${dateStr}T${newTime}:00`).toISOString()
-    const { error } = await supabase.from('agenda_slots').insert({ seller_id: user.id, slot_at: slotAt })
+    // `sellerId` e não `user.id`: o horário pertence à agenda que está aberta na
+    // tela. Se fosse user.id, o gerente abrindo horário para a Gabrielle criaria
+    // o horário na agenda DELE, e ninguém entenderia por que sumiu.
+    const { error } = await supabase.from('agenda_slots').insert({ seller_id: sellerId, slot_at: slotAt })
     setSaving(false)
     if (error) {
       setErrorMsg(error.code === '23505'
@@ -98,7 +109,8 @@ export default function AgendaPage() {
   }
 
   async function removeSlot(slot) {
-    if (!confirm(`Remover o horário ${timeOf(slot.slot_at)} da sua agenda?`)) return
+    const deQuem = agendaDeOutro ? `da agenda de ${donoNome}` : 'da sua agenda'
+    if (!confirm(`Remover o horário ${timeOf(slot.slot_at)} ${deQuem}?`)) return
     setErrorMsg('')
     const { error } = await supabase.from('agenda_slots').delete().eq('id', slot.id)
     if (error) { setErrorMsg('Não foi possível remover — verifique sua internet.'); return }
@@ -235,11 +247,11 @@ export default function AgendaPage() {
         </p>
       )}
 
-      {/* Dono da agenda: adicionar horário no dia selecionado */}
-      {isOwner && (
+      {/* Dono da agenda — ou o gerente, em qualquer agenda */}
+      {podeGerir && (
         <div className="rounded-2xl" style={{ background: '#15140F', border: '1px solid rgba(201,168,76,0.22)', padding: '14px 16px' }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#C9A84C' }}>
-            Abrir horário neste dia
+            {agendaDeOutro ? `Abrir horário na agenda de ${donoNome}` : 'Abrir horário neste dia'}
           </p>
           <div className="flex gap-2">
             <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
@@ -264,7 +276,7 @@ export default function AgendaPage() {
           <CalendarClock size={28} style={{ color: '#333030', margin: '0 auto 12px' }} />
           <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum horário aberto neste dia</p>
           <p className="text-xs" style={{ color: '#333030' }}>
-            {isOwner ? 'Use "Abrir horário" acima para disponibilizar.' : `${profilesMap[sellerId]?.name?.split(' ')[0] || 'O vendedor'} ainda não abriu horários para este dia.`}
+            {podeGerir ? 'Use "Abrir horário" acima para disponibilizar.' : `${donoNome} ainda não abriu horários para este dia.`}
           </p>
         </div>
       ) : (
@@ -272,7 +284,7 @@ export default function AgendaPage() {
           {slots.map(slot => {
             const free = slot.status === 'livre'
             const color = free ? '#4ADE80' : '#E8834A'
-            const canFree = !free && (slot.booked_by === user?.id || isOwner)
+            const canFree = !free && (slot.booked_by === user?.id || podeGerir)
             const bookedByName = profilesMap[slot.booked_by]?.name?.split(' ')[0]
             const isOccupying = occupyingId === slot.id
 
@@ -296,7 +308,7 @@ export default function AgendaPage() {
                         Ocupar
                       </button>
                     )}
-                    {free && isOwner && (
+                    {free && podeGerir && (
                       <button onClick={() => removeSlot(slot)} title="Remover horário"
                         className="flex items-center justify-center rounded-xl transition-all active:scale-95"
                         style={{ width: '30px', height: '30px', background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560' }}>
