@@ -57,11 +57,15 @@ export default function PerfilPage() {
   // fechar e abrir o app para entender se deu certo.
   useRefreshOnFocus(recarregarPerfil)
 
-  const telegramOk = !!freshProfile?.telegram_chat_id
+  // Uma pessoa pode ligar mais de um aparelho (dois celulares, cada um com seu
+  // número de Telegram). O botão daqui desliga TODOS — para desligar só um,
+  // ela manda /parar naquele aparelho.
+  const aparelhosTg = freshProfile?.telegram_chat_ids?.length || 0
+  const telegramOk = aparelhosTg > 0
   const [desligandoTg, setDesligandoTg] = useState(false)
   async function desconectarTelegram() {
     setDesligandoTg(true)
-    await supabase.from('profiles').update({ telegram_chat_id: null }).eq('id', user.id)
+    await supabase.from('profiles').update({ telegram_chat_ids: [] }).eq('id', user.id)
     recarregarPerfil()
     setDesligandoTg(false)
   }
@@ -342,33 +346,39 @@ export default function PerfilPage() {
                     Avisos pelo Telegram
                   </p>
                   <p style={{ fontSize: '11px', color: telegramOk ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
-                    {telegramOk
-                      ? 'Conectado — seus avisos chegam lá na hora certa'
-                      : 'Chega mesmo com o celular parado há horas'}
+                    {!telegramOk
+                      ? 'Chega mesmo com o celular parado há horas'
+                      : aparelhosTg > 1
+                        ? `Conectado em ${aparelhosTg} aparelhos`
+                        : 'Conectado — seus avisos chegam lá na hora certa'}
                   </p>
                 </div>
               </div>
 
-              {telegramOk ? (
+              {/* O botão de conectar continua aparecendo depois de ligado: é
+                  assim que a pessoa liga o SEGUNDO celular — ela abre o app
+                  naquele aparelho e toca aqui. */}
+              <a href={linkConectarTelegram(user?.id)} target="_blank" rel="noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  width: '100%', padding: '12px', borderRadius: '12px', textDecoration: 'none',
+                  fontSize: '13px', fontWeight: 600,
+                  background: telegramOk ? 'transparent' : 'rgba(34,211,238,0.1)',
+                  color: '#22D3EE',
+                  border: '1px solid rgba(34,211,238,0.3)',
+                }}>
+                <Send size={14} /> {telegramOk ? 'Conectar outro aparelho' : 'Conectar Telegram'}
+              </a>
+
+              {telegramOk && (
                 <button onClick={desconectarTelegram} disabled={desligandoTg}
                   style={{
-                    width: '100%', padding: '10px', borderRadius: '12px',
+                    width: '100%', padding: '10px', borderRadius: '12px', marginTop: '8px',
                     fontSize: '12px', fontWeight: 600, cursor: 'pointer',
                     background: 'transparent', color: '#6B6560', border: '1px solid #252525',
                   }}>
-                  {desligandoTg ? 'Desconectando...' : 'Desconectar'}
+                  {desligandoTg ? 'Desconectando...' : aparelhosTg > 1 ? 'Desconectar todos' : 'Desconectar'}
                 </button>
-              ) : (
-                <a href={linkConectarTelegram(user?.id)} target="_blank" rel="noreferrer"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    width: '100%', padding: '12px', borderRadius: '12px', textDecoration: 'none',
-                    fontSize: '13px', fontWeight: 600,
-                    background: 'rgba(34,211,238,0.1)', color: '#22D3EE',
-                    border: '1px solid rgba(34,211,238,0.3)',
-                  }}>
-                  <Send size={14} /> Conectar Telegram
-                </a>
               )}
             </div>
           )}

@@ -86,18 +86,24 @@ const escaparHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 // ntfy, cujo tópico é público). Só recebe quem conectou pelo Perfil.
 async function enviarTelegram(userId: string, title: string, body: string, rota: string) {
   if (!TELEGRAM_BOT_TOKEN) return
-  const { data } = await sb.from('profiles').select('telegram_chat_id').eq('id', userId).single()
-  if (!data?.telegram_chat_id) return
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: data.telegram_chat_id,
-      text: `<b>${escaparHtml(title)}</b>\n${escaparHtml(body)}`,
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [[{ text: 'Abrir no app', url: APP + rota }]] },
-    }),
-  })
+  const { data } = await sb.from('profiles').select('telegram_chat_ids').eq('id', userId).single()
+  // Uma pessoa pode ter mais de um aparelho, cada um com seu número de
+  // Telegram — o aviso vai para todos. Um chat que falha (bloqueou o robô,
+  // por exemplo) não pode impedir os outros de receber.
+  for (const chatId of (data?.telegram_chat_ids || [])) {
+    try {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `<b>${escaparHtml(title)}</b>\n${escaparHtml(body)}`,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [[{ text: 'Abrir no app', url: APP + rota }]] },
+        }),
+      })
+    } catch { /* segue para os outros aparelhos */ }
+  }
 }
 
 async function registrarNoSino(userId: string, title: string, body: string, rota: string, kind: string) {

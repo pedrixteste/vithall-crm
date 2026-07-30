@@ -62,10 +62,18 @@ serve(async (req) => {
     const texto = (msg?.text || '').trim()
     if (!chatId || !texto) return new Response('ok')
 
-    // "/parar" desliga o canal sem precisar mexer no app.
+    // "/parar" desliga só ESTE aparelho — quem tem dois celulares continua
+    // recebendo no outro.
     if (texto === '/parar' || texto === '/stop') {
-      await sb.from('profiles').update({ telegram_chat_id: null }).eq('telegram_chat_id', String(chatId))
-      await responder(chatId, 'Pronto, parei de mandar as notificações por aqui. Para voltar, use o botão <b>Conectar Telegram</b> no Perfil do app.')
+      const { data: ligados } = await sb.from('profiles')
+        .select('id, telegram_chat_ids')
+        .contains('telegram_chat_ids', [String(chatId)])
+      for (const perfil of ligados || []) {
+        await sb.from('profiles')
+          .update({ telegram_chat_ids: (perfil.telegram_chat_ids || []).filter((c: string) => c !== String(chatId)) })
+          .eq('id', perfil.id)
+      }
+      await responder(chatId, 'Pronto, parei de mandar as notificações neste aparelho. Para voltar, use o botão <b>Conectar Telegram</b> no Perfil do app.')
       return new Response('ok')
     }
 
@@ -81,23 +89,39 @@ serve(async (req) => {
       return new Response('ok')
     }
 
-    const { data: perfil, error } = await sb.from('profiles')
-      .update({ telegram_chat_id: String(chatId) })
+    const { data: perfil, error: erroBusca } = await sb.from('profiles')
+      .select('name, telegram_chat_ids')
       .eq('id', userId)
-      .select('name')
       .single()
 
-    if (error || !perfil) {
+    if (erroBusca || !perfil) {
       await responder(chatId, 'Não encontrei esse usuário. Tente de novo pelo botão <b>Conectar Telegram</b> no Perfil do app.')
       return new Response('ok')
     }
 
+    // ACRESCENTA o aparelho em vez de substituir: quem tem dois celulares com
+    // números de Telegram diferentes recebe nos dois. Reconectar o mesmo
+    // aparelho não duplica.
+    const atuais: string[] = perfil.telegram_chat_ids || []
+    const jaTinha = atuais.includes(String(chatId))
+    if (!jaTinha) {
+      const { error } = await sb.from('profiles')
+        .update({ telegram_chat_ids: [...atuais, String(chatId)] })
+        .eq('id', userId)
+      if (error) {
+        await responder(chatId, 'Deu um problema ao salvar aqui. Tente de novo pelo botão <b>Conectar Telegram</b> no Perfil do app.')
+        return new Response('ok')
+      }
+    }
+
     const primeiro = (perfil.name || '').split(' ')[0]
+    const total = jaTinha ? atuais.length : atuais.length + 1
     await responder(chatId,
       `✅ Conectado${primeiro ? `, ${primeiro}` : ''}!\n\n` +
       `A partir de agora seus avisos do Vithall chegam aqui: o resumo da manhã, ` +
       `lembrete de ligação e de tarefa.\n\n` +
-      `Para parar quando quiser, mande /parar.`)
+      (total > 1 ? `Você está recebendo em <b>${total} aparelhos</b>.\n\n` : '') +
+      `Para parar só neste aparelho, mande /parar.`)
 
     return new Response('ok')
   } catch (e) {
