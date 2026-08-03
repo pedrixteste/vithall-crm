@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap, CheckCircle2, XCircle, PhoneCall, CalendarClock } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
@@ -91,6 +92,23 @@ function formatTimeAgo(dateStr) {
 const fmtVisitDT = (v) => v
   ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   : '—'
+
+// Converte timestamp UTC p/ o formato do input datetime-local (hora local)
+function toLocalInputValue(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
+
+// Botões de resposta da confirmação — mesmos três do pop-up da aba Hoje
+// (VisitConfirmationList); o quarto de lá, "Remarcou", não entra porque na
+// ficha remarcar é editar a data do cliente.
+const CONF_NOTE_CONFIG = {
+  nao_confirmada: { label: 'Por que a visita foi cancelada?', placeholder: 'Ex: cliente desmarcou, pediu para remarcar...', color: '#E85555' },
+  tentativa:      { label: 'Descreva as tentativas de confirmação', placeholder: 'Ex: liguei 2x e mandei WhatsApp, não respondeu...', color: '#A78BFA' },
+}
 
 function describeEvent(type, data) {
   if (type === 'created')           return 'Cliente cadastrado no sistema'
@@ -336,6 +354,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
 
 export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const { user, profile: authProfile } = useAuth()
+  const navigate = useNavigate()
   const goBack = onBack || onClose || (() => {})
 
   // Perfil fresco do banco (inclui tokens do Google mesmo conectados depois do login)
@@ -357,6 +376,17 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [pendingPediuLigar, setPendingPediuLigar] = useState(false)
   const [callBackAt, setCallBackAt]       = useState('')
   const [pendingFutura, setPendingFutura] = useState(false) // pop-up "marcação futura"
+  // Editor da confirmação da visita (só p/ quem marcou + gerente, até o horário)
+  const [editingConf, setEditingConf]     = useState(false)
+  const [confKind, setConfKind]           = useState(null)  // 'nao_confirmada' | 'tentativa' (nota aberta)
+  const [confNote, setConfNote]           = useState('')
+  const [savingConf, setSavingConf]       = useState(false)
+  // Cadeia do estágio "Marcado": pergunta → formulário da marcação → lembrete da agenda
+  const [pendingMarcado, setPendingMarcado] = useState(null) // 'pergunta' | 'form' | 'agenda'
+  const [marcadoDate, setMarcadoDate]     = useState('')
+  const [marcadoVendedor, setMarcadoVendedor] = useState('')
+  const [marcadoNote, setMarcadoNote]     = useState('')
+  const [savingMarcado, setSavingMarcado] = useState(false)
   const [futuraDate, setFuturaDate]       = useState('')
   const [futuraNote, setFuturaNote]       = useState('')
   const [futuraRole, setFuturaRole]       = useState(null)  // papel de quem será lembrado
@@ -488,6 +518,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   function switchToClient(record, { openStar = false, visitId = null } = {}) {
     setShowHistorico(false)
     setShowRating(false); setShowEdit(false); setShowHistory(false); setEditingStage(false)
+    setEditingConf(false); setConfKind(null); setConfNote(''); setPendingMarcado(null)
     setTab('visitas')
     setNotesValue(record.notes || '')
     setVisits([]); setTasks([])
@@ -687,6 +718,100 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!confirm('Excluir esta visita?')) return
     await supabase.from('visits').delete().eq('id', id)
     fetchVisits()
+  }
+
+  // ── Confirmação da visita editável na ficha ─────────────────────
+  // O caso real: marcou "tentou confirmar" no pop-up, o cliente ligou depois
+  // e confirmou — e a ficha ficava presa na resposta antiga. Mesma regra de
+  // quem responde o pop-up (quem marcou + gerente) e só até o horário da
+  // visita: depois dela a resposta vira registro do que aconteceu.
+  const marcouVisita = currentClient.visit_scheduled_by
+    ? currentClient.visit_scheduled_by === user.id
+    : currentClient.created_by === user.id
+  const visitaAindaNaoAconteceu = currentClient.visit_scheduled_at &&
+    new Date(currentClient.visit_scheduled_at) > new Date()
+  const canEditConf = (marcouVisita || profile?.role === 'gerente') && visitaAindaNaoAconteceu
+
+  async function saveConfirmation(status, noteText) {
+    setSavingConf(true)
+    const { error } = await supabase.from('clients')
+      .update({ visit_confirmation: status, visit_confirmation_note: noteText || null })
+      .eq('id', currentClient.id)
+    setSavingConf(false)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, visit_confirmation: status, visit_confirmation_note: noteText || null }))
+    setEditingConf(false)
+    setConfKind(null)
+    setConfNote('')
+    // O estágio acompanha a resposta: confirmou → "Marcado"; cancelou →
+    // "Cancelou visita" (que já cuida do histórico e de tirar do Google
+    // Agenda). "Tentou confirmar" não tem estágio equivalente — fica como está.
+    if (status === 'confirmada' && currentClient.matricula_stage !== 'marcado') {
+      await updateStage('marcado')
+    } else if (status === 'nao_confirmada' && currentClient.matricula_stage !== 'cancelado') {
+      await updateStage('cancelado')
+    }
+    onUpdated?.()
+  }
+
+  // ── Estágio "Marcado" → visita registrada e agenda em dia ───────
+  // Marcar o estágio sem registrar a visita deixava a ficha dizendo "Marcado"
+  // sem data nenhuma — e a agenda sem o horário. Se já existe uma marcação
+  // futura, primeiro pergunta se ela já está na agenda; sem marcação, vai
+  // direto para o formulário.
+  const marcacaoFutura = visitaAindaNaoAconteceu
+
+  function startMarcado() {
+    if (currentClient.matricula_stage === 'marcado') { setEditingStage(false); return }
+    setMarcadoDate(marcacaoFutura ? toLocalInputValue(currentClient.visit_scheduled_at) : '')
+    setMarcadoVendedor(currentClient.assigned_to || '')
+    setMarcadoNote('')
+    setPendingMarcado(marcacaoFutura ? 'pergunta' : 'form')
+  }
+
+  async function saveMarcado() {
+    if (!marcadoDate || !marcadoVendedor) return
+    const iso = new Date(marcadoDate).toISOString()
+    const oldIso = currentClient.visit_scheduled_at ? new Date(currentClient.visit_scheduled_at).toISOString() : null
+    const oldStage = currentClient.matricula_stage
+    setSavingMarcado(true)
+    // Nova data → confirmação antiga não vale mais e quem marcou agora é o
+    // responsável pelo ciclo de confirmação (mesma regra da remarcação)
+    const payload = {
+      matricula_stage:          'marcado',
+      visit_scheduled_at:       iso,
+      visit_scheduled_by:       user.id,
+      assigned_to:              marcadoVendedor,
+      visit_confirmation:       null,
+      visit_confirmation_note:  null,
+      ...bookingStamp(currentClient, { isReschedule: !!oldIso }),
+    }
+    const { error } = await supabase.from('clients').update(payload).eq('id', currentClient.id)
+    setSavingMarcado(false)
+    if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
+    await logEvent('stage_change', { from: oldStage, to: 'marcado', ...(marcadoNote.trim() ? { note: marcadoNote.trim() } : {}) })
+    // Rastro da marcação/remarcação — a data antiga só sobrevive no histórico
+    logVisitScheduled({ clientId: currentClient.id, userId: user.id, userName: profile?.name, from: oldIso, to: iso })
+    setCurrentClient(c => ({ ...c, ...payload }))
+    const vend = teamProfiles.find(p => p.id === marcadoVendedor)
+    if (vend?.name) setAssignedName(vend.name)
+    setEditingStage(false)
+    fetchHistory()
+    // Avisa o vendedor da visita nova (não a si mesmo) — igual ao cadastro
+    if (marcadoVendedor !== user.id) {
+      supabase.functions.invoke('notify-visit', {
+        body: {
+          assignedToId:  marcadoVendedor,
+          clientName:    currentClient.contact_name,
+          companyName:   currentClient.company_name,
+          visitDateTime: iso,
+          city:          currentClient.city,
+          notes:         marcadoNote.trim() || currentClient.notes,
+        },
+      })
+    }
+    onUpdated?.()
+    setPendingMarcado('agenda') // último passo: lembrar de ocupar o horário
   }
 
   async function updateStage(newStage) {
@@ -1401,6 +1526,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       onClick={() => key === 'cancelado' ? setPendingStage('cancelado')
                         : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true))
                         : key === 'marcacao_futura' ? (setFuturaDate(''), setFuturaNote(''), setFuturaRole(null), setFuturaPerson(null), setPendingFutura(true))
+                        : key === 'marcado' ? startMarcado()
                         : updateStage(key)}
                       className="text-xs font-semibold rounded-full transition-all"
                       style={{
@@ -1598,7 +1724,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               // Situação da marcação (respondida por quem marcou, no lembrete).
               // Antes só quem viu o pop-up sabia que a visita tinha caído — a
               // ficha mostrava a data em verde como se estivesse de pé.
+              // Até o horário da visita, quem marcou (e o gerente) corrige a
+              // resposta tocando nela — o caso real é o cliente ligar
+              // confirmando DEPOIS do "tentou confirmar".
               const conf = CONFIRMATION_INFO[currentClient.visit_confirmation]
+              const cfg  = confKind ? CONF_NOTE_CONFIG[confKind] : null
               return (<>
                 <p className="text-sm font-semibold" style={{ color: conf ? conf.color : '#4ADE80' }}>
                   {new Date(currentClient.visit_scheduled_at).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
@@ -1606,20 +1736,88 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   {new Date(currentClient.visit_scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
                 {conf ? (
-                  <div className="rounded-xl" style={{ marginTop: '10px', background: `${conf.color}14`, border: `1px solid ${conf.color}40`, padding: '9px 11px' }}>
-                    <p className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: conf.color }}>
-                      <span>{conf.icon}</span> {conf.label}
+                  <button type="button" disabled={!canEditConf}
+                    onClick={() => { setEditingConf(e => !e); setConfKind(null); setConfNote('') }}
+                    className="w-full text-left rounded-xl"
+                    style={{ marginTop: '10px', background: `${conf.color}14`, border: `1px solid ${conf.color}40`, padding: '9px 11px', cursor: canEditConf ? 'pointer' : 'default' }}>
+                    <p className="text-[11px] font-bold flex items-center justify-between gap-1.5" style={{ color: conf.color }}>
+                      <span className="flex items-center gap-1.5"><span>{conf.icon}</span> {conf.label}</span>
+                      {canEditConf && <span style={{ color: '#6B6560', fontWeight: 500 }}>{editingConf ? '▴' : '✎ corrigir'}</span>}
                     </p>
                     {currentClient.visit_confirmation_note && (
                       <p className="text-[11px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.45 }}>
                         "{currentClient.visit_confirmation_note}"
                       </p>
                     )}
-                  </div>
+                  </button>
+                ) : canEditConf ? (
+                  <button type="button"
+                    onClick={() => { setEditingConf(e => !e); setConfKind(null); setConfNote('') }}
+                    className="w-full text-left rounded-xl"
+                    style={{ marginTop: '8px', background: '#161616', border: '1px dashed #303030', padding: '9px 11px', cursor: 'pointer' }}>
+                    <p className="text-[11px] flex items-center justify-between gap-1.5" style={{ color: '#6B6560' }}>
+                      <span>Aguardando confirmação</span>
+                      <span>{editingConf ? '▴' : '✎ responder'}</span>
+                    </p>
+                  </button>
                 ) : (
                   <p className="text-[11px]" style={{ marginTop: '8px', color: '#6B6560' }}>
                     Aguardando confirmação de quem marcou
                   </p>
+                )}
+
+                {/* Editor: os mesmos três botões do pop-up da aba Hoje */}
+                {editingConf && canEditConf && !confKind && (
+                  <div className="grid grid-cols-3 gap-2" style={{ marginTop: '8px' }}>
+                    <button type="button" disabled={savingConf}
+                      onClick={() => saveConfirmation('confirmada', null)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition-all active:scale-95"
+                      style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80', cursor: 'pointer' }}>
+                      <CheckCircle2 size={15} />
+                      <span className="text-[10px] font-bold leading-snug text-center">{savingConf ? 'Salvando...' : 'Confirmado'}</span>
+                    </button>
+                    <button type="button" disabled={savingConf}
+                      onClick={() => { setConfKind('nao_confirmada'); setConfNote(currentClient.visit_confirmation === 'nao_confirmada' ? (currentClient.visit_confirmation_note || '') : '') }}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition-all active:scale-95"
+                      style={{ background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.3)', color: '#E85555', cursor: 'pointer' }}>
+                      <XCircle size={15} />
+                      <span className="text-[10px] font-bold leading-snug text-center">Cancelou visita</span>
+                    </button>
+                    <button type="button" disabled={savingConf}
+                      onClick={() => { setConfKind('tentativa'); setConfNote(currentClient.visit_confirmation === 'tentativa' ? (currentClient.visit_confirmation_note || '') : '') }}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition-all active:scale-95"
+                      style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA', cursor: 'pointer' }}>
+                      <PhoneCall size={15} />
+                      <span className="text-[10px] font-bold leading-snug text-center">Tentei confirmar</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Motivo/descrição — obrigatório, igual ao pop-up */}
+                {editingConf && canEditConf && confKind && (
+                  <div style={{ marginTop: '8px' }}>
+                    <label className="text-[11px] font-semibold uppercase tracking-widest block mb-2" style={{ color: cfg.color }}>
+                      {cfg.label}
+                    </label>
+                    <textarea autoFocus value={confNote} onChange={e => setConfNote(e.target.value)}
+                      placeholder={cfg.placeholder} rows={3}
+                      className="w-full text-sm outline-none resize-none rounded-xl transition-all"
+                      style={{ padding: '12px 14px', background: '#111111', border: `1px solid ${cfg.color}`, color: '#EFEFEF', lineHeight: '1.5' }} />
+                    <div className="flex gap-2 mt-2">
+                      <button type="button" disabled={savingConf}
+                        onClick={() => { setConfKind(null); setConfNote('') }}
+                        className="flex-1 text-xs font-semibold rounded-xl py-2.5 transition-all active:scale-95"
+                        style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560', cursor: 'pointer' }}>
+                        Voltar
+                      </button>
+                      <button type="button" disabled={savingConf || !confNote.trim()}
+                        onClick={() => saveConfirmation(confKind, confNote.trim())}
+                        className="flex-1 text-xs font-bold rounded-xl py-2.5 transition-all active:scale-95 disabled:opacity-40"
+                        style={{ background: `${cfg.color}1f`, border: `1px solid ${cfg.color}`, color: cfg.color, cursor: 'pointer' }}>
+                        {savingConf ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </>)
             })()}
@@ -2106,6 +2304,147 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cadeia do estágio "Marcado" ── */}
+      {/* Passo 1 (só com marcação futura já registrada): ela está na agenda? */}
+      {pendingMarcado === 'pergunta' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) setPendingMarcado(null) }}>
+          <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #303030', width: '100%', maxWidth: '360px', padding: '28px 24px 24px' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '18px' }}>📋</div>
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '8px' }}>
+              Essa marcação já está na agenda?
+            </p>
+            <p style={{ fontSize: '13px', color: '#6B6560', lineHeight: 1.5, marginBottom: '24px' }}>
+              <span style={{ color: '#EFEFEF', fontWeight: 600 }}>{currentClient.contact_name || currentClient.company_name}</span>{' '}
+              tem visita marcada para{' '}
+              <span style={{ color: '#22D3EE', fontWeight: 600 }}>{fmtVisitDT(currentClient.visit_scheduled_at)}</span>.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => { setMarcadoDate(toLocalInputValue(currentClient.visit_scheduled_at)); setPendingMarcado('form') }}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: '#1A1A1A', color: '#E8834A', border: '1px solid rgba(232,131,74,0.3)', cursor: 'pointer' }}>
+                Não está
+              </button>
+              <button
+                onClick={() => { updateStage('marcado'); setPendingMarcado(null) }}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: 'rgba(34,211,238,0.12)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)', cursor: 'pointer' }}>
+                Sim, já está
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Passo 2: registrar a marcação (data/hora + vendedor + observação) */}
+      {pendingMarcado === 'form' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}
+          onClick={e => { if (e.target === e.currentTarget && !savingMarcado) setPendingMarcado(null) }}>
+          <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #303030', width: '100%', maxWidth: '360px', padding: '28px 24px 24px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📋</div>
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '6px' }}>Registrar a marcação</p>
+            <p style={{ fontSize: '13px', color: '#6B6560', lineHeight: 1.5, marginBottom: '18px' }}>
+              Informe a visita marcada de{' '}
+              <span style={{ color: '#EFEFEF', fontWeight: 600 }}>{currentClient.contact_name || currentClient.company_name}</span>{' '}
+              para a ficha ficar em dia.
+            </p>
+
+            {/* Já existe marcação futura → cuidado para não duplicar na agenda */}
+            {marcacaoFutura && (
+              <div style={{ marginBottom: '16px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.3)' }}>
+                <p style={{ fontSize: '12px', color: '#E8834A', fontWeight: 600, lineHeight: 1.5 }}>
+                  ⚠️ Este cliente já tem uma marcação para acontecer:{' '}
+                  <span style={{ whiteSpace: 'nowrap' }}>{fmtVisitDT(currentClient.visit_scheduled_at)}</span>.
+                </p>
+                <p style={{ fontSize: '11px', color: '#B0A99F', marginTop: '4px', lineHeight: 1.45 }}>
+                  Salvar substitui essa data — confira a agenda para não ficar com horário duplicado.
+                </p>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>Data e hora da visita *</p>
+              <input type="datetime-local" value={marcadoDate}
+                onChange={e => setMarcadoDate(e.target.value)}
+                style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '14px', outline: 'none' }} />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>Vendedor da visita *</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {teamProfiles.filter(p => p.role === 'vendedor' || p.role === 'gerente').map(p => {
+                  const active = marcadoVendedor === p.id
+                  const nome = (p.name || '').split(' ')[0] || p.name || '—'
+                  return (
+                    <button key={p.id} onClick={() => setMarcadoVendedor(p.id)}
+                      style={{ padding: '7px 13px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(34,211,238,0.15)' : 'transparent', color: active ? '#22D3EE' : '#6B6560', border: `1px solid ${active ? 'rgba(34,211,238,0.45)' : '#2A2A2A'}` }}>
+                      {active ? '✓ ' : ''}{nome}{p.id === user.id ? ' (você)' : ''}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>Observação</p>
+              <textarea value={marcadoNote} onChange={e => setMarcadoNote(e.target.value)} rows={2}
+                placeholder="Ex: cliente ligou confirmando e pediu para avisar na portaria..."
+                style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '13px', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Opcional — fica no histórico do cliente.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setPendingMarcado(null)} disabled={savingMarcado}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: '#1A1A1A', color: '#6B6560', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
+                Voltar
+              </button>
+              <button onClick={saveMarcado}
+                disabled={savingMarcado || !marcadoDate || !marcadoVendedor}
+                style={{ flex: 1, padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 600, background: 'rgba(34,211,238,0.12)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)', cursor: (marcadoDate && marcadoVendedor) ? 'pointer' : 'not-allowed', opacity: (marcadoDate && marcadoVendedor) ? 1 : 0.5 }}>
+                {savingMarcado ? 'Salvando...' : 'Salvar marcação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Passo 3: lembrar de ocupar o horário na aba Agenda */}
+      {pendingMarcado === 'agenda' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}>
+          <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #303030', width: '100%', maxWidth: '360px', padding: '28px 24px 24px', textAlign: 'center' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <CalendarClock size={22} style={{ color: '#C9A84C' }} />
+            </div>
+            <p style={{ fontSize: '17px', fontWeight: 700, color: '#EFEFEF', marginBottom: '8px' }}>Marcação salva!</p>
+            <p style={{ fontSize: '13px', color: '#B0A99F', lineHeight: 1.5, marginBottom: '20px' }}>
+              Agora ocupe o horário{' '}
+              <span style={{ color: '#C9A84C', fontWeight: 600 }}>{fmtVisitDT(currentClient.visit_scheduled_at)}</span>{' '}
+              na agenda de <span style={{ color: '#EFEFEF', fontWeight: 600 }}>{assignedName || 'do vendedor'}</span> na aba{' '}
+              <span style={{ color: '#C9A84C', fontWeight: 600 }}>Agenda</span>, para ninguém marcar em cima.
+            </p>
+            <button onClick={() => { setPendingMarcado(null); navigate('/agendas') }}
+              style={{ width: '100%', padding: '13px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, background: 'linear-gradient(135deg, #7B1C3A, #C9A84C)', border: 'none', color: '#F0EAD6', cursor: 'pointer', marginBottom: '8px' }}>
+              <span className="inline-flex items-center gap-2"><CalendarClock size={14} /> Ir para a agenda</span>
+            </button>
+            <button onClick={() => setPendingMarcado(null)}
+              style={{ width: '100%', padding: '11px', borderRadius: '14px', fontSize: '12px', fontWeight: 500, background: 'transparent', color: '#6B6560', border: 'none', cursor: 'pointer' }}>
+              Agora não
+            </button>
           </div>
         </div>
       )}
