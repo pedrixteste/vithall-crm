@@ -411,7 +411,13 @@ export function generateReportHTML({
     marcacoes:  membersWithMetrics.reduce((s, m) => s + m.marcacoes, 0),
     visitas:    membersWithMetrics.reduce((s, m) => s + m.visitas, 0),
     matriculas: membersWithMetrics.reduce((s, m) => s + m.matriculas, 0),
-    creditos:   membersWithMetrics.reduce((s, m) => s + (m.creditos || 0), 0),
+    // Uma matrícula pode contar para várias pessoas (participantes), mas no
+    // total da equipe ela é UMA — por isso conta clientes distintos.
+    creditos:   (() => {
+      const ids = new Set()
+      membersWithMetrics.forEach(m => (m.enrolled || []).forEach(e => ids.add(e.id)))
+      return ids.size || membersWithMetrics.reduce((s, m) => s + (m.creditos || 0), 0)
+    })(),
     noShow:     membersWithMetrics.reduce((s, m) => s + m.noShow, 0),
     canceled:   membersWithMetrics.reduce((s, m) => s + m.canceled, 0),
   }

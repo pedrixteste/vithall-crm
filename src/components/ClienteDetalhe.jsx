@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap, CheckCircle2, XCircle, PhoneCall, CalendarClock } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
-import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
+import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import { CONFIRMATION_INFO, NO_SHOW_RATING } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
@@ -396,6 +396,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [assignedName, setAssignedName]   = useState(null)
   const [creator, setCreator]             = useState(null) // quem marcou a visita (created_by)
   const [teamProfiles, setTeamProfiles]   = useState([])   // equipe — seletor de quem vai remarcar
+  const [clientCredits, setClientCredits] = useState([])   // quem já recebe a matrícula deste cliente
   const [phoneCount, setPhoneCount]       = useState(1)    // registros com o mesmo telefone
   const [showHistorico, setShowHistorico] = useState(false) // pop-up do histórico do contato
   const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
@@ -435,7 +436,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // Recarrega os dados do registro exibido — refaz ao trocar de cliente
   // (usado pelo histórico do contato, que troca o registro internamente)
   useEffect(() => {
-    fetchFullClient(); fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount()
+    fetchFullClient(); fetchVisits(); fetchTasks(); fetchAssigned(); fetchHistory(); fetchCreator(); fetchPhoneCount(); fetchCredits()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentClient.id])
 
@@ -456,6 +457,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     if (!currentClient?.id) return
     const { data } = await supabase.from('clients').select('*').eq('id', currentClient.id).single()
     if (data) setCurrentClient(c => ({ ...c, ...data }))
+  }
+
+  // Quem recebe a matrícula deste cliente (quem marcou + participantes).
+  // Alimenta o bloco "Quem participou dessa matrícula" da estrela.
+  async function fetchCredits() {
+    if (!currentClient?.id) return
+    const { data } = await supabase.from('matricula_credits')
+      .select('credited_to, note, is_participant').eq('client_id', currentClient.id)
+    setClientCredits(data || [])
   }
 
   // Após trocar de registro pedindo a estrela, abre-a quando as visitas carregam
@@ -1035,6 +1045,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   function openRatingPanel(targetVisitId = null) {
     const initial  = {}
     const collapsed = new Set()
+    // Quem participa da matrícula: se já foi salva alguma vez, vem do banco;
+    // senão o padrão é só quem marcou a visita (comportamento de sempre).
+    const bookerId  = currentClient.visit_scheduled_by || currentClient.created_by
+    const temCredito = clientCredits.length > 0
+    const creditBooker = temCredito
+      ? clientCredits.some(c => c.credited_to === bookerId)
+      : true
+    const creditParticipants = clientCredits
+      .filter(c => c.credited_to !== bookerId)
+      .map(c => ({ id: c.credited_to, note: c.note || '' }))
     visits.forEach((v, i) => {
       // Detecta se há custom text em visit_possibilities
       const stdPoss    = (v.visit_possibilities || []).filter(p => POSSIBILIDADES.includes(p))
@@ -1055,6 +1075,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         // Status da matrícula vive no CLIENTE (efetivada/pendente + descrição)
         matricula_status:        currentClient.matricula_status || 'efetivada',
         matricula_status_note:   currentClient.matricula_status_note || '',
+        // Quem recebe a matrícula na conta (comissão)
+        credit_booker:           creditBooker,
+        credit_participants:     creditParticipants,
       }
       // expande a visita alvo (vinda do histórico) ou, sem alvo, só a mais recente
       const expand = targetVisitId ? v.id === targetVisitId : i === 0
@@ -1173,8 +1196,22 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           await logEvent('matricula_added', { training: t })
         }
         await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'matriculado' })
-        await creditMatricula(currentClient, user.id)
       }
+      // Quem recebe esta matrícula na conta (comissão): quem marcou a visita, se
+      // continuar marcado, + os participantes escolhidos. Roda SEMPRE que salva
+      // uma matrícula — é isto que também TIRA o crédito de quem foi desmarcado.
+      const { error: credErr } = await syncMatriculaCredits({
+        client:         currentClient,
+        enrolledById:   user.id,
+        bookerCredited: edit.credit_booker !== false,
+        participants:   edit.credit_participants || [],
+      })
+      if (credErr) {
+        setSavingRatingId(null)
+        setRatingError({ visitId, msg: 'Matrícula salva, mas quem participou dela não gravou. Tente de novo.' })
+        return
+      }
+      fetchCredits()
       setCurrentClient(c => ({ ...c, matriculas: updated, matricula_stage: 'matriculado', ...statusPayload }))
     }
 
@@ -2500,6 +2537,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   outros_eventos_text: '',
                   matricula_status: currentClient.matricula_status || 'efetivada',
                   matricula_status_note: currentClient.matricula_status_note || '',
+                  credit_booker: true, credit_participants: [],
                 }
                 const isSaving     = savingRatingId === v.id
                 const justSaved    = syncAfterSave === v.id
@@ -2512,6 +2550,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 // "Não teve": o cliente não compareceu. A visita não aconteceu,
                 // então some tudo que se avaliaria e o marcador sozinho já basta.
                 const isNoShow     = edit.rating === NO_SHOW_RATING
+                // Comissão da matrícula: quem marcou a visita + participantes
+                const bookerId     = currentClient.visit_scheduled_by || currentClient.created_by
+                const bookerName   = teamProfiles.find(p => p.id === bookerId)?.name?.split(' ')[0]
+                const partList     = edit.credit_participants || []
 
                 // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
                 const isComplete = isNoShow || (
@@ -2523,7 +2565,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   (edit.visit_outcome !== 'matriculada' || (
                     (edit.outcome_training || []).length > 0 &&
                     !!edit.outcome_enrolled_name?.trim() &&
-                    !!edit.outcome_sale_value?.trim()
+                    !!edit.outcome_sale_value?.trim() &&
+                    // Quem for marcado como participante precisa do motivo
+                    (edit.credit_participants || []).every(p => !!p.note?.trim())
                   )))
 
                 const isSavedClean = isComplete && savedVisitIds.has(v.id)
@@ -2724,6 +2768,101 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                   style={{ width: '100%', marginTop: '8px', background: '#111', border: '1px solid rgba(232,131,74,0.3)', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }}
                                 />
                               )}
+                            </div>
+
+                            {/* Quem recebe esta matrícula na conta (comissão).
+                                Antes ia SEMPRE e só para quem marcou a visita;
+                                agora dá para incluir quem mais participou. */}
+                            <div>
+                              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C9A84C', marginBottom: '8px' }}>
+                                🎓 Quem participou dessa matrícula
+                              </p>
+
+                              <button disabled={!canRate}
+                                onClick={() => setEdit({ credit_booker: edit.credit_booker === false })}
+                                style={{
+                                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
+                                  padding: '10px 12px', borderRadius: '10px', cursor: canRate ? 'pointer' : 'default',
+                                  background: edit.credit_booker !== false ? 'rgba(201,168,76,0.12)' : '#111',
+                                  border: `1px solid ${edit.credit_booker !== false ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
+                                }}>
+                                <span style={{
+                                  width: '18px', height: '18px', flexShrink: 0, borderRadius: '5px', marginTop: '1px',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800,
+                                  background: edit.credit_booker !== false ? '#C9A84C' : 'transparent', color: '#0A0A0A',
+                                  border: `1px solid ${edit.credit_booker !== false ? '#C9A84C' : '#3A3A3A'}`,
+                                }}>
+                                  {edit.credit_booker !== false ? '✓' : ''}
+                                </span>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: edit.credit_booker !== false ? '#C9A84C' : '#6B6560' }}>
+                                  {bookerName ? `${bookerName} participou dessa matrícula` : 'Quem marcou a visita participou dessa matrícula'}
+                                  <span style={{ display: 'block', fontSize: '10px', fontWeight: 500, color: '#6B6560', marginTop: '2px' }}>
+                                    marcou a visita · desmarcar tira a matrícula da conta dele
+                                  </span>
+                                </span>
+                              </button>
+
+                              <p style={{ fontSize: '11px', fontWeight: 700, color: '#B0A99F', margin: '12px 0 6px' }}>
+                                Mais alguém participou dessa matrícula?
+                              </p>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {REMARCAR_ROLES.map(r => {
+                                  const gente = teamProfiles.filter(p => p.role === r.key && p.id !== bookerId)
+                                  if (!gente.length) return null
+                                  return (
+                                    <div key={r.key}>
+                                      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: r.color, marginBottom: '6px' }}>
+                                        {r.label}
+                                      </p>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {gente.map(p => {
+                                          const sel = partList.find(x => x.id === p.id)
+                                          return (
+                                            <div key={p.id}>
+                                              <button disabled={!canRate}
+                                                onClick={() => setEdit({
+                                                  credit_participants: sel
+                                                    ? partList.filter(x => x.id !== p.id)
+                                                    : [...partList, { id: p.id, note: '' }],
+                                                })}
+                                                style={{
+                                                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left',
+                                                  padding: '8px 11px', borderRadius: '10px', fontSize: '12px', fontWeight: 600,
+                                                  cursor: canRate ? 'pointer' : 'default',
+                                                  background: sel ? 'rgba(74,222,128,0.12)' : 'transparent',
+                                                  color: sel ? '#4ADE80' : '#6B6560',
+                                                  border: `1px solid ${sel ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
+                                                }}>
+                                                <span>{sel ? '✓' : '+'}</span>{p.name || '—'}
+                                              </button>
+                                              {sel && (
+                                                <textarea
+                                                  value={sel.note || ''}
+                                                  disabled={!canRate}
+                                                  onChange={e => setEdit({
+                                                    credit_participants: partList.map(x => x.id === p.id ? { ...x, note: e.target.value } : x),
+                                                  })}
+                                                  rows={2}
+                                                  placeholder={`Qual foi a participação de ${(p.name || '').split(' ')[0]}? (obrigatório)`}
+                                                  style={{
+                                                    width: '100%', marginTop: '6px', background: '#111',
+                                                    border: `1px solid ${sel.note?.trim() ? '#2A2A2A' : 'rgba(232,85,85,0.45)'}`,
+                                                    borderRadius: '10px', padding: '9px 11px', color: '#EFEFEF', fontSize: '12px',
+                                                    outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5,
+                                                  }}
+                                                />
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                              <p style={{ fontSize: '10px', color: '#444040', marginTop: '8px' }}>
+                                Cada pessoa marcada aqui recebe esta matrícula na conta dela. Tirar a marcação e salvar remove.
+                              </p>
                             </div>
                           </div>
                         )}

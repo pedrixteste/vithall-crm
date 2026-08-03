@@ -380,7 +380,7 @@ export default function RelatoriosPage() {
     setDailyLogs(logsData || [])
 
     // Créditos de matrícula (comissão de quem marcou a visita)
-    let credQuery = supabase.from('matricula_credits').select('credited_to, enrolled_by, credit_date, client_id')
+    let credQuery = supabase.from('matricula_credits').select('credited_to, enrolled_by, credit_date, client_id, note, is_participant')
     if (profile?.role !== 'gerente') credQuery = credQuery.eq('credited_to', user.id)
     const { data: credData } = await credQuery
     setCredits(credData || [])
@@ -489,6 +489,16 @@ export default function RelatoriosPage() {
     creditsInPeriod.forEach(cr => { map[cr.credited_to] = (map[cr.credited_to] || 0) + 1 })
     return map
   })()
+  // Uma matrícula pode ter vários participantes — cada um recebe na conta dele,
+  // mas para a EMPRESA continua sendo UMA matrícula. O total conta clientes.
+  const creditsPorCliente = (() => {
+    const vistos = new Set()
+    return creditsInPeriod.filter(cr => {
+      if (vistos.has(cr.client_id)) return false
+      vistos.add(cr.client_id)
+      return true
+    })
+  })()
 
   // Detalha cada crédito no cliente que fechou — é o que a lista clicável e o
   // relatório exportado mostram (nome, empresa, valor, situação da matrícula)
@@ -507,6 +517,9 @@ export default function RelatoriosPage() {
       status: c.matricula_status || 'efetivada',
       nota: c.matricula_status_note || null,
       credited_to: cr.credited_to,
+      // participou da matrícula sem ter marcado a visita (+ o motivo)
+      participou: !!cr.is_participant,
+      participacao: cr.note || null,
     }
   }).filter(Boolean)
 
@@ -1076,9 +1089,9 @@ export default function RelatoriosPage() {
               <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#333030' }}>
                 🎓 Comissoes — matriculas por marcador
               </p>
-              <button onClick={() => abreMatriculas(`Matrículas da equipe · ${periodLabel}`, creditsInPeriod)}
+              <button onClick={() => abreMatriculas(`Matrículas da equipe · ${periodLabel}`, creditsPorCliente)}
                 style={{ fontSize: '11px', fontWeight: 700, color: '#C9A84C', background: 'none', border: 'none', cursor: 'pointer' }}>
-                total {creditsInPeriod.length} →
+                total {creditsPorCliente.length} →
               </button>
             </div>
             <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1102,7 +1115,7 @@ export default function RelatoriosPage() {
                 ))
               })()}
               <p style={{ fontSize: '10px', color: '#444040', marginTop: '2px' }}>
-                Matrícula conta para quem marcou a visita atual do cliente (remarcou → de quem remarcou). Toque para ver quem fechou.
+                Matrícula conta para quem marcou a visita atual do cliente (remarcou → de quem remarcou) e para quem foi marcado como participante na estrela. O total conta cada cliente uma vez. Toque para ver quem fechou.
               </p>
             </div>
           </div>
@@ -1325,6 +1338,12 @@ export default function RelatoriosPage() {
                   </div>
                   {it.status === 'pendente' && it.nota && (
                     <p style={{ fontSize: '11px', color: '#B0A99F', marginTop: '6px', fontStyle: 'italic', lineHeight: 1.4 }}>"{it.nota}"</p>
+                  )}
+                  {/* Não marcou a visita, participou da matrícula */}
+                  {it.participou && (
+                    <p style={{ fontSize: '11px', color: '#C9A84C', marginTop: '6px', lineHeight: 1.4 }}>
+                      🤝 Participou da matrícula{it.participacao ? <span style={{ color: '#B0A99F', fontStyle: 'italic' }}> — "{it.participacao}"</span> : ''}
+                    </p>
                   )}
                 </div>
               ))}
