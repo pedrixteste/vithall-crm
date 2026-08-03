@@ -17,7 +17,15 @@ export function RatingsGateProvider({ children }) {
   const refresh = useCallback(async () => {
     if (!user?.id || !isVisitor) { setPending([]); setLoading(false); return }
     try {
-      setPending(await fetchPendingRatings(user.id))
+      // A trava não pode segurar a abertura do app: se a consulta não responder
+      // (rede que o Android congelou ao trocar de app), a tela abre e a trava
+      // volta sozinha no próximo refresh. Sem isto, esta era a SEGUNDA porta
+      // para o spinner infinito, mesmo com o login já resolvido.
+      const r = await Promise.race([
+        fetchPendingRatings(user.id),
+        new Promise(resolve => setTimeout(() => resolve(null), 10000)),
+      ])
+      if (r) setPending(r)
     } finally {
       setLoading(false)
     }

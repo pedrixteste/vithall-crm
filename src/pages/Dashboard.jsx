@@ -206,7 +206,19 @@ export default function Dashboard() {
     return { from, to }
   }
 
+  // O spinner NUNCA pode sobreviver a uma falha: antes, qualquer erro no meio
+  // das consultas (rede que o Android congelou ao trocar de app) pulava o
+  // setLoading(false) do fim e a tela ficava carregando para sempre — só
+  // matando o app resolvia. O finally garante a saída.
   async function fetchData() {
+    try {
+      await carregarDados()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function carregarDados() {
     const start = getPeriodStart()
     const end   = period === 'custom' && customTo ? customTo + 'T23:59:59' : null
 
@@ -302,8 +314,6 @@ export default function Dashboard() {
       const treated = c => c.visit_confirmation === 'confirmada' || c.visit_confirmation === 'tentativa'
       setScheduledVisits((sv || []).filter(c => new Date(c.visit_scheduled_at) > windowEnd || treated(c)))
     }
-
-    setLoading(false)
   }
 
   function buildCalendarUrl(c) {

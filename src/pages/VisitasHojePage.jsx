@@ -151,8 +151,19 @@ export default function VisitasHojePage() {
   // Voltou pro app → busca de novo (confirmações e tarefas mudam o dia inteiro)
   useRefreshOnFocus(fetchData)
 
+  // Igual ao Dashboard: o spinner não pode sobreviver a uma falha no meio das
+  // consultas — sem o finally, uma rede que morreu ao trocar de app deixava a
+  // aba carregando para sempre.
   async function fetchData() {
     if (!user?.id) return
+    try {
+      await carregarDados()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function carregarDados() {
     const role = profile?.role
 
     const [confirm, tv, tc, mv, mc, rem, tsk, cbs] = await Promise.all([
@@ -191,8 +202,6 @@ export default function VisitasHojePage() {
       setAnsweredToday(answered)
       setFeedbacks(fb)
     }
-
-    setLoading(false)
   }
 
   // ── Produzido hoje ──────────────────────────────────────────────
