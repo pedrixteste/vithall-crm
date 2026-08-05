@@ -25,8 +25,9 @@ export default function LigacoesPage() {
   const [saved, setSaved]                     = useState(false)
   const [allLogs, setAllLogs]                 = useState([])
   const [credits, setCredits]                 = useState([]) // matrículas creditadas ao usuário
-  const [calView, setCalView]                 = useState('month') // 'month' | 'week'
+  const [calView, setCalView]                 = useState('month') // 'month' | 'week' | 'day'
   const [calMetric, setCalMetric]             = useState('calls') // 'calls' | 'answered' | 'appointments'
+  const [specDate, setSpecDate]               = useState('')      // data personalizada da visão Dia
 
   const today = localDateStr() // dia LOCAL — às 21h+ o toISOString já virava "amanhã" (UTC)
 
@@ -120,6 +121,7 @@ export default function LigacoesPage() {
   // Calendar days array
   const calDays = useMemo(() => {
     const now = new Date()
+    if (calView === 'day') return []
     if (calView === 'week') {
       const mon = new Date(now)
       const dow = now.getDay() // 0=Sun
@@ -164,6 +166,16 @@ export default function LigacoesPage() {
 
   const accentRGB  = METRICS[calMetric].rgb
   const accentHex  = METRICS[calMetric].color
+
+  // A semana da grade começa na SEGUNDA — o cabeçalho tem que acompanhar,
+  // senão os dias escorregam uma coluna (quarta aparecia embaixo de "Ter")
+  const daysHeader = calView === 'week' ? [...DAYS_SHORT.slice(1), DAYS_SHORT[0]] : DAYS_SHORT
+
+  const specDateLog   = specDate ? logsByDate[specDate] : null
+  const specDateCreds = specDate ? (creditsByDate[specDate] || 0) : 0
+  const specDateLabel = specDate
+    ? new Date(specDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+    : 'Escolha uma data'
 
   function cellBg(dateStr, val) {
     if (dateStr === today)  return 'rgba(201,168,76,0.12)'
@@ -327,16 +339,16 @@ export default function LigacoesPage() {
         {/* Topo: label + toggle mês/semana */}
         <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
           <p className="text-sm font-semibold capitalize" style={{ color: '#EFEFEF' }}>
-            {calView === 'month' ? monthLabel : weekLabel}
+            {calView === 'month' ? monthLabel : calView === 'week' ? weekLabel : specDateLabel}
           </p>
           <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #252525' }}>
-            {[['month', 'Mês'], ['week', 'Semana']].map(([v, label], i) => (
+            {[['month', 'Mês'], ['week', 'Semana'], ['day', 'Dia']].map(([v, label], i) => (
               <button key={v} onClick={() => setCalView(v)}
                 className="px-3 py-1.5 text-xs font-semibold"
                 style={{
                   background: calView === v ? 'rgba(201,168,76,0.15)' : '#111',
                   color:      calView === v ? '#C9A84C' : '#6B6560',
-                  borderRight: i === 0 ? '1px solid #252525' : 'none',
+                  borderRight: i < 2 ? '1px solid #252525' : 'none',
                 }}>
                 {label}
               </button>
@@ -345,32 +357,79 @@ export default function LigacoesPage() {
         </div>
 
         {/* Toggle métrica — 4 opções, quebram p/ a linha de baixo no celular */}
-        <div className="flex flex-wrap gap-2" style={{ marginBottom: '14px' }}>
-          {Object.entries(METRICS).map(([key, { label, Icon, color, rgb }]) => (
-            <button key={key} onClick={() => setCalMetric(key)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{
-                background: calMetric === key ? `rgba(${rgb},0.12)` : '#111',
-                color:      calMetric === key ? color : '#6B6560',
-                border:     `1px solid ${calMetric === key ? `rgba(${rgb},0.3)` : '#1C1C1C'}`,
-              }}>
-              <Icon size={10} />
-              {label}
-            </button>
-          ))}
-        </div>
+        {calView !== 'day' && (
+          <div className="flex flex-wrap gap-2" style={{ marginBottom: '14px' }}>
+            {Object.entries(METRICS).map(([key, { label, Icon, color, rgb }]) => (
+              <button key={key} onClick={() => setCalMetric(key)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{
+                  background: calMetric === key ? `rgba(${rgb},0.12)` : '#111',
+                  color:      calMetric === key ? color : '#6B6560',
+                  border:     `1px solid ${calMetric === key ? `rgba(${rgb},0.3)` : '#1C1C1C'}`,
+                }}>
+                <Icon size={10} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Cabeçalho dos dias da semana */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
-          {DAYS_SHORT.map(d => (
-            <div key={d} className="text-center text-[10px] font-bold uppercase" style={{ color: '#2A2A2A' }}>
-              {d}
-            </div>
-          ))}
-        </div>
+        {calView !== 'day' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+            {daysHeader.map(d => (
+              <div key={d} className="text-center text-[10px] font-bold uppercase" style={{ color: '#2A2A2A' }}>
+                {d}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Visão Dia — data personalizada */}
+        {calView === 'day' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <input
+              type="date" value={specDate} max={today}
+              onChange={e => setSpecDate(e.target.value)}
+              className="rounded-xl outline-none"
+              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#EFEFEF',
+                padding: '10px 14px', fontSize: '14px', colorScheme: 'dark', width: '100%' }}
+            />
+            {!specDate ? (
+              <p className="text-center" style={{ fontSize: '12px', color: '#6B6560', padding: '12px 0' }}>
+                Escolha uma data para ver o que foi registrado nesse dia.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {Object.entries(METRICS).map(([key, { label, Icon, color, rgb }]) => {
+                    const val = valFor(specDate, key)
+                    return (
+                      <div key={key} className="rounded-xl flex items-center justify-between"
+                        style={{ background: `rgba(${rgb},0.06)`, border: `1px solid rgba(${rgb},0.18)`, padding: '14px 16px' }}>
+                        <div className="flex items-center gap-2">
+                          <Icon size={12} style={{ color }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#B0A99F' }}>{label}</span>
+                        </div>
+                        <span className="font-bold tabular-nums" style={{ fontSize: '22px', color, letterSpacing: '-0.5px' }}>
+                          {val || '—'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {!specDateLog && specDateCreds === 0 && (
+                  <p className="text-center" style={{ fontSize: '11px', color: '#6B6560' }}>
+                    Nada registrado nesse dia.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Grade do calendário */}
-        {calView === 'month' ? (
+        {calView === 'day' ? null : calView === 'month' ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
             {calDays.map((dateStr, idx) => {
               if (!dateStr) return <div key={`pad-${idx}`} />

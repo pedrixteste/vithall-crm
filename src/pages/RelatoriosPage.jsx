@@ -342,6 +342,7 @@ export default function RelatoriosPage() {
   const [exportPersonId, setExportPersonId]   = useState(null)
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, atendidas: false, marcacoes: true, visitas: true, matriculas: false })
   const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
+  const [creditClients, setCreditClients]     = useState([]) // clientes de créditos fora da carteira (participações)
   const [reschedules, setReschedules]         = useState({}) // client_id → datas das remarcações
   const [view, setView]                       = useState('graficos') // graficos | listas
 
@@ -384,6 +385,18 @@ export default function RelatoriosPage() {
     if (profile?.role !== 'gerente') credQuery = credQuery.eq('credited_to', user.id)
     const { data: credData } = await credQuery
     setCredits(credData || [])
+
+    // Participação em matrícula pode apontar para cliente de outra carteira
+    // (pré-vendas/vendedor só carregam os próprios) — busca os que faltam
+    // para o crédito não sumir da lista de matrículas
+    const temos = new Set((clientsData || []).map(c => c.id))
+    const faltam = [...new Set((credData || []).map(cr => cr.client_id).filter(id => id && !temos.has(id)))]
+    if (faltam.length) {
+      const { data: extras } = await supabase.from('clients').select('*, visits(*)').in('id', faltam)
+      setCreditClients(extras || [])
+    } else {
+      setCreditClients([])
+    }
     setLoading(false)
   }
 
@@ -503,7 +516,7 @@ export default function RelatoriosPage() {
   // Detalha cada crédito no cliente que fechou — é o que a lista clicável e o
   // relatório exportado mostram (nome, empresa, valor, situação da matrícula)
   const enrolledDetail = (crs) => crs.map(cr => {
-    const c = clients.find(x => x.id === cr.client_id)
+    const c = clients.find(x => x.id === cr.client_id) || creditClients.find(x => x.id === cr.client_id)
     if (!c) return null
     const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada')
       .sort((a, b) => (b.visit_date || '').localeCompare(a.visit_date || ''))[0]
