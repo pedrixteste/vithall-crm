@@ -607,11 +607,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {phoneSuggestions.length > 0 && !suggestDismissed && (
             <div className="rounded-xl mt-2" style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.25)', overflow: 'hidden' }}>
               <div className="flex items-center justify-between" style={{ padding: '8px 12px 6px' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#60A5FA' }}>
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#60A5FA' }}>
                   📞 Número já registrado — toque para puxar os dados
                 </p>
                 <button type="button" onClick={() => setSuggestDismissed(true)}
-                  className="text-[10px] font-bold" style={{ color: '#6B6560' }}>✕</button>
+                  className="text-[11px] font-bold" style={{ color: '#958E86' }}>✕</button>
               </div>
               {phoneSuggestions.map(s => (
                 <button key={s.id} type="button" onClick={() => applySuggestion(s)}
@@ -619,7 +619,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   style={{ padding: '10px 12px', borderTop: '1px solid rgba(96,165,250,0.12)' }}>
                   <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>
                     {s.contact_name || s.company_name || 'Sem nome'}
-                    {s.company_name && s.contact_name ? <span style={{ color: '#6B6560', fontWeight: 400 }}> · {s.company_name}</span> : null}
+                    {s.company_name && s.contact_name ? <span style={{ color: '#958E86', fontWeight: 400 }}> · {s.company_name}</span> : null}
                   </p>
                   <p className="text-xs tabular-nums" style={{ color: '#60A5FA' }}>{s.matchPhone}</p>
                 </button>
@@ -633,7 +633,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         {form.phone.trim() && (
           <>
             <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
                 Esse número é...
               </p>
               <TipoToggle value={form.phone_type} onChange={t => set('phone_type', t)} />
@@ -723,7 +723,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
         {/* Treinamento de interesse */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Treinamento de interesse
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
@@ -734,7 +734,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   padding: '10px 6px',
                   background: treinamentosInteresse.includes(t) ? 'rgba(201,168,76,0.12)' : '#111',
                   border: `1px solid ${treinamentosInteresse.includes(t) ? 'rgba(201,168,76,0.35)' : '#252525'}`,
-                  color: treinamentosInteresse.includes(t) ? '#C9A84C' : '#6B6560',
+                  color: treinamentosInteresse.includes(t) ? '#C9A84C' : '#958E86',
                 }}>
                 {t}
               </button>
@@ -744,7 +744,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
         {/* Dias livres do cliente (opcional) */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Dias livres do cliente
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
@@ -755,7 +755,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   padding: '10px 4px',
                   background: diasLivres.includes(d.key) ? 'rgba(201,168,76,0.12)' : '#111',
                   border: `1px solid ${diasLivres.includes(d.key) ? 'rgba(201,168,76,0.35)' : '#252525'}`,
-                  color: diasLivres.includes(d.key) ? '#C9A84C' : '#6B6560',
+                  color: diasLivres.includes(d.key) ? '#C9A84C' : '#958E86',
                 }}>
                 {d.label}
               </button>
@@ -797,7 +797,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           <div className="rounded-2xl" style={{ background: '#0F1A0F', border: '1px solid rgba(74,222,128,0.15)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ADE80' }}>Detalhes da marcacao</p>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+              <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
                 Data e hora da visita *
               </label>
               <input
@@ -824,7 +824,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
 
         {/* ---- OBSERVACOES ---- */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Observacoes *
           </label>
           <div className="relative">
@@ -891,11 +891,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {/* Header */}
           <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
             <Clock size={14} style={{ color: '#C9A84C' }} />
-            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#6B6560' }}>
+            <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: '#958E86' }}>
               Quando quer ser lembrado desse cliente?
             </p>
           </div>
-          <p className="text-xs" style={{ color: '#6B6560', marginBottom: '14px' }}>
+          <p className="text-xs" style={{ color: '#958E86', marginBottom: '14px' }}>
             Opcional - escolha para receber notificacoes
           </p>
 
@@ -909,7 +909,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   padding: '10px 6px',
                   background: reminderType === rt.key ? 'rgba(201,168,76,0.12)' : '#111',
                   border: `1px solid ${reminderType === rt.key ? 'rgba(201,168,76,0.35)' : '#252525'}`,
-                  color: reminderType === rt.key ? '#C9A84C' : '#6B6560',
+                  color: reminderType === rt.key ? '#C9A84C' : '#958E86',
                 }}>
                 {rt.label}
               </button>
@@ -919,7 +919,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {/* Dias da semana */}
           {reminderType === 'weekly' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>Dias</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', marginBottom: '8px' }}>Dias</p>
               <div style={{ display: 'flex', gap: '5px' }}>
                 {WEEK_DAYS.map((d, i) => (
                   <button key={d.key} type="button"
@@ -928,11 +928,11 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                       flex: 1,
                       aspectRatio: '1',
                       borderRadius: '50%',
-                      fontSize: '11px',
+                      fontSize: '12px',
                       fontWeight: 700,
                       background: reminderDays.includes(d.key) ? 'rgba(201,168,76,0.15)' : '#111',
                       border: `1px solid ${reminderDays.includes(d.key) ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#807A73',
+                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#A59F97',
                       cursor: 'pointer',
                     }}>
                     {d.label}
@@ -945,24 +945,24 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {/* Data específica — uma ou várias datas + horário opcional */}
           {reminderType === 'specific_date' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', marginBottom: '8px' }}>
                 Datas do lembrete
               </p>
               <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} />
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', margin: '12px 0 8px' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', margin: '12px 0 8px' }}>
                 Horário (opcional)
               </p>
               <input type="time" value={reminderDateTime} onChange={e => setReminderDateTime(e.target.value)}
                 className="w-full text-sm outline-none rounded-xl"
                 style={{ padding: '12px 14px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }} />
-              <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>Você será lembrado em cada data escolhida. Pode adicionar mais de uma.</p>
+              <p className="text-[12px] mt-1.5" style={{ color: '#A59F97' }}>Você será lembrado em cada data escolhida. Pode adicionar mais de uma.</p>
             </div>
           )}
 
           {/* Horarios (só para lembretes recorrentes: todo dia / dias da semana) */}
           {reminderType && reminderType !== 'specific_date' && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', marginBottom: '8px' }}>
                 Horarios (pode escolher mais de um)
               </p>
 
@@ -975,7 +975,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                       padding: '6px 12px',
                       background: reminderTimes.includes(t) ? 'rgba(201,168,76,0.12)' : 'transparent',
                       borderColor: reminderTimes.includes(t) ? 'rgba(201,168,76,0.4)' : '#252525',
-                      color: reminderTimes.includes(t) ? '#C9A84C' : '#6B6560',
+                      color: reminderTimes.includes(t) ? '#C9A84C' : '#958E86',
                     }}>
                     {t}
                   </button>
@@ -1049,7 +1049,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                 Quer adicionar <b style={{ color: '#EFEFEF' }}>"{calendarPrompt.name}"</b>
                 {calendarPrompt.phone ? <> ({calendarPrompt.phone})</> : null} no Google Agenda?
               </p>
-              <p className="text-xs mb-5" style={{ color: '#6B6560' }}>
+              <p className="text-xs mb-5" style={{ color: '#958E86' }}>
                 Visita: {new Date(calendarPrompt.visitIso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}
                 {' às '}
                 {new Date(calendarPrompt.visitIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -1061,7 +1061,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
               </button>
               <button type="button" onClick={finishAfterCalendar} disabled={calSaving}
                 className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
-                style={{ background: 'transparent', color: '#6B6560' }}>
+                style={{ background: 'transparent', color: '#958E86' }}>
                 Agora não
               </button>
             </>
@@ -1082,19 +1082,19 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ) : slotPrompt.step === 'substituir' ? (
             <>
               <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Substituir a reserva?</p>
-              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+              <p className="text-xs mb-3" style={{ color: '#958E86', lineHeight: 1.5 }}>
                 Existe <b style={{ color: '#B0A99F' }}>"{slotPrompt.slot.booked_note}"</b> reservado às{' '}
                 {new Date(slotPrompt.slot.slot_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
                 Ele vira a visita completa, com todos os dados do cliente.
               </p>
               {slotPrompt.error && (
-                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                <p className="text-[12px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                   {slotPrompt.error}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'confirmar_nao' }))} disabled={slotPrompt.busy}
-                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#958E86' }}>
                   Não
                 </button>
                 <button type="button" onClick={substituirReserva} disabled={slotPrompt.busy}
@@ -1106,12 +1106,12 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ) : slotPrompt.step === 'confirmar_nao' ? (
             <>
               <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Tem certeza?</p>
-              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+              <p className="text-xs mb-3" style={{ color: '#958E86', lineHeight: 1.5 }}>
                 A reserva <b style={{ color: '#B0A99F' }}>"{slotPrompt.slot.booked_note}"</b> continua no lugar.
                 E a visita, o que faz?
               </p>
               {slotPrompt.error && (
-                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                <p className="text-[12px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                   {slotPrompt.error}
                 </p>
               )}
@@ -1123,7 +1123,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
                     {slotPrompt.busy ? 'Criando a visita...' : 'Não quero tirar a reserva'}
                   </span>
-                  <span className="text-[11px] block mt-0.5" style={{ color: '#807A73' }}>
+                  <span className="text-[12px] block mt-0.5" style={{ color: '#A59F97' }}>
                     Ficam dois eventos no horário: a reserva e a visita
                   </span>
                 </button>
@@ -1132,7 +1132,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
                     Essa marcação não vai para o Google
                   </span>
-                  <span className="text-[11px] block mt-0.5" style={{ color: '#807A73' }}>
+                  <span className="text-[12px] block mt-0.5" style={{ color: '#A59F97' }}>
                     A visita fica só no CRM; o vendedor não recebe a ficha
                   </span>
                 </button>
@@ -1145,7 +1145,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ) : slotPrompt.step === 'sem_reserva' ? (
             <>
               <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Horário não reservado</p>
-              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+              <p className="text-xs mb-3" style={{ color: '#958E86', lineHeight: 1.5 }}>
                 Não achei reserva para{' '}
                 {new Date(slotPrompt.visitIso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}{' '}
                 às {new Date(slotPrompt.visitIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
@@ -1153,7 +1153,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => { setSlotPrompt(null); dupPendingRef.current = null }}
-                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#958E86' }}>
                   Vou corrigir
                 </button>
                 <button type="button" onClick={() => setSlotPrompt(p => ({ ...p, step: 'ocupar' }))}
@@ -1165,17 +1165,17 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           ) : (
             <>
               <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>Ocupar na agenda?</p>
-              <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+              <p className="text-xs mb-3" style={{ color: '#958E86', lineHeight: 1.5 }}>
                 Abre e ocupa esse horário na agenda do vendedor, e cria a visita no Google Agenda.
               </p>
               {slotPrompt.error && (
-                <p className="text-[11px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
+                <p className="text-[12px] font-semibold rounded-xl mb-3" style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                   {slotPrompt.error}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={finishAfterCalendar} disabled={slotPrompt.busy}
-                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                  className="text-xs font-bold rounded-xl py-3" style={{ background: '#111', border: '1px solid #252525', color: '#958E86' }}>
                   Agora não
                 </button>
                 <button type="button" onClick={ocuparAgora} disabled={slotPrompt.busy}
@@ -1211,7 +1211,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           </button>
           <button type="button" onClick={() => { setDupPrompt(null); onSaved() }}
             className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
-            style={{ background: 'transparent', color: '#6B6560' }}>
+            style={{ background: 'transparent', color: '#958E86' }}>
             Não, continuar
           </button>
         </div>

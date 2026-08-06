@@ -14,7 +14,7 @@ function TipoToggle({ value, onChange }) {
           style={{
             background: value === k ? 'rgba(201,168,76,0.12)' : '#161616',
             border: `1px solid ${value === k ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-            color: value === k ? '#C9A84C' : '#6B6560',
+            color: value === k ? '#C9A84C' : '#958E86',
           }}>
           {value === k ? '✓ ' : ''}{label}
         </button>
@@ -48,7 +48,7 @@ export default function PhoneList({ value = [], onChange, primaryFilled = true }
         <div key={i} className="rounded-2xl"
           style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E' }}>
               Telefone adicional {i + 1}
             </p>
             <button type="button" onClick={() => remover(i)} title="Remover"
@@ -69,7 +69,7 @@ export default function PhoneList({ value = [], onChange, primaryFilled = true }
       {podeAdicionar && (
         <button type="button" onClick={adicionar}
           className="flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl py-3 transition-all active:scale-95"
-          style={{ background: '#161616', border: '1px dashed #303030', color: '#6B6560' }}>
+          style={{ background: '#161616', border: '1px dashed #303030', color: '#958E86' }}>
           <Plus size={13} /> +1 número
         </button>
       )}

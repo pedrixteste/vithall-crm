@@ -46,7 +46,7 @@ export default function Layout({ children }) {
             const r = roles[profile.role]
             if (!r) return null
             return (
-              <span className="text-[10px] font-bold rounded-full"
+              <span className="text-[11px] font-bold rounded-full"
                 style={{ padding: '3px 8px', background: r.bg, border: `1px solid ${r.border}`, color: r.color }}>
                 {r.label}
               </span>
@@ -63,7 +63,7 @@ export default function Layout({ children }) {
               style={{ background: 'rgba(201,168,76,0.15)', color: '#C9A84C' }}>
               {profile?.name?.[0]?.toUpperCase() || '?'}
             </div>
-            <span className="text-xs font-medium hidden sm:block" style={{ color: '#6B6560' }}>
+            <span className="text-xs font-medium hidden sm:block" style={{ color: '#958E86' }}>
               {profile?.name?.split(' ')[0]?.split('@')[0]}
             </span>
           </Link>
@@ -74,14 +74,14 @@ export default function Layout({ children }) {
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden sm:flex flex-col w-52 border-r flex-shrink-0 pt-4"
           style={{ background: '#0A0A0A', borderColor: '#1C1C1C' }}>
-          <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#5C5751' }}>
+          <p className="px-4 pb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: '#8B857D' }}>
             Navegação
           </p>
           {navItems.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}
               className="flex items-center gap-3 mx-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5"
               style={{
-                color: isActive(to) ? '#C9A84C' : '#6B6560',
+                color: isActive(to) ? '#C9A84C' : '#958E86',
                 background: isActive(to) ? 'rgba(201,168,76,0.08)' : 'transparent',
                 borderLeft: isActive(to) ? '2px solid #C9A84C' : '2px solid transparent',
               }}>
@@ -108,7 +108,7 @@ export default function Layout({ children }) {
               className="flex-1 flex flex-col items-center py-3 gap-1.5 transition-all"
               style={{ color: isActive(to) ? '#C9A84C' : '#8A837C' }}>
               <Icon size={21} strokeWidth={isActive(to) ? 2.5 : 1.9} />
-              <span className="text-[10px] font-semibold">{label}</span>
+              <span className="text-[11px] font-semibold">{label}</span>
             </Link>
           ))}
         </div>

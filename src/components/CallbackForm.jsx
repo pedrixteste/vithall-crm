@@ -92,7 +92,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
     <Sheet open onClose={onClose} title={initialData ? 'Editar "ligar depois"' : 'Cliente pediu p/ ligar depois'}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '4px' }}>
 
-        <p className="text-xs" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+        <p className="text-xs" style={{ color: '#958E86', lineHeight: 1.5 }}>
           Lembrete de ligação — <b style={{ color: '#B0A99F' }}>não entra na lista de clientes</b>.
           Serve só para você lembrar de ligar nos dias marcados.
         </p>
@@ -106,7 +106,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
         {phone.trim() && (
           <>
             <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
                 Esse número é...
               </p>
               <TipoToggle value={phoneType} onChange={setPhoneType} />
@@ -126,7 +126,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
         <div style={{ borderTop: '1px solid #1C1C1C', paddingTop: '18px' }}>
           <div className="flex items-center gap-2" style={{ marginBottom: '10px' }}>
             <PhoneCall size={14} style={{ color: '#E8834A' }} />
-            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#6B6560' }}>
+            <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: '#958E86' }}>
               Quando foi marcada a ligacao? *
             </p>
           </div>
@@ -140,7 +140,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
                   padding: '10px 6px',
                   background: reminderType === rt.key ? 'rgba(232,131,74,0.12)' : '#111',
                   border: `1px solid ${reminderType === rt.key ? 'rgba(232,131,74,0.4)' : '#252525'}`,
-                  color: reminderType === rt.key ? '#E8834A' : '#6B6560',
+                  color: reminderType === rt.key ? '#E8834A' : '#958E86',
                 }}>
                 {rt.label}
               </button>
@@ -156,7 +156,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
                     padding: '9px 4px',
                     background: reminderDays.includes(d.key) ? 'rgba(232,131,74,0.12)' : '#111',
                     border: `1px solid ${reminderDays.includes(d.key) ? 'rgba(232,131,74,0.4)' : '#252525'}`,
-                    color: reminderDays.includes(d.key) ? '#E8834A' : '#6B6560',
+                    color: reminderDays.includes(d.key) ? '#E8834A' : '#958E86',
                   }}>
                   {d.label}
                 </button>
@@ -167,7 +167,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
           {reminderType === 'specific_date' && (
             <div>
               <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} color="#E8834A" />
-              <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
+              <p className="text-[12px] mt-1.5" style={{ color: '#A59F97' }}>
                 Aparece no "Hoje" em cada data escolhida. Pode adicionar mais de uma.
               </p>
             </div>
@@ -181,7 +181,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
             const selStyle = { padding: '12px 10px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', borderRadius: '12px', fontSize: '14px', outline: 'none', width: '100%' }
             return (
               <div style={{ marginTop: '14px' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+                <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
                   Hora de ligar (opcional)
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
@@ -191,7 +191,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
                       <option key={hh} value={hh} style={{ background: '#1A1A1A' }}>{hh}h</option>
                     ))}
                   </select>
-                  <span style={{ color: '#6B6560', fontWeight: 700 }}>:</span>
+                  <span style={{ color: '#958E86', fontWeight: 700 }}>:</span>
                   <select value={m} onChange={e => setPart(e.target.value ? (h || '00') : '', e.target.value)} style={selStyle}>
                     <option value="">Min</option>
                     {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(mm => (
@@ -199,7 +199,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
                     ))}
                   </select>
                 </div>
-                <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
+                <p className="text-[12px] mt-1.5" style={{ color: '#A59F97' }}>
                   Só p/ lembrar o melhor horário — o card fica o dia todo até você concluir.
                 </p>
               </div>
@@ -214,7 +214,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
 
         {/* Descrição (opcional) */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Descricao (opcional)
           </label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}

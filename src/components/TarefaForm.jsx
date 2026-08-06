@@ -100,7 +100,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
 
         {/* Prioridade */}
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Prioridade
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
@@ -111,7 +111,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
                   padding: '10px 6px',
                   background: priority === p.key ? p.bg : '#111',
                   border: `1px solid ${priority === p.key ? p.border : '#252525'}`,
-                  color: priority === p.key ? p.color : '#6B6560',
+                  color: priority === p.key ? p.color : '#958E86',
                 }}>
                 {p.label}
               </button>
@@ -127,7 +127,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
         />
 
         <div>
-          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#6B6560' }}>
+          <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Observações
           </label>
           <textarea
@@ -146,11 +146,11 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
         <div style={{ borderTop: '1px solid #1C1C1C', paddingTop: '20px' }}>
           <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
             <Bell size={14} style={{ color: '#C9A84C' }} />
-            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#6B6560' }}>
+            <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: '#958E86' }}>
               Lembrete por notificação
             </p>
           </div>
-          <p className="text-xs" style={{ color: '#6B6560', marginBottom: '14px' }}>
+          <p className="text-xs" style={{ color: '#958E86', marginBottom: '14px' }}>
             Opcional — receba uma notificação sobre esta tarefa
           </p>
 
@@ -163,7 +163,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
                   padding: '10px 6px',
                   background: reminderType === rt.key ? 'rgba(201,168,76,0.12)' : '#111',
                   border: `1px solid ${reminderType === rt.key ? 'rgba(201,168,76,0.35)' : '#252525'}`,
-                  color: reminderType === rt.key ? '#C9A84C' : '#6B6560',
+                  color: reminderType === rt.key ? '#C9A84C' : '#958E86',
                 }}>
                 {rt.label}
               </button>
@@ -172,15 +172,15 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
 
           {reminderType === 'weekly' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>Dias</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', marginBottom: '8px' }}>Dias</p>
               <div style={{ display: 'flex', gap: '5px' }}>
                 {WEEK_DAYS.map(d => (
                   <button key={d.key} type="button" onClick={() => toggleDay(d.key)}
                     style={{
-                      flex: 1, aspectRatio: '1', borderRadius: '50%', fontSize: '11px', fontWeight: 700,
+                      flex: 1, aspectRatio: '1', borderRadius: '50%', fontSize: '12px', fontWeight: 700,
                       background: reminderDays.includes(d.key) ? 'rgba(201,168,76,0.15)' : '#111',
                       border: `1px solid ${reminderDays.includes(d.key) ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#807A73', cursor: 'pointer',
+                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#A59F97', cursor: 'pointer',
                     }}>
                     {d.label}
                   </button>
@@ -198,13 +198,13 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
                 onFocus={e => e.target.style.borderColor = '#C9A84C'}
                 onBlur={e => e.target.style.borderColor = '#252525'}
               />
-              <span className="text-sm" style={{ color: '#6B6560' }}>dias a partir de hoje</span>
+              <span className="text-sm" style={{ color: '#958E86' }}>dias a partir de hoje</span>
             </div>
           )}
 
           {reminderType && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9D968E', marginBottom: '8px' }}>
                 Horários
               </p>
               <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '10px' }}>
@@ -215,7 +215,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
                       padding: '6px 12px',
                       background: reminderTimes.includes(t) ? 'rgba(201,168,76,0.12)' : 'transparent',
                       borderColor: reminderTimes.includes(t) ? 'rgba(201,168,76,0.4)' : '#252525',
-                      color: reminderTimes.includes(t) ? '#C9A84C' : '#6B6560',
+                      color: reminderTimes.includes(t) ? '#C9A84C' : '#958E86',
                     }}>
                     {t}
                   </button>

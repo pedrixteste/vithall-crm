@@ -42,7 +42,7 @@ export default function EquipePage() {
     return (
       <div className="text-center" style={{ padding: '64px 0' }}>
         <p className="text-3xl mb-4">🔒</p>
-        <p className="text-sm font-medium" style={{ color: '#6B6560' }}>Acesso restrito ao gerente</p>
+        <p className="text-sm font-medium" style={{ color: '#958E86' }}>Acesso restrito ao gerente</p>
       </div>
     )
   }
@@ -50,11 +50,11 @@ export default function EquipePage() {
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestao</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestao</p>
         <h1 style={{ color: '#EFEFEF' }}>Equipe</h1>
       </div>
 
-      <p className="text-xs" style={{ color: '#6B6560' }}>
+      <p className="text-xs" style={{ color: '#958E86' }}>
         Toque no cargo de um membro para alterar a funcao dele.
       </p>
 
@@ -66,7 +66,7 @@ export default function EquipePage() {
       ) : members.length === 0 ? (
         <div className="text-center" style={{ padding: '64px 0' }}>
           <p className="text-3xl mb-4">👥</p>
-          <p className="text-sm" style={{ color: '#6B6560' }}>Nenhum membro encontrado</p>
+          <p className="text-sm" style={{ color: '#958E86' }}>Nenhum membro encontrado</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -92,13 +92,13 @@ export default function EquipePage() {
                         {member.name || 'Sem nome'}
                       </p>
                       {isMe && (
-                        <span className="text-[10px] font-bold rounded-full"
+                        <span className="text-[11px] font-bold rounded-full"
                           style={{ padding: '2px 8px', background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
                           Voce
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: '#756F68' }}>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: '#9D968E' }}>
                       {member.email || ''}
                     </p>
                   </div>
@@ -153,7 +153,7 @@ export default function EquipePage() {
 
       {/* Info sobre os papeis */}
       <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '16px' }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B6560' }}>Papeis</p>
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#958E86' }}>Papeis</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {[
             { role: 'pre_vendas', desc: 'Cadastra clientes e agenda visitas. Ve somente seus proprios contatos.' },
@@ -167,7 +167,7 @@ export default function EquipePage() {
                   style={{ padding: '3px 10px', background: r.bg, color: r.color, border: `1px solid ${r.border}` }}>
                   {r.label}
                 </span>
-                <p className="text-xs" style={{ color: '#756F68' }}>{desc}</p>
+                <p className="text-xs" style={{ color: '#9D968E' }}>{desc}</p>
               </div>
             )
           })}

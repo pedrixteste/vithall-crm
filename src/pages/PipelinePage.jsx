@@ -50,7 +50,7 @@ export default function PipelinePage() {
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Visao geral</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Visao geral</p>
         <h1 style={{ color: '#EFEFEF' }}>Funil de Matricula</h1>
       </div>
 
@@ -85,7 +85,7 @@ export default function PipelinePage() {
             </div>
 
             {byStage(stage.key).length === 0 ? (
-              <p className="text-xs text-center" style={{ padding: '20px 0', color: '#55504B' }}>
+              <p className="text-xs text-center" style={{ padding: '20px 0', color: '#847E77' }}>
                 Sem clientes
               </p>
             ) : (
@@ -105,12 +105,12 @@ export default function PipelinePage() {
                         {client.contact_name || client.company_name}
                       </p>
                       {client.contact_name && client.company_name && (
-                        <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
+                        <p className="text-xs truncate mt-0.5" style={{ color: '#958E86' }}>
                           {client.company_name}
                         </p>
                       )}
                     </div>
-                    <ChevronRight size={14} style={{ color: '#6B6560', flexShrink: 0 }} />
+                    <ChevronRight size={14} style={{ color: '#958E86', flexShrink: 0 }} />
                   </button>
                 ))}
               </div>

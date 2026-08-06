@@ -96,7 +96,7 @@ export default function SinoNotificacoes() {
       <button onClick={abrir} aria-label="Notificações"
         className="relative flex items-center justify-center rounded-xl transition-all"
         style={{ width: '34px', height: '34px', background: '#1A1A1A', border: '1px solid #252525' }}>
-        <Bell size={16} style={{ color: naoLidas.length ? '#C9A84C' : '#6B6560' }} />
+        <Bell size={16} style={{ color: naoLidas.length ? '#C9A84C' : '#958E86' }} />
         {naoLidas.length > 0 && (
           <span className="absolute rounded-full"
             style={{ top: '6px', right: '6px', width: '7px', height: '7px',
@@ -119,15 +119,15 @@ export default function SinoNotificacoes() {
                 Notificações
               </span>
               {itens.length > 0 && (
-                <span className="text-[10px]" style={{ color: '#6B6560' }}>últimos 60 dias</span>
+                <span className="text-[11px]" style={{ color: '#958E86' }}>últimos 60 dias</span>
               )}
             </div>
 
             <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
               {itens.length === 0 ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm" style={{ color: '#6B6560' }}>Nada por aqui ainda.</p>
-                  <p className="text-xs mt-1" style={{ color: '#6E6862' }}>
+                  <p className="text-sm" style={{ color: '#958E86' }}>Nada por aqui ainda.</p>
+                  <p className="text-xs mt-1" style={{ color: '#979089' }}>
                     Tudo que for enviado pra você aparece aqui, mesmo que o celular não avise.
                   </p>
                 </div>
@@ -150,8 +150,8 @@ export default function SinoNotificacoes() {
                           {nova && <span className="rounded-full flex-shrink-0"
                             style={{ width: '6px', height: '6px', background: '#C9A84C' }} />}
                         </div>
-                        <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.45 }}>{n.body}</p>
-                        <p className="text-[10px] mt-1" style={{ color: '#6E6862' }}>{quando(n.created_at)}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#958E86', lineHeight: 1.45 }}>{n.body}</p>
+                        <p className="text-[11px] mt-1" style={{ color: '#979089' }}>{quando(n.created_at)}</p>
                       </div>
                     </div>
                   </button>

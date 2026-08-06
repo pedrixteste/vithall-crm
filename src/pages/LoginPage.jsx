@@ -48,7 +48,7 @@ export default function LoginPage() {
             Área do Vendedor
           </p>
           <h1 className="text-2xl font-bold mb-1" style={{ color: '#EFEFEF' }}>Bem-vindo de volta</h1>
-          <p className="text-sm" style={{ color: '#6B6560' }}>Entre com suas credenciais para continuar</p>
+          <p className="text-sm" style={{ color: '#958E86' }}>Entre com suas credenciais para continuar</p>
         </div>
 
         {/* Form */}
@@ -86,7 +86,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center mt-6 text-[11px]" style={{ color: '#55504B' }}>
+        <p className="text-center mt-6 text-[12px]" style={{ color: '#847E77' }}>
           Vithall Treinamentos © 2025
         </p>
       </div>

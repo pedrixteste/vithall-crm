@@ -7,7 +7,7 @@ const variants = {
   green:  { color: '#4ADE80', bg: 'rgba(74,222,128,0.1)',  border: 'rgba(74,222,128,0.2)' },
   orange: { color: '#E8834A', bg: 'rgba(232,131,74,0.1)',  border: 'rgba(232,131,74,0.2)' },
   blue:   { color: '#60A5FA', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.2)' },
-  muted:  { color: '#6B6560', bg: 'rgba(107,101,96,0.1)',  border: 'rgba(107,101,96,0.2)' },
+  muted:  { color: '#958E86', bg: 'rgba(107,101,96,0.1)',  border: 'rgba(107,101,96,0.2)' },
   teal:   { color: '#22D3EE', bg: 'rgba(34,211,238,0.1)',  border: 'rgba(34,211,238,0.2)' },
   indigo: { color: '#818CF8', bg: 'rgba(129,140,248,0.1)', border: 'rgba(129,140,248,0.2)' },
 }
@@ -16,7 +16,7 @@ export function Badge({ children, variant = 'muted', className }) {
   const v = variants[variant]
   return (
     <span
-      className={cn('inline-flex items-center text-[11px] font-semibold px-3 py-1 rounded-full border', className)}
+      className={cn('inline-flex items-center text-[12px] font-semibold px-3 py-1 rounded-full border', className)}
       style={{ color: v.color, background: v.bg, borderColor: v.border }}
     >
       {children}

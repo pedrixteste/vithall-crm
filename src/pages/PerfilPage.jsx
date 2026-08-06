@@ -131,7 +131,7 @@ export default function PerfilPage() {
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>
           Configurações
         </p>
         <h1 style={{ color: '#EFEFEF' }}>Perfil</h1>
@@ -161,12 +161,12 @@ export default function PerfilPage() {
           />
 
           <div>
-            <label className="block mb-2 text-[11px] font-semibold uppercase tracking-widest"
-              style={{ color: '#6B6560' }}>
+            <label className="block mb-2 text-[12px] font-semibold uppercase tracking-widest"
+              style={{ color: '#958E86' }}>
               E-mail
             </label>
             <p className="text-sm px-4 py-3 rounded-xl"
-              style={{ background: '#111', border: '1px solid #1C1C1C', color: '#6B6560' }}>
+              style={{ background: '#111', border: '1px solid #1C1C1C', color: '#958E86' }}>
               {user?.email}
             </p>
           </div>
@@ -196,11 +196,11 @@ export default function PerfilPage() {
               border: `1px solid ${isGoogleConnected ? 'rgba(74,222,128,0.25)' : '#252525'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Calendar size={18} style={{ color: isGoogleConnected ? '#4ADE80' : '#6B6560' }} />
+              <Calendar size={18} style={{ color: isGoogleConnected ? '#4ADE80' : '#958E86' }} />
             </div>
             <div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#EFEFEF' }}>Google Agenda</p>
-              <p style={{ fontSize: '11px', color: isGoogleConnected ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+              <p style={{ fontSize: '12px', color: isGoogleConnected ? '#4ADE80' : '#958E86', marginTop: '2px' }}>
                 {isGoogleConnected ? 'Conectado — visitas sincronizam automaticamente' : 'Não conectado'}
               </p>
             </div>
@@ -237,7 +237,7 @@ export default function PerfilPage() {
           )}
 
           {!isGoogleConnected && (
-            <p style={{ fontSize: '11px', color: '#6E6862', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '12px', color: '#979089', lineHeight: 1.5 }}>
               Ao conectar, visitas agendadas aparecem automaticamente no Google Agenda.
               Quando o cliente cancelar, o evento é removido sozinho.
             </p>
@@ -253,7 +253,7 @@ export default function PerfilPage() {
             <p style={{ fontSize: '12px', fontWeight: 600, color: '#EFEFEF' }}>
               Cor das suas marcações
             </p>
-            <p style={{ fontSize: '11px', color: '#6B6560', lineHeight: 1.45, marginTop: '2px', marginBottom: '12px' }}>
+            <p style={{ fontSize: '12px', color: '#958E86', lineHeight: 1.45, marginTop: '2px', marginBottom: '12px' }}>
               Os horários que você ocupar entram nessa cor na sua agenda do Google.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -273,7 +273,7 @@ export default function PerfilPage() {
                 )
               })}
             </div>
-            <p style={{ fontSize: '11px', color: '#807A73', marginTop: '10px' }}>
+            <p style={{ fontSize: '12px', color: '#A59F97', marginTop: '10px' }}>
               {colorInfo(freshProfile?.calendar_color)
                 ? `Escolhida: ${colorInfo(freshProfile.calendar_color).nome}`
                 : 'Sem cor escolhida — o Google usa a cor padrão da sua agenda.'}
@@ -296,7 +296,7 @@ export default function PerfilPage() {
             </div>
             <div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#EFEFEF' }}>Notificações</p>
-              <p style={{ fontSize: '11px', color: pushPerm === 'granted' ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+              <p style={{ fontSize: '12px', color: pushPerm === 'granted' ? '#4ADE80' : '#958E86', marginTop: '2px' }}>
                 {pushPerm === 'granted' ? 'Ativadas — você recebe lembretes e o resumo do dia'
                   : pushPerm === 'denied' ? 'Bloqueadas no navegador'
                   : 'Ative para receber lembretes e o resumo do dia'}
@@ -325,7 +325,7 @@ export default function PerfilPage() {
                 width: '100%', padding: '11px', borderRadius: '14px',
                 fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                 background: reactivated ? 'rgba(74,222,128,0.12)' : '#111',
-                color: reactivated ? '#4ADE80' : '#6B6560',
+                color: reactivated ? '#4ADE80' : '#958E86',
                 border: `1px solid ${reactivated ? 'rgba(74,222,128,0.3)' : '#252525'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}>
@@ -345,7 +345,7 @@ export default function PerfilPage() {
                   <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>
                     Avisos pelo Telegram
                   </p>
-                  <p style={{ fontSize: '11px', color: telegramOk ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+                  <p style={{ fontSize: '12px', color: telegramOk ? '#4ADE80' : '#958E86', marginTop: '2px' }}>
                     {!telegramOk
                       ? 'Chega mesmo com o celular parado há horas'
                       : aparelhosTg > 1
@@ -375,7 +375,7 @@ export default function PerfilPage() {
                   style={{
                     width: '100%', padding: '10px', borderRadius: '12px', marginTop: '8px',
                     fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                    background: 'transparent', color: '#6B6560', border: '1px solid #252525',
+                    background: 'transparent', color: '#958E86', border: '1px solid #252525',
                   }}>
                   {desligandoTg ? 'Desconectando...' : aparelhosTg > 1 ? 'Desconectar todos' : 'Desconectar'}
                 </button>
@@ -409,7 +409,7 @@ export default function PerfilPage() {
             </div>
             <div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#EFEFEF' }}>App na tela inicial</p>
-              <p style={{ fontSize: '11px', color: (isStandalone || installed) ? '#4ADE80' : '#6B6560', marginTop: '2px' }}>
+              <p style={{ fontSize: '12px', color: (isStandalone || installed) ? '#4ADE80' : '#958E86', marginTop: '2px' }}>
                 {isStandalone || installed
                   ? 'Instalado — você já está usando como app'
                   : 'Use o Vithall CRM como um aplicativo de verdade'}
@@ -445,7 +445,7 @@ export default function PerfilPage() {
       {/* Sair */}
       <Card>
         <div className="p-6">
-          <p className="text-xs mb-4" style={{ color: '#6B6560' }}>
+          <p className="text-xs mb-4" style={{ color: '#958E86' }}>
             Sessão atual logada como <span style={{ color: '#EFEFEF' }}>{user?.email}</span>
           </p>
           <Button variant="danger" className="w-full" size="lg" onClick={signOut}>

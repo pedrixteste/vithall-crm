@@ -5,8 +5,8 @@ export const Input = forwardRef(function Input({ label, className, ...props }, r
   return (
     <div className="w-full">
       {label && (
-        <label className="block mb-1.5 text-[11px] font-semibold uppercase tracking-widest"
-          style={{ color: '#6B6560' }}>
+        <label className="block mb-1.5 text-[12px] font-semibold uppercase tracking-widest"
+          style={{ color: '#958E86' }}>
           {label}
         </label>
       )}
@@ -34,8 +34,8 @@ export const Textarea = forwardRef(function Textarea({ label, className, ...prop
   return (
     <div className="w-full">
       {label && (
-        <label className="block mb-1.5 text-[11px] font-semibold uppercase tracking-widest"
-          style={{ color: '#6B6560' }}>
+        <label className="block mb-1.5 text-[12px] font-semibold uppercase tracking-widest"
+          style={{ color: '#958E86' }}>
           {label}
         </label>
       )}
@@ -55,8 +55,8 @@ export const Select = forwardRef(function Select({ label, children, className, .
   return (
     <div className="w-full">
       {label && (
-        <label className="block mb-1.5 text-[11px] font-semibold uppercase tracking-widest"
-          style={{ color: '#6B6560' }}>
+        <label className="block mb-1.5 text-[12px] font-semibold uppercase tracking-widest"
+          style={{ color: '#958E86' }}>
           {label}
         </label>
       )}

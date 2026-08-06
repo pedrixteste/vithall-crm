@@ -69,7 +69,7 @@ function downloadCSV(text, filename) {
 function Section({ title, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#6B6560' }}>{title}</p>
+      <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#958E86' }}>{title}</p>
       {children}
     </div>
   )
@@ -85,7 +85,7 @@ function Chips({ options, selected, onToggle }) {
               padding: '6px 11px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
               background: on ? 'rgba(201,168,76,0.14)' : '#111',
               border: `1px solid ${on ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-              color: on ? '#C9A84C' : '#6B6560',
+              color: on ? '#C9A84C' : '#958E86',
             }}>
             {label}
           </button>
@@ -103,7 +103,7 @@ function Toggle3({ value, onChange, labels = ['Todos', 'Sim', 'Não'] }) {
           style={{
             flex: 1, padding: '8px', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
             background: value === k ? 'rgba(201,168,76,0.12)' : 'transparent',
-            color: value === k ? '#C9A84C' : '#6B6560',
+            color: value === k ? '#C9A84C' : '#958E86',
             border: value === k ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
           }}>
           {l}
@@ -306,9 +306,9 @@ export default function RelatoriosListas({ clients = [], profiles = [], role, re
 
       {/* ── Preview ── */}
       {orderedCols.length === 0 ? (
-        <p style={{ fontSize: '13px', color: '#6B6560', textAlign: 'center', padding: '20px' }}>Selecione ao menos uma coluna.</p>
+        <p style={{ fontSize: '13px', color: '#958E86', textAlign: 'center', padding: '20px' }}>Selecione ao menos uma coluna.</p>
       ) : rows.length === 0 ? (
-        <p style={{ fontSize: '13px', color: '#6B6560', textAlign: 'center', padding: '20px' }}>Nenhum cliente com esses filtros.</p>
+        <p style={{ fontSize: '13px', color: '#958E86', textAlign: 'center', padding: '20px' }}>Nenhum cliente com esses filtros.</p>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid #252525', borderRadius: '12px' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
@@ -332,7 +332,7 @@ export default function RelatoriosListas({ clients = [], profiles = [], role, re
             </tbody>
           </table>
           {rows.length > 200 && (
-            <p style={{ fontSize: '11px', color: '#6B6560', textAlign: 'center', padding: '10px' }}>
+            <p style={{ fontSize: '12px', color: '#958E86', textAlign: 'center', padding: '10px' }}>
               Mostrando 200 de {rows.length} — o CSV traz todos.
             </p>
           )}

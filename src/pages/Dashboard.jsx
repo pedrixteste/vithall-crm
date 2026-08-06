@@ -369,11 +369,11 @@ export default function Dashboard() {
 
         {/* Saudação */}
         <div className="pt-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 capitalize" style={{ color: '#C9A84C' }}>
+          <p className="text-[12px] font-bold uppercase tracking-[0.2em] mb-3 capitalize" style={{ color: '#C9A84C' }}>
             {getDateLabel()}
           </p>
           <h1 style={{ color: '#EFEFEF' }}>{getGreeting()}{firstName ? `, ${firstName}` : ''} 👋</h1>
-          <p className="text-sm mt-2" style={{ color: '#6B6560' }}>Veja o resumo de hoje</p>
+          <p className="text-sm mt-2" style={{ color: '#958E86' }}>Veja o resumo de hoje</p>
         </div>
 
 
@@ -390,7 +390,7 @@ export default function Dashboard() {
             }}>
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#C9A84C', display: 'inline-block', flexShrink: 0 }} />
             {PERIOD_OPTIONS.find(p => p.key === period)?.label}
-            <span style={{ color: '#6B6560', marginLeft: '2px' }}>{showPeriodDrop ? '▲' : '▼'}</span>
+            <span style={{ color: '#958E86', marginLeft: '2px' }}>{showPeriodDrop ? '▲' : '▼'}</span>
           </button>
 
           {showPeriodDrop && (
@@ -418,7 +418,7 @@ export default function Dashboard() {
         {period === 'custom' && (
           <div className="flex gap-2">
             <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>De</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: '#9D968E' }}>De</p>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
                 className="w-full text-xs rounded-xl outline-none"
                 style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -427,7 +427,7 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>Ate</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: '#9D968E' }}>Ate</p>
               <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
                 className="w-full text-xs rounded-xl outline-none"
                 style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -451,7 +451,7 @@ export default function Dashboard() {
                 <p className="text-4xl font-bold tabular-nums" style={{ color: '#EFEFEF', letterSpacing: '-2px', marginBottom: '4px' }}>
                   {value}
                 </p>
-                <p className="text-xs font-medium" style={{ color: '#6B6560' }}>{label}</p>
+                <p className="text-xs font-medium" style={{ color: '#958E86' }}>{label}</p>
               </div>
             </Link>
           ))}
@@ -464,7 +464,7 @@ export default function Dashboard() {
               <CheckSquare size={14} style={{ color: '#22D3EE' }} />
               <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Tarefas</span>
               {tasks.length > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                   style={{ background: 'rgba(34,211,238,0.12)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.25)' }}>
                   {tasks.length}
                 </span>
@@ -478,7 +478,7 @@ export default function Dashboard() {
           {tasks.length === 0 ? (
             <div className="text-center" style={{ padding: '40px 0' }}>
               <p style={{ fontSize: '2rem', marginBottom: '12px' }}>✅</p>
-              <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma tarefa pendente</p>
+              <p className="text-sm" style={{ color: '#958E86' }}>Nenhuma tarefa pendente</p>
             </div>
           ) : (
             <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
@@ -495,7 +495,7 @@ export default function Dashboard() {
                         width: '26px', height: '26px',
                         border: `2px solid ${feito ? '#4ADE80' : '#2A2A2A'}`,
                         background: feito ? 'rgba(74,222,128,0.15)' : 'transparent',
-                        color: '#4ADE80', fontSize: '11px',
+                        color: '#4ADE80', fontSize: '12px',
                       }}>
                       {feito ? '✓' : ''}
                     </button>
@@ -503,18 +503,18 @@ export default function Dashboard() {
                       <p className="text-sm font-medium" style={{ color: '#EFEFEF', lineHeight: 1.4, textDecoration: feito ? 'line-through' : 'none' }}>{t.title}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {typeof t.urgency === 'number' && (
-                          <span className="text-[10px] font-bold rounded-full" style={{ padding: '1px 7px', background: `${color}1a`, color, border: `1px solid ${color}55` }}>
+                          <span className="text-[11px] font-bold rounded-full" style={{ padding: '1px 7px', background: `${color}1a`, color, border: `1px solid ${color}55` }}>
                             urgência {t.urgency}
                           </span>
                         )}
                         {repete && (
-                          <span className="text-[10px] font-bold rounded-full flex items-center gap-1"
+                          <span className="text-[11px] font-bold rounded-full flex items-center gap-1"
                             style={{ padding: '1px 7px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
                             <Repeat size={9} /> {repete}
                           </span>
                         )}
                         {(t.due_date || t.due_time) && (
-                          <span className="text-[11px] flex items-center gap-1" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
+                          <span className="text-[12px] flex items-center gap-1" style={{ color: overdue ? '#E85555' : '#958E86' }}>
                             <Clock size={10} />
                             {t.due_date && `${overdue ? 'venceu ' : ''}${new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                             {t.due_date && t.due_time ? ' · ' : ''}
@@ -524,7 +524,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <button onClick={() => deleteTask(t.id)} title="Excluir" className="flex-shrink-0">
-                      <Trash2 size={14} style={{ color: '#5C5751' }} />
+                      <Trash2 size={14} style={{ color: '#8B857D' }} />
                     </button>
                   </li>
                 )
@@ -541,7 +541,7 @@ export default function Dashboard() {
                 <CalendarCheck size={14} style={{ color: '#4ADE80' }} />
                 <span className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Visitas agendadas</span>
                 {scheduledVisits.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                     style={{ background: 'rgba(74,222,128,0.12)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.25)' }}>
                     {scheduledVisits.length}
                   </span>
@@ -551,7 +551,7 @@ export default function Dashboard() {
             {scheduledVisits.length === 0 ? (
               <div className="text-center" style={{ padding: '48px 0' }}>
                 <p style={{ fontSize: '2rem', marginBottom: '12px' }}>📅</p>
-                <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma visita agendada</p>
+                <p className="text-sm" style={{ color: '#958E86' }}>Nenhuma visita agendada</p>
               </div>
             ) : (
               <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
@@ -566,7 +566,7 @@ export default function Dashboard() {
                       {conf && (
                         <div className="flex items-center gap-1.5 mb-2">
                           <conf.icon size={12} style={{ color: conf.color }} />
-                          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: conf.color }}>{conf.label}</span>
+                          <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: conf.color }}>{conf.label}</span>
                         </div>
                       )}
                       <div className="flex items-start justify-between gap-3">
@@ -579,18 +579,18 @@ export default function Dashboard() {
                             {v.contact_name}
                           </p>
                           {v.company_name && (
-                            <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>
+                            <p className="text-xs truncate" style={{ color: '#958E86' }}>{v.company_name}</p>
                           )}
                           <p className="text-xs font-medium mt-1" style={{ color: isPast ? '#E8834A' : '#4ADE80' }}>
                             {dateLabel} às {timeLabel}
-                            {isPast && <span style={{ marginLeft: '6px', fontSize: '10px', opacity: 0.7 }}>· já passou</span>}
+                            {isPast && <span style={{ marginLeft: '6px', fontSize: '11px', opacity: 0.7 }}>· já passou</span>}
                           </p>
                           {conf && v.visit_confirmation_note && (
-                            <p className="text-[11px] mt-1.5 rounded-lg" style={{ color: conf.color, background: conf.bg, padding: '6px 8px', lineHeight: '1.4' }}>
+                            <p className="text-[12px] mt-1.5 rounded-lg" style={{ color: conf.color, background: conf.bg, padding: '6px 8px', lineHeight: '1.4' }}>
                               "{v.visit_confirmation_note}"
                             </p>
                           )}
-                          <p className="text-[10px] mt-1" style={{ color: '#6B6560' }}>Toque para ver detalhes →</p>
+                          <p className="text-[11px] mt-1" style={{ color: '#958E86' }}>Toque para ver detalhes →</p>
                         </button>
 
                         {/* Lado direito */}
@@ -666,7 +666,7 @@ export default function Dashboard() {
           {recentVisits.length === 0 ? (
             <div className="text-center" style={{ padding: '48px 0' }}>
               <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
-              <p className="text-sm" style={{ color: '#6B6560' }}>
+              <p className="text-sm" style={{ color: '#958E86' }}>
                 {profile?.role === 'pre_vendas' ? 'Nenhuma visita avaliada ainda' : 'Nenhuma visita registrada'}
               </p>
             </div>
@@ -675,9 +675,9 @@ export default function Dashboard() {
               {groupByMonth(recentVisits).map(g => (
                 <div key={g.key}>
                   {/* Cabeçalho do mês */}
-                  <p className="text-[11px] font-bold uppercase tracking-widest"
+                  <p className="text-[12px] font-bold uppercase tracking-widest"
                     style={{ color: '#C9A84C', padding: '14px 24px 8px', background: '#131313', borderTop: '1px solid #1C1C1C' }}>
-                    {g.label} <span style={{ color: '#6B6560' }}>· {g.items.length}</span>
+                    {g.label} <span style={{ color: '#958E86' }}>· {g.items.length}</span>
                   </p>
                   <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
                     {g.items.map(v => {
@@ -690,20 +690,20 @@ export default function Dashboard() {
                             <div className="flex items-center justify-between gap-3">
                               <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name || c.company_name}</p>
                               {v.visit_date && (
-                                <span className="text-[11px] tabular-nums flex-shrink-0" style={{ color: '#6B6560' }}>
+                                <span className="text-[12px] tabular-nums flex-shrink-0" style={{ color: '#958E86' }}>
                                   {new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                 </span>
                               )}
                             </div>
                             {c.company_name && c.contact_name && (
-                              <p className="text-xs truncate" style={{ color: '#6B6560' }}>{c.company_name}</p>
+                              <p className="text-xs truncate" style={{ color: '#958E86' }}>{c.company_name}</p>
                             )}
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: '#F472B6' }}>
+                              <span className="text-[12px] font-bold flex items-center gap-1" style={{ color: '#F472B6' }}>
                                 <Star size={11} /> {FEEDBACK_OUTCOMES[v.visit_outcome] || v.visit_outcome || '—'}
                               </span>
                               {v.rating && (
-                                <span className="text-[11px]" style={{ color: '#6B6560' }}>· nota {RATING_LABELS[v.rating] || v.rating}</span>
+                                <span className="text-[12px]" style={{ color: '#958E86' }}>· nota {RATING_LABELS[v.rating] || v.rating}</span>
                               )}
                             </div>
                           </button>
@@ -722,7 +722,7 @@ export default function Dashboard() {
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C9A84C' }} />
                     <span className="text-sm font-medium" style={{ color: '#EFEFEF' }}>{v.clients?.company_name}</span>
                   </div>
-                  <span className="text-xs tabular-nums" style={{ color: '#6B6560' }}>
+                  <span className="text-xs tabular-nums" style={{ color: '#958E86' }}>
                     {new Date(v.visit_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                   </span>
                 </li>

@@ -228,7 +228,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
           <div key={v.id} className="rounded-2xl"
             style={{ background: '#161616', border: '1px solid #252525', padding: '16px' }}>
             {saveError === v.id && (
-              <p className="text-[11px] font-semibold rounded-xl mb-3"
+              <p className="text-[12px] font-semibold rounded-xl mb-3"
                 style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                 Não foi possível salvar — verifique sua internet e tente de novo.
               </p>
@@ -240,20 +240,20 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
               style={{ marginBottom: isOpen ? '12px' : 0 }}>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
-                {v.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>}
+                {v.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{v.company_name}</p>}
                 <p className="text-xs font-medium mt-1 flex items-center gap-1.5" style={{ color: '#C9A84C' }}>
                   <span>🕐 {dateLabel} · {timeLabel}</span>
-                  {v.city && <span style={{ color: '#6B6560' }} className="flex items-center gap-1"><MapPin size={10} /> {v.city}</span>}
+                  {v.city && <span style={{ color: '#958E86' }} className="flex items-center gap-1"><MapPin size={10} /> {v.city}</span>}
                 </p>
                 {/* QUANDO a marcação foi feita — a linha de cima é quando a
                     visita acontece. Some para registros sem carimbo (antigos). */}
                 {isOpen && bookingLabel(v) && (
-                  <p className="text-[11px] mt-1" style={{ color: '#6B6560' }}>📌 {bookingLabel(v)}</p>
+                  <p className="text-[12px] mt-1" style={{ color: '#958E86' }}>📌 {bookingLabel(v)}</p>
                 )}
               </div>
               {pending.length > 1 && (
                 <ChevronDown size={16} className="flex-shrink-0 transition-transform"
-                  style={{ color: '#6B6560', marginTop: '2px', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+                  style={{ color: '#958E86', marginTop: '2px', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
               )}
             </button>
 
@@ -264,10 +264,10 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
               <div className="flex flex-wrap gap-1.5" style={{ marginTop: '8px' }}>
                 {allPhones(v).map((p, i) => (
                   <a key={i} href={`tel:${p.n}`} onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-full transition-all active:scale-95"
+                    className="flex items-center gap-1.5 text-[12px] font-semibold rounded-full transition-all active:scale-95"
                     style={{ padding: '5px 11px', background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A', textDecoration: 'none' }}>
                     <Phone size={11} /> {p.n}
-                    {p.t === 'empresa' && <span style={{ color: '#6B6560', fontWeight: 500 }}>empresa</span>}
+                    {p.t === 'empresa' && <span style={{ color: '#958E86', fontWeight: 500 }}>empresa</span>}
                   </a>
                 ))}
               </div>
@@ -282,7 +282,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
                   style={{ minHeight: '68px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
                   <CheckCircle2 size={17} />
-                  <span className="text-[11px] font-bold leading-snug text-center">Confirmado</span>
+                  <span className="text-[12px] font-bold leading-snug text-center">Confirmado</span>
                 </button>
                 <button
                   disabled={saving}
@@ -290,7 +290,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
                   style={{ minHeight: '68px', background: 'rgba(232,85,85,0.1)', border: '1px solid rgba(232,85,85,0.3)', color: '#E85555' }}>
                   <XCircle size={17} />
-                  <span className="text-[11px] font-bold leading-snug text-center">Cancelou visita</span>
+                  <span className="text-[12px] font-bold leading-snug text-center">Cancelou visita</span>
                 </button>
                 <button
                   disabled={saving}
@@ -298,7 +298,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
                   style={{ minHeight: '68px', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
                   <PhoneCall size={17} />
-                  <span className="text-[11px] font-bold leading-snug text-center">Tentei confirmar</span>
+                  <span className="text-[12px] font-bold leading-snug text-center">Tentei confirmar</span>
                 </button>
                 <button
                   disabled={saving}
@@ -306,13 +306,13 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-3.5 transition-all active:scale-95"
                   style={{ minHeight: '68px', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', color: '#22D3EE' }}>
                   <CalendarClock size={17} />
-                  <span className="text-[11px] font-bold leading-snug text-center">Remarcou</span>
+                  <span className="text-[12px] font-bold leading-snug text-center">Remarcou</span>
                 </button>
               </div>
             ) : activeKind === 'remarcou' ? (
               /* Nova data da visita remarcada */
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-widest block mb-2" style={{ color: '#22D3EE' }}>
+                <label className="text-[12px] font-semibold uppercase tracking-widest block mb-2" style={{ color: '#22D3EE' }}>
                   Nova data e hora da visita
                 </label>
                 <input
@@ -323,7 +323,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="w-full text-sm outline-none rounded-xl transition-all"
                   style={{ padding: '12px 14px', background: '#111111', border: '1px solid #22D3EE', color: '#EFEFEF' }}
                 />
-                <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
+                <p className="text-[12px] mt-1.5" style={{ color: '#A59F97' }}>
                   A data antiga é substituída — a visita some do dia anterior e vai para o novo.
                 </p>
                 <div className="flex gap-2 mt-3">
@@ -331,7 +331,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                     disabled={saving}
                     onClick={() => { setActiveId(null); setActiveKind(null); setRemarcDate('') }}
                     className="flex-1 text-xs font-semibold rounded-xl py-2.5 transition-all active:scale-95"
-                    style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560' }}>
+                    style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#958E86' }}>
                     Voltar
                   </button>
                   <button
@@ -346,7 +346,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
             ) : (
               /* Campo de nota */
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-widest block mb-2" style={{ color: cfg.color }}>
+                <label className="text-[12px] font-semibold uppercase tracking-widest block mb-2" style={{ color: cfg.color }}>
                   {cfg.label}
                 </label>
                 <textarea
@@ -363,7 +363,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                     disabled={saving}
                     onClick={() => { setActiveId(null); setActiveKind(null); setNote('') }}
                     className="flex-1 text-xs font-semibold rounded-xl py-2.5 transition-all active:scale-95"
-                    style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560' }}>
+                    style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#958E86' }}>
                     Voltar
                   </button>
                   <button
@@ -407,7 +407,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
               </button>
               <button type="button" onClick={closeRemovePrompt} disabled={removeSaving}
                 className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
-                style={{ background: 'transparent', color: '#6B6560' }}>
+                style={{ background: 'transparent', color: '#958E86' }}>
                 Manter na agenda
               </button>
             </>
@@ -454,7 +454,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
           </button>
           <button type="button" onClick={closeRemarcPrompt} disabled={remarcBusy !== null}
             className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
-            style={{ background: 'transparent', color: '#6B6560' }}>
+            style={{ background: 'transparent', color: '#958E86' }}>
             Continuar
           </button>
         </div>
@@ -485,7 +485,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
           </button>
           <button type="button" onClick={() => closeAgendaPrompt(false)}
             className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
-            style={{ background: 'transparent', color: '#6B6560' }}>
+            style={{ background: 'transparent', color: '#958E86' }}>
             Agora não
           </button>
         </div>

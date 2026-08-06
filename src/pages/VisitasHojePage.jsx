@@ -43,7 +43,7 @@ function reminderLabel(daysUntil, ts) {
 
 function SectionLabel({ children, color = '#6B6560' }) {
   return (
-    <p className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color }}>{children}</p>
+    <p className="text-[12px] font-bold uppercase tracking-[0.15em]" style={{ color }}>{children}</p>
   )
 }
 
@@ -59,11 +59,11 @@ function ConfirmStrip({ status, note }) {
   if (!c) return null
   return (
     <div className="rounded-xl" style={{ background: `${c.color}14`, border: `1px solid ${c.color}40`, padding: '8px 10px' }}>
-      <p className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: c.color }}>
+      <p className="text-[12px] font-bold flex items-center gap-1.5" style={{ color: c.color }}>
         <span>{c.icon}</span> {c.label}
       </p>
       {status === 'tentativa' && note && (
-        <p className="text-[11px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{note}"</p>
+        <p className="text-[12px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{note}"</p>
       )}
     </div>
   )
@@ -76,12 +76,12 @@ function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick,
       style={{ background: '#161616', border: '1px solid #252525', padding: '13px 15px', opacity: isPast ? 0.6 : 1 }}>
       <div className="flex items-center gap-2 mb-1">
         {time && <span className="text-xs font-bold tabular-nums" style={{ color: tagColor }}>{time}</span>}
-        <span className="text-[9px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+        <span className="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
           style={{ background: `${tagColor}1a`, color: tagColor }}>{tag}</span>
       </div>
       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{name}</p>
-      {company && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{company}</p>}
-      {sub && <p className="text-[11px] mt-1 flex items-center gap-1 truncate" style={{ color: '#756F68' }}>{sub}</p>}
+      {company && <p className="text-xs truncate" style={{ color: '#958E86' }}>{company}</p>}
+      {sub && <p className="text-[12px] mt-1 flex items-center gap-1 truncate" style={{ color: '#9D968E' }}>{sub}</p>}
       {confirmStatus && <div className="mt-2"><ConfirmStrip status={confirmStatus} note={confirmNote} /></div>}
     </button>
   )
@@ -103,13 +103,13 @@ function AnsweredCard({ client, onClick }) {
       style={{ background: '#161616', border: '1px solid #252525', borderLeft: `3px solid ${c.color}`, padding: '14px 16px' }}>
       <div className="flex items-center gap-2 mb-1.5">
         <span className="text-xs font-bold tabular-nums" style={{ color: c.color }}>🕐 {timeOf(client.visit_scheduled_at)}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+        <span className="text-[11px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
           style={{ background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>{c.label}</span>
       </div>
       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{client.contact_name}</p>
-      {client.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{client.company_name}</p>}
+      {client.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{client.company_name}</p>}
       {client.visit_confirmation !== 'confirmada' && client.visit_confirmation_note && (
-        <p className="text-[11px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{client.visit_confirmation_note}"</p>
+        <p className="text-[12px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.4 }}>"{client.visit_confirmation_note}"</p>
       )}
     </button>
   )
@@ -326,7 +326,7 @@ export default function VisitasHojePage() {
           </p>
         </div>
 
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: '#6B6560' }}>Pendentes de avaliação</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em]" style={{ color: '#958E86' }}>Pendentes de avaliação</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {pendingRatings.map(c => (
             <button key={c.id} onClick={() => setSelected(c)}
@@ -335,10 +335,10 @@ export default function VisitasHojePage() {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
-                  {c.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{c.company_name}</p>}
-                  <p className="text-[11px] mt-1.5 flex items-center gap-1.5" style={{ color: '#E8834A' }}>
+                  {c.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{c.company_name}</p>}
+                  <p className="text-[12px] mt-1.5 flex items-center gap-1.5" style={{ color: '#E8834A' }}>
                     <Clock size={11} /> visita de {new Date(c.oldestDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    {c.pendingCount > 1 && <span style={{ color: '#6B6560' }}>· {c.pendingCount} pendentes</span>}
+                    {c.pendingCount > 1 && <span style={{ color: '#958E86' }}>· {c.pendingCount} pendentes</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0 rounded-xl" style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C' }}>
@@ -361,7 +361,7 @@ export default function VisitasHojePage() {
 
       {/* Header */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1 capitalize" style={{ color: '#C9A84C' }}>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1 capitalize" style={{ color: '#C9A84C' }}>
           {today.label}
         </p>
         <h1 style={{ color: '#EFEFEF' }}>{isVisitor ? 'Visitas de Hoje' : 'Sua agenda'}</h1>
@@ -374,7 +374,7 @@ export default function VisitasHojePage() {
             className="flex-1 py-2.5 text-xs font-bold transition-all"
             style={{
               background: view === v ? 'rgba(201,168,76,0.14)' : '#111',
-              color: view === v ? '#C9A84C' : '#6B6560',
+              color: view === v ? '#C9A84C' : '#958E86',
               borderRight: i === 0 ? '1px solid #252525' : 'none',
             }}>
             {label}
@@ -388,7 +388,7 @@ export default function VisitasHojePage() {
       {!loading && showConfirm && (
         <div className="rounded-2xl" style={{ background: '#15140F', border: '1px solid rgba(201,168,76,0.22)', padding: '16px' }}>
           <SectionLabel color="#C9A84C">Confirmar visitas</SectionLabel>
-          <p className="text-xs mt-1 mb-4" style={{ color: '#6B6560' }}>
+          <p className="text-xs mt-1 mb-4" style={{ color: '#958E86' }}>
             {toConfirm.length} {toConfirm.length === 1 ? 'visita marcada' : 'visitas marcadas'} por você até o próximo dia útil.
           </p>
           <VisitConfirmationList visits={toConfirm} onEmpty={() => setConfirmHidden(true)} />
@@ -427,11 +427,11 @@ export default function VisitasHojePage() {
                     <div className="flex items-center gap-2">
                       <Clock size={13} style={{ color: isPast ? '#E8834A' : '#4ADE80' }} />
                       <span className="text-sm font-bold tabular-nums" style={{ color: isPast ? '#E8834A' : '#4ADE80' }}>{timeOf(v.visit_scheduled_at)}</span>
-                      {isPast && <span className="text-[10px] font-semibold rounded-full" style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.1)', color: '#E8834A', border: '1px solid rgba(232,131,74,0.2)' }}>já passou</span>}
+                      {isPast && <span className="text-[11px] font-semibold rounded-full" style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.1)', color: '#E8834A', border: '1px solid rgba(232,131,74,0.2)' }}>já passou</span>}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <User size={11} style={{ color: byPreVendas ? '#60A5FA' : '#6B6560' }} />
-                      <span className="text-[11px] font-semibold" style={{ color: byPreVendas ? '#60A5FA' : '#6B6560' }}>
+                      <User size={11} style={{ color: byPreVendas ? '#60A5FA' : '#958E86' }} />
+                      <span className="text-[12px] font-semibold" style={{ color: byPreVendas ? '#60A5FA' : '#958E86' }}>
                         {byPreVendas ? `Pré-vendas · ${creatorName}` : 'Você'}
                       </span>
                     </div>
@@ -440,24 +440,24 @@ export default function VisitasHojePage() {
                     <div className="mb-2.5"><ConfirmStrip status={v.visit_confirmation} note={v.visit_confirmation_note} /></div>
                   )}
                   <p className="text-base font-semibold" style={{ color: '#EFEFEF', marginBottom: '2px' }}>{v.contact_name}</p>
-                  {v.company_name && <p className="text-sm" style={{ color: '#6B6560', marginBottom: '8px' }}>{v.company_name}</p>}
+                  {v.company_name && <p className="text-sm" style={{ color: '#958E86', marginBottom: '8px' }}>{v.company_name}</p>}
                   <div className="flex items-center justify-between gap-2" style={{ marginTop: '8px' }}>
                     {(v.city || v.address_street) && (
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <MapPin size={11} style={{ color: '#756F68', flexShrink: 0 }} />
-                        <span className="text-xs truncate" style={{ color: '#756F68' }}>
+                        <MapPin size={11} style={{ color: '#9D968E', flexShrink: 0 }} />
+                        <span className="text-xs truncate" style={{ color: '#9D968E' }}>
                           {[v.address_street, v.address_neighborhood, v.city].filter(Boolean).join(', ')}
                         </span>
                       </div>
                     )}
                     <div className="flex-shrink-0">{STAGE_BADGES[v.matricula_stage] || null}</div>
                   </div>
-                  <p className="text-[11px] mt-3" style={{ color: '#5C5751' }}>Toque para abrir o cliente →</p>
+                  <p className="text-[12px] mt-3" style={{ color: '#8B857D' }}>Toque para abrir o cliente →</p>
                 </button>
 
                 {/* Resultado da visita — muda o estágio automaticamente */}
                 <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1F1F1F' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#756F68' }}>Resultado da visita</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#9D968E' }}>Resultado da visita</p>
                   <div className="grid grid-cols-2 gap-2">
                     {STAGE_ACTIONS.map(a => {
                       const active = v.matricula_stage === a.key
@@ -468,7 +468,7 @@ export default function VisitasHojePage() {
                         : () => handleStageChange(v, a.key)
                       return (
                         <button key={a.key} onClick={onClick}
-                          className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                          className="text-[12px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
                           style={active
                             ? { background: a.color, color: '#0A0A0A', border: `1px solid ${a.color}` }
                             : { background: `${a.color}1a`, color: a.color, border: `1px solid ${a.color}55` }}>
@@ -481,15 +481,15 @@ export default function VisitasHojePage() {
                   {/* Quem cancelou? Só "cliente cancelou" conta no aviso da ficha */}
                   {cancelChooser === v.id && (
                     <div className="mt-2 rounded-xl" style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)', padding: '10px' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: '#F97316' }}>Quem cancelou?</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: '#F97316' }}>Quem cancelou?</p>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => handleStageChange(v, 'cancelado', 'cliente')}
-                          className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                          className="text-[12px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
                           style={{ background: 'rgba(232,85,85,0.12)', color: '#E85555', border: '1px solid rgba(232,85,85,0.4)' }}>
                           Cliente cancelou
                         </button>
                         <button onClick={() => handleStageChange(v, 'cancelado', 'nos')}
-                          className="text-[11px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
+                          className="text-[12px] font-bold rounded-xl py-2.5 transition-all active:scale-95"
                           style={{ background: 'rgba(107,101,96,0.12)', color: '#B0A99F', border: '1px solid rgba(107,101,96,0.4)' }}>
                           Cancelamos nós
                         </button>
@@ -550,16 +550,16 @@ export default function VisitasHojePage() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
                     {c.reminder_config?.time && (
-                      <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                      <span className="text-[11px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
                         style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
                         <Clock size={9} /> {c.reminder_config.time}
                       </span>
                     )}
                   </div>
                   {(c.company_name || c.contact_role) && (
-                    <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+                    <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                   )}
-                  <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
+                  <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
                 </a>
                 <button onClick={() => setEditingCallback(c)} title="Editar contato"
                   className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
@@ -574,7 +574,7 @@ export default function VisitasHojePage() {
               </div>
               {c.notes && (
                 <button onClick={() => setEditingCallback(c)} className="w-full text-left">
-                  <p className="text-[11px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
+                  <p className="text-[12px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
                 </button>
               )}
             </div>
@@ -602,29 +602,29 @@ export default function VisitasHojePage() {
                     {futura && <span style={{ fontSize: '13px', flexShrink: 0 }}>🔮</span>}
                     <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{t.title}</p>
                     {typeof t.urgency === 'number' && (
-                      <span className="text-[10px] font-bold rounded-full flex-shrink-0" style={{ padding: '1px 7px', background: `${uColor}1a`, color: uColor, border: `1px solid ${uColor}55` }}>
+                      <span className="text-[11px] font-bold rounded-full flex-shrink-0" style={{ padding: '1px 7px', background: `${uColor}1a`, color: uColor, border: `1px solid ${uColor}55` }}>
                         {t.urgency}
                       </span>
                     )}
                     {repete && (
-                      <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                      <span className="text-[11px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
                         style={{ padding: '1px 7px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
                         <Repeat size={9} /> {repete}
                       </span>
                     )}
                   </div>
                   {(t.clients?.contact_name || t.clients?.company_name) && (
-                    <p className="text-xs truncate" style={{ color: '#6B6560' }}>{t.clients.contact_name || t.clients.company_name}</p>
+                    <p className="text-xs truncate" style={{ color: '#958E86' }}>{t.clients.contact_name || t.clients.company_name}</p>
                   )}
                   {(t.due_date || t.due_time) && (
-                    <p className="text-[11px] mt-0.5" style={{ color: overdue ? '#E85555' : '#6B6560' }}>
+                    <p className="text-[12px] mt-0.5" style={{ color: overdue ? '#E85555' : '#958E86' }}>
                       {t.due_date && `${overdue ? '⚠ venceu ' : 'até '}${new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                       {t.due_date && t.due_time ? ' · ' : ''}
                       {t.due_time ? t.due_time.slice(0, 5) : ''}
                     </p>
                   )}
                   {!t.clients && (
-                    <p className="text-[10px] mt-1" style={{ color: '#5C5751' }}>Toque para opções →</p>
+                    <p className="text-[11px] mt-1" style={{ color: '#8B857D' }}>Toque para opções →</p>
                   )}
                 </button>
                 <button onClick={() => completeTask(t)} title={repete ? 'Feito hoje' : 'Concluir'}
@@ -642,7 +642,7 @@ export default function VisitasHojePage() {
       {!loading && !isVisitor && feedbacks.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#F472B6"><span className="inline-flex items-center gap-1.5"><Star size={12} /> Feedbacks de visitas</span></SectionLabel>
-          <p className="text-xs -mt-1" style={{ color: '#6B6560' }}>
+          <p className="text-xs -mt-1" style={{ color: '#958E86' }}>
             O vendedor preencheu a avaliação — toque para ver como foi a visita.
           </p>
           {feedbacks.map(v => (
@@ -664,7 +664,7 @@ export default function VisitasHojePage() {
       {!loading && nothingToday && !hasTomorrow && (
         <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
           <p style={{ fontSize: '3rem' }}>{isVisitor ? '📅' : '✅'}</p>
-          <p className="text-sm font-medium" style={{ color: '#6B6560' }}>
+          <p className="text-sm font-medium" style={{ color: '#958E86' }}>
             {isVisitor ? 'Dia livre de visitas e ligações!' : 'Nada para hoje'}
           </p>
         </div>
@@ -675,7 +675,7 @@ export default function VisitasHojePage() {
         <>
           <div className="flex items-center gap-3" style={{ marginTop: '6px' }}>
             <div style={{ height: '1px', background: '#1F1F1F', flex: 1 }} />
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] capitalize" style={{ color: '#C9A84C' }}>
+            <span className="text-[12px] font-bold uppercase tracking-[0.2em] capitalize" style={{ color: '#C9A84C' }}>
               Amanhã · {tomorrow.label.replace(/-feira/, '')}
             </span>
             <div style={{ height: '1px', background: '#1F1F1F', flex: 1 }} />
@@ -731,7 +731,7 @@ export default function VisitasHojePage() {
                       padding: '6px 13px',
                       background: active ? 'rgba(201,168,76,0.14)' : '#161616',
                       border: `1px solid ${active ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
-                      color: active ? '#C9A84C' : '#6B6560',
+                      color: active ? '#C9A84C' : '#958E86',
                     }}>
                     {active ? '✓ ' : ''}{p.name?.split(' ')[0] || '—'}{p.id === user?.id ? ' (você)' : ''}
                   </button>
@@ -751,7 +751,7 @@ export default function VisitasHojePage() {
               <div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => shiftDay(-1)} className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-95"
-                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>‹</button>
+                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#958E86' }}>‹</button>
                   <div className="flex-1 relative">
                     <input type="date" value={prodDate} max={localDateStr()}
                       onChange={e => { if (e.target.value) setProdDate(e.target.value) }}
@@ -760,9 +760,9 @@ export default function VisitasHojePage() {
                   </div>
                   <button onClick={() => shiftDay(1)} disabled={isToday}
                     className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-95 disabled:opacity-30"
-                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>›</button>
+                    style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#958E86' }}>›</button>
                 </div>
-                <p className="text-xs capitalize mt-1.5" style={{ color: '#6B6560' }}>{label}{isToday ? ' · hoje' : ''}</p>
+                <p className="text-xs capitalize mt-1.5" style={{ color: '#958E86' }}>{label}{isToday ? ' · hoje' : ''}</p>
               </div>
             )
           })()}
@@ -793,7 +793,7 @@ export default function VisitasHojePage() {
                   <div key={label} className="rounded-2xl text-center" style={{ background: '#161616', border: '1px solid #252525', padding: '14px 8px' }}>
                     <Icon size={14} style={{ color, margin: '0 auto 6px' }} />
                     <p className="text-xl font-bold tabular-nums" style={{ color }}>{value}</p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#6B6560' }}>{label}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#958E86' }}>{label}</p>
                   </div>
                 ))}
               </div>
@@ -827,17 +827,17 @@ export default function VisitasHojePage() {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
                         {c.reminder_config?.time && (
-                          <span className="text-[10px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                          <span className="text-[11px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
                             style={{ padding: '2px 8px', background: 'rgba(244,114,182,0.12)', border: '1px solid rgba(244,114,182,0.3)', color: '#F472B6' }}>
                             <Clock size={9} /> {c.reminder_config.time}
                           </span>
                         )}
                       </div>
                       {(c.company_name || c.contact_role) && (
-                        <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+                        <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                       )}
-                      <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
-                      <p className="text-[10px] mt-1.5" style={{ color: '#5C5751' }}>Toque para editar →</p>
+                      <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
+                      <p className="text-[11px] mt-1.5" style={{ color: '#8B857D' }}>Toque para editar →</p>
                     </button>
                   ))}
                 </div>
@@ -881,7 +881,7 @@ export default function VisitasHojePage() {
                 : (prod.calls === 0 && prod.answered === 0)) && (
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
                   <p style={{ fontSize: '3rem' }}>📊</p>
-                  <p className="text-sm font-medium" style={{ color: '#6B6560' }}>
+                  <p className="text-sm font-medium" style={{ color: '#958E86' }}>
                     {prodDate === localDateStr() ? 'Nada produzido hoje ainda' : 'Nada produzido nesse dia'}
                   </p>
                 </div>
@@ -907,20 +907,20 @@ export default function VisitasHojePage() {
               {typeof taskPanel.urgency === 'number' && (() => {
                 const c = urgencyColor(taskPanel.urgency)
                 return (
-                  <span className="text-[10px] font-bold rounded-full"
+                  <span className="text-[11px] font-bold rounded-full"
                     style={{ padding: '2px 8px', background: `${c}1a`, color: c, border: `1px solid ${c}55` }}>
                     urgência {taskPanel.urgency}
                   </span>
                 )
               })()}
               {taskRecurrenceLabel(taskPanel) && (
-                <span className="text-[10px] font-bold rounded-full flex items-center gap-1"
+                <span className="text-[11px] font-bold rounded-full flex items-center gap-1"
                   style={{ padding: '2px 8px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.3)' }}>
                   <Repeat size={9} /> {taskRecurrenceLabel(taskPanel)}
                 </span>
               )}
               {taskPanel.due_time && (
-                <span className="text-[11px] flex items-center gap-1" style={{ color: '#6B6560' }}>
+                <span className="text-[12px] flex items-center gap-1" style={{ color: '#958E86' }}>
                   <Clock size={10} /> {taskPanel.due_time.slice(0, 5)}
                 </span>
               )}
@@ -936,7 +936,7 @@ export default function VisitasHojePage() {
                   <p className="text-sm font-bold" style={{ color: '#EFEFEF' }}>
                     {taskIsRecurring(taskPanel) ? 'Marcar como feita hoje' : 'Concluir tarefa'}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.4 }}>
+                  <p className="text-xs mt-0.5" style={{ color: '#958E86', lineHeight: 1.4 }}>
                     {taskIsRecurring(taskPanel) ? 'Some por hoje e volta na próxima vez' : 'Encerra a tarefa'}
                   </p>
                 </div>
@@ -951,7 +951,7 @@ export default function VisitasHojePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold" style={{ color: '#E85555' }}>Desativar lembrete da tarefa</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.4 }}>Para de aparecer de vez</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#958E86', lineHeight: 1.4 }}>Para de aparecer de vez</p>
                 </div>
               </button>
             </div>
@@ -972,7 +972,7 @@ export default function VisitasHojePage() {
             <p className="text-sm text-center" style={{ color: '#EFEFEF', lineHeight: 1.6 }}>
               Essa tarefa será <b>excluída</b> e o lembrete não vai mais aparecer.
             </p>
-            <p className="text-xs text-center mt-2" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+            <p className="text-xs text-center mt-2" style={{ color: '#958E86', lineHeight: 1.5 }}>
               "{taskToDelete.title}"
             </p>
             <button type="button" onClick={() => deleteTask(taskToDelete.id)}
@@ -981,7 +981,7 @@ export default function VisitasHojePage() {
               OK
             </button>
             <button type="button" onClick={() => setTaskToDelete(null)}
-              className="w-full text-xs font-semibold" style={{ marginTop: '10px', padding: '8px', color: '#6B6560', background: 'transparent', border: 'none' }}>
+              className="w-full text-xs font-semibold" style={{ marginTop: '10px', padding: '8px', color: '#958E86', background: 'transparent', border: 'none' }}>
               Cancelar
             </button>
           </div>

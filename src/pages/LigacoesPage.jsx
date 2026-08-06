@@ -191,11 +191,11 @@ export default function LigacoesPage() {
 
       {/* Header */}
       <div className="pt-2">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2 capitalize" style={{ color: '#C9A84C' }}>
+        <p className="text-[12px] font-bold uppercase tracking-[0.2em] mb-2 capitalize" style={{ color: '#C9A84C' }}>
           {todayLabel}
         </p>
         <h1 style={{ color: '#EFEFEF' }}>Registro do dia</h1>
-        <p className="text-sm mt-1" style={{ color: '#6B6560' }}>Registre suas ligações e marcações</p>
+        <p className="text-sm mt-1" style={{ color: '#958E86' }}>Registre suas ligações e marcações</p>
       </div>
 
       {/* Card de registro */}
@@ -210,13 +210,13 @@ export default function LigacoesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Ligações feitas</p>
-              <p className="text-xs" style={{ color: '#6B6560' }}>Contatos realizados hoje</p>
+              <p className="text-xs" style={{ color: '#958E86' }}>Contatos realizados hoje</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setLogCalls(n => Math.max(0, n - 1))}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
+              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#958E86', fontSize: '18px' }}>
               −
             </button>
             <input
@@ -244,13 +244,13 @@ export default function LigacoesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Ligações atendidas</p>
-              <p className="text-xs" style={{ color: '#6B6560' }}>Quantas foram atendidas hoje</p>
+              <p className="text-xs" style={{ color: '#958E86' }}>Quantas foram atendidas hoje</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setLogAnswered(n => Math.max(0, n - 1))}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
+              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#958E86', fontSize: '18px' }}>
               −
             </button>
             <input
@@ -278,13 +278,13 @@ export default function LigacoesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Marcações de visita</p>
-              <p className="text-xs" style={{ color: '#6B6560' }}>Visitas agendadas hoje</p>
+              <p className="text-xs" style={{ color: '#958E86' }}>Visitas agendadas hoje</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setLogAppointments(n => Math.max(0, n - 1))}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#6B6560', fontSize: '18px' }}>
+              style={{ background: '#111', border: '1px solid #2A2A2A', color: '#958E86', fontSize: '18px' }}>
               −
             </button>
             <input
@@ -313,7 +313,7 @@ export default function LigacoesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Matrículas</p>
-              <p className="text-xs" style={{ color: '#6B6560' }}>De clientes marcados por você · automático</p>
+              <p className="text-xs" style={{ color: '#958E86' }}>De clientes marcados por você · automático</p>
             </div>
           </div>
           <span className="text-2xl font-bold tabular-nums" style={{ color: '#C9A84C', letterSpacing: '-1px' }}>
@@ -347,7 +347,7 @@ export default function LigacoesPage() {
                 className="px-3 py-1.5 text-xs font-semibold"
                 style={{
                   background: calView === v ? 'rgba(201,168,76,0.15)' : '#111',
-                  color:      calView === v ? '#C9A84C' : '#6B6560',
+                  color:      calView === v ? '#C9A84C' : '#958E86',
                   borderRight: i < 2 ? '1px solid #252525' : 'none',
                 }}>
                 {label}
@@ -364,7 +364,7 @@ export default function LigacoesPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
                 style={{
                   background: calMetric === key ? `rgba(${rgb},0.12)` : '#111',
-                  color:      calMetric === key ? color : '#6B6560',
+                  color:      calMetric === key ? color : '#958E86',
                   border:     `1px solid ${calMetric === key ? `rgba(${rgb},0.3)` : '#1C1C1C'}`,
                 }}>
                 <Icon size={10} />
@@ -378,7 +378,7 @@ export default function LigacoesPage() {
         {calView !== 'day' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
             {daysHeader.map(d => (
-              <div key={d} className="text-center text-[10px] font-bold uppercase" style={{ color: '#5C5751' }}>
+              <div key={d} className="text-center text-[11px] font-bold uppercase" style={{ color: '#8B857D' }}>
                 {d}
               </div>
             ))}
@@ -396,7 +396,7 @@ export default function LigacoesPage() {
                 padding: '10px 14px', fontSize: '14px', colorScheme: 'dark', width: '100%' }}
             />
             {!specDate ? (
-              <p className="text-center" style={{ fontSize: '12px', color: '#6B6560', padding: '12px 0' }}>
+              <p className="text-center" style={{ fontSize: '12px', color: '#958E86', padding: '12px 0' }}>
                 Escolha uma data para ver o que foi registrado nesse dia.
               </p>
             ) : (
@@ -409,7 +409,7 @@ export default function LigacoesPage() {
                         style={{ background: `rgba(${rgb},0.06)`, border: `1px solid rgba(${rgb},0.18)`, padding: '14px 16px' }}>
                         <div className="flex items-center gap-2">
                           <Icon size={12} style={{ color }} />
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#B0A99F' }}>{label}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#B0A99F' }}>{label}</span>
                         </div>
                         <span className="font-bold tabular-nums" style={{ fontSize: '22px', color, letterSpacing: '-0.5px' }}>
                           {val || '—'}
@@ -419,7 +419,7 @@ export default function LigacoesPage() {
                   })}
                 </div>
                 {!specDateLog && specDateCreds === 0 && (
-                  <p className="text-center" style={{ fontSize: '11px', color: '#6B6560' }}>
+                  <p className="text-center" style={{ fontSize: '12px', color: '#958E86' }}>
                     Nada registrado nesse dia.
                   </p>
                 )}
@@ -448,14 +448,14 @@ export default function LigacoesPage() {
                     gap: '1px',
                   }}>
                   <span style={{
-                    fontSize: '9px', fontWeight: 700, lineHeight: 1,
-                    color: isToday ? '#C9A84C' : '#736D66',
+                    fontSize: '10px', fontWeight: 700, lineHeight: 1,
+                    color: isToday ? '#C9A84C' : '#9B948C',
                   }}>
                     {dayNum}
                   </span>
                   {val > 0 && (
                     <span style={{
-                      fontSize: '11px', fontWeight: 800, lineHeight: 1,
+                      fontSize: '12px', fontWeight: 800, lineHeight: 1,
                       color: accentHex,
                       fontVariantNumeric: 'tabular-nums',
                     }}>
@@ -490,15 +490,15 @@ export default function LigacoesPage() {
                     gap: '6px',
                   }}>
                   {/* Dia número */}
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#C9A84C' : '#736D66', lineHeight: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: isToday ? '#C9A84C' : '#9B948C', lineHeight: 1 }}>
                     {d.getDate()}
                   </span>
                   {/* Ligações */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <Phone size={8} style={{ color: calls > 0 ? '#60A5FA' : '#4A4540' }} />
+                    <Phone size={8} style={{ color: calls > 0 ? '#60A5FA' : '#7B756E' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: calls > 0 ? '#60A5FA' : '#4A4540',
+                      color: calls > 0 ? '#60A5FA' : '#7B756E',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {calls || '—'}
@@ -506,10 +506,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Atendidas */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <PhoneIncoming size={8} style={{ color: answ > 0 ? '#4ADE80' : '#4A4540' }} />
+                    <PhoneIncoming size={8} style={{ color: answ > 0 ? '#4ADE80' : '#7B756E' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: answ > 0 ? '#4ADE80' : '#4A4540',
+                      color: answ > 0 ? '#4ADE80' : '#7B756E',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {answ || '—'}
@@ -517,10 +517,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Marcações */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <MapPin size={8} style={{ color: appts > 0 ? '#A78BFA' : '#4A4540' }} />
+                    <MapPin size={8} style={{ color: appts > 0 ? '#A78BFA' : '#7B756E' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: appts > 0 ? '#A78BFA' : '#4A4540',
+                      color: appts > 0 ? '#A78BFA' : '#7B756E',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {appts || '—'}
@@ -528,10 +528,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Matrículas creditadas */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <GraduationCap size={8} style={{ color: mats > 0 ? '#C9A84C' : '#4A4540' }} />
+                    <GraduationCap size={8} style={{ color: mats > 0 ? '#C9A84C' : '#7B756E' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: mats > 0 ? '#C9A84C' : '#4A4540',
+                      color: mats > 0 ? '#C9A84C' : '#7B756E',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {mats || '—'}
@@ -549,14 +549,14 @@ export default function LigacoesPage() {
 
         {/* Ontem */}
         <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px 16px' }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#6B6560', marginBottom: '14px' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: '#958E86', marginBottom: '14px' }}>
             Ontem
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Phone size={10} style={{ color: '#60A5FA' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Lig.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Lig.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#60A5FA', letterSpacing: '-0.5px' }}>
                 {yesterdayLog?.calls ?? '—'}
@@ -566,7 +566,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <PhoneIncoming size={10} style={{ color: '#4ADE80' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Atend.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Atend.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#4ADE80', letterSpacing: '-0.5px' }}>
                 {yesterdayLog ? (yesterdayLog.answered || 0) : '—'}
@@ -576,7 +576,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <MapPin size={10} style={{ color: '#A78BFA' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Marc.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Marc.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#A78BFA', letterSpacing: '-0.5px' }}>
                 {yesterdayLog?.appointments ?? '—'}
@@ -586,7 +586,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <GraduationCap size={10} style={{ color: '#C9A84C' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Matr.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Matr.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#C9A84C', letterSpacing: '-0.5px' }}>
                 {creditsByDate[yesterdayStr] || '—'}
@@ -597,14 +597,14 @@ export default function LigacoesPage() {
 
         {/* Recorde */}
         <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px 16px' }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#6B6560', marginBottom: '14px' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: '#958E86', marginBottom: '14px' }}>
             🏆 Recorde
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Phone size={10} style={{ color: '#60A5FA' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Lig.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Lig.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#60A5FA', letterSpacing: '-0.5px' }}>
                 {allLogs.length ? recordCalls : '—'}
@@ -614,7 +614,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <PhoneIncoming size={10} style={{ color: '#4ADE80' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Atend.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Atend.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#4ADE80', letterSpacing: '-0.5px' }}>
                 {allLogs.length ? recordAnswered : '—'}
@@ -624,7 +624,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <MapPin size={10} style={{ color: '#A78BFA' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Marc.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Marc.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#A78BFA', letterSpacing: '-0.5px' }}>
                 {allLogs.length ? recordAppts : '—'}
@@ -634,7 +634,7 @@ export default function LigacoesPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <GraduationCap size={10} style={{ color: '#C9A84C' }} />
-                <span style={{ fontSize: '11px', color: '#6B6560' }}>Matr.</span>
+                <span style={{ fontSize: '12px', color: '#958E86' }}>Matr.</span>
               </div>
               <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#C9A84C', letterSpacing: '-0.5px' }}>
                 {recordCredits || '—'}

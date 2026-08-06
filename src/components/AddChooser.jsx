@@ -13,7 +13,7 @@ export default function AddChooser({ onNewClient, onNewCallback, onNewTask, onCl
       </div>
       <div>
         <p className="text-sm font-bold" style={{ color: '#EFEFEF' }}>{title}</p>
-        <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.4 }}>{desc}</p>
+        <p className="text-xs mt-0.5" style={{ color: '#958E86', lineHeight: 1.4 }}>{desc}</p>
       </div>
     </button>
   )
@@ -27,7 +27,7 @@ export default function AddChooser({ onNewClient, onNewCallback, onNewTask, onCl
         <div className="flex justify-center pb-3">
           <div className="w-10 h-1 rounded-full" style={{ background: '#2A2A2A' }} />
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-widest mb-4" style={{ color: '#6B6560' }}>O que você quer adicionar?</p>
+        <p className="text-[12px] font-bold uppercase tracking-widest mb-4" style={{ color: '#958E86' }}>O que você quer adicionar?</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {opt(UserPlus, 'Adicionar novo cliente', 'Cadastro completo na lista de clientes', '#C9A84C', onNewClient)}
           {opt(PhoneCall, 'Cliente pediu p/ ligar depois', 'Só um lembrete de ligação, fora da lista', '#E8834A', onNewCallback)}

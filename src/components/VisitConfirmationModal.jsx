@@ -24,7 +24,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
             <Calendar size={16} style={{ color: '#C9A84C' }} />
             <h2 className="text-base font-bold" style={{ color: '#EFEFEF' }}>Resumo de hoje</h2>
           </div>
-          <p className="text-xs" style={{ color: '#6B6560' }}>
+          <p className="text-xs" style={{ color: '#958E86' }}>
             {showConfirm
               ? `Você tem ${visits.length} ${visits.length === 1 ? 'visita marcada' : 'visitas marcadas'} para confirmar até o próximo dia útil.`
               : hasToday ? 'Suas visitas agendadas para hoje.' : 'Tudo certo por aqui.'}
@@ -37,7 +37,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
           {/* Confirmar visitas */}
           {showConfirm && (
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: '#C9A84C' }}>
+              <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: '#C9A84C' }}>
                 Confirmar visitas
               </p>
               <VisitConfirmationList
@@ -51,7 +51,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
           {/* Visitas de hoje (vendedor/gerente) */}
           {hasToday && (
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: '#6B6560' }}>
+              <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-3 px-1" style={{ color: '#958E86' }}>
                 Visitas de hoje
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -68,13 +68,13 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
                       <div className="flex items-center gap-2 mb-1.5">
                         <Clock size={12} style={{ color: isPast ? '#E8834A' : '#4ADE80' }} />
                         <span className="text-xs font-bold tabular-nums" style={{ color: isPast ? '#E8834A' : '#4ADE80' }}>{timeLabel}</span>
-                        {isPast && <span className="text-[9px] font-semibold rounded-full" style={{ padding: '1px 7px', background: 'rgba(232,131,74,0.1)', color: '#E8834A' }}>já passou</span>}
+                        {isPast && <span className="text-[10px] font-semibold rounded-full" style={{ padding: '1px 7px', background: 'rgba(232,131,74,0.1)', color: '#E8834A' }}>já passou</span>}
                         <div className="ml-auto">{STAGE_BADGES[v.matricula_stage] || null}</div>
                       </div>
                       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
-                      {v.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>}
+                      {v.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{v.company_name}</p>}
                       {(v.city || v.address_street) && (
-                        <p className="text-[11px] mt-1.5 flex items-center gap-1 truncate" style={{ color: '#756F68' }}>
+                        <p className="text-[12px] mt-1.5 flex items-center gap-1 truncate" style={{ color: '#9D968E' }}>
                           <MapPin size={10} style={{ flexShrink: 0 }} />
                           {[v.address_street, v.address_neighborhood, v.city].filter(Boolean).join(', ')}
                         </p>
@@ -98,7 +98,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
           )}
           <button onClick={onClose}
             className="w-full text-xs font-medium py-2.5 rounded-xl transition-all"
-            style={{ color: '#6B6560' }}>
+            style={{ color: '#958E86' }}>
             {showConfirm ? 'Responder depois' : 'Fechar'}
           </button>
         </div>

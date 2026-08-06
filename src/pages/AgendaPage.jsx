@@ -188,9 +188,9 @@ export default function AgendaPage() {
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Disponibilidade</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Disponibilidade</p>
         <h1 style={{ color: '#EFEFEF' }}>Agenda</h1>
-        <p className="text-xs mt-1" style={{ color: '#6B6560' }}>
+        <p className="text-xs mt-1" style={{ color: '#958E86' }}>
           Horários que cada vendedor abriu para visitas. Ocupe um horário ao combinar uma visita.
         </p>
       </div>
@@ -208,7 +208,7 @@ export default function AgendaPage() {
                 padding: '7px 14px',
                 background: active ? `${color}18` : '#161616',
                 border: `1px solid ${active ? color + '60' : '#2A2A2A'}`,
-                color: active ? color : '#6B6560',
+                color: active ? color : '#958E86',
               }}>
               {active ? '✓ ' : ''}{s.name?.split(' ')[0] || '—'}{s.id === user?.id ? ' (você)' : ''}
             </button>
@@ -219,7 +219,7 @@ export default function AgendaPage() {
       {/* Navegação de dia */}
       <div className="flex items-center gap-2">
         <button onClick={() => shiftDay(-1)} className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
-          style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>
+          style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#958E86' }}>
           <ChevronLeft size={16} />
         </button>
         <div className="flex-1 relative">
@@ -230,14 +230,14 @@ export default function AgendaPage() {
           />
         </div>
         <button onClick={() => shiftDay(1)} className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
-          style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#6B6560' }}>
+          style={{ width: '38px', height: '38px', background: '#161616', border: '1px solid #252525', color: '#958E86' }}>
           <ChevronRight size={16} />
         </button>
       </div>
-      <p className="text-xs capitalize -mt-2" style={{ color: '#6B6560' }}>
+      <p className="text-xs capitalize -mt-2" style={{ color: '#958E86' }}>
         {dateLabel}{isToday ? ' · hoje' : ''}
         {!loading && slots.length > 0 && (
-          <span style={{ color: '#756F68' }}> — {livres} livre{livres !== 1 ? 's' : ''} de {slots.length}</span>
+          <span style={{ color: '#9D968E' }}> — {livres} livre{livres !== 1 ? 's' : ''} de {slots.length}</span>
         )}
       </p>
 
@@ -250,7 +250,7 @@ export default function AgendaPage() {
       {/* Dono da agenda — ou o gerente, em qualquer agenda */}
       {podeGerir && (
         <div className="rounded-2xl" style={{ background: '#15140F', border: '1px solid rgba(201,168,76,0.22)', padding: '14px 16px' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#C9A84C' }}>
+          <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#C9A84C' }}>
             {agendaDeOutro ? `Abrir horário na agenda de ${donoNome}` : 'Abrir horário neste dia'}
           </p>
           <div className="flex gap-2">
@@ -273,9 +273,9 @@ export default function AgendaPage() {
         </div>
       ) : slots.length === 0 ? (
         <div className="text-center" style={{ padding: '48px 0' }}>
-          <CalendarClock size={28} style={{ color: '#6B6560', margin: '0 auto 12px' }} />
-          <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum horário aberto neste dia</p>
-          <p className="text-xs" style={{ color: '#6B6560' }}>
+          <CalendarClock size={28} style={{ color: '#958E86', margin: '0 auto 12px' }} />
+          <p className="text-sm font-medium mb-1" style={{ color: '#958E86' }}>Nenhum horário aberto neste dia</p>
+          <p className="text-xs" style={{ color: '#958E86' }}>
             {podeGerir ? 'Use "Abrir horário" acima para disponibilizar.' : `${donoNome} ainda não abriu horários para este dia.`}
           </p>
         </div>
@@ -294,7 +294,7 @@ export default function AgendaPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="text-base font-bold tabular-nums" style={{ color }}>{timeOf(slot.slot_at)}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide rounded-full flex items-center gap-1"
+                    <span className="text-[11px] font-bold uppercase tracking-wide rounded-full flex items-center gap-1"
                       style={{ padding: '3px 9px', background: `${color}14`, border: `1px solid ${color}40`, color }}>
                       {free ? <LockOpen size={9} /> : <Lock size={9} />} {free ? 'Livre' : 'Ocupado'}
                     </span>
@@ -303,7 +303,7 @@ export default function AgendaPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {free && !isOccupying && (
                       <button onClick={() => { setOccupyingId(slot.id); setNote(''); setErrorMsg('') }}
-                        className="text-[11px] font-bold rounded-xl transition-all active:scale-95"
+                        className="text-[12px] font-bold rounded-xl transition-all active:scale-95"
                         style={{ padding: '7px 14px', background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
                         Ocupar
                       </button>
@@ -311,13 +311,13 @@ export default function AgendaPage() {
                     {free && podeGerir && (
                       <button onClick={() => removeSlot(slot)} title="Remover horário"
                         className="flex items-center justify-center rounded-xl transition-all active:scale-95"
-                        style={{ width: '30px', height: '30px', background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560' }}>
+                        style={{ width: '30px', height: '30px', background: '#1A1A1A', border: '1px solid #252525', color: '#958E86' }}>
                         <Trash2 size={13} />
                       </button>
                     )}
                     {canFree && (
                       <button onClick={() => freeSlot(slot)}
-                        className="text-[11px] font-bold rounded-xl transition-all active:scale-95"
+                        className="text-[12px] font-bold rounded-xl transition-all active:scale-95"
                         style={{ padding: '7px 14px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
                         Liberar
                       </button>
@@ -332,7 +332,7 @@ export default function AgendaPage() {
                       <p className="text-xs" style={{ color: '#B0A99F', lineHeight: 1.5 }}>{slot.booked_note}</p>
                     )}
                     {bookedByName && (
-                      <p className="text-[10px] mt-0.5" style={{ color: '#756F68' }}>ocupado por {bookedByName}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: '#9D968E' }}>ocupado por {bookedByName}</p>
                     )}
                   </div>
                 )}
@@ -340,20 +340,20 @@ export default function AgendaPage() {
                 {/* Form de ocupação */}
                 {free && isOccupying && (
                   <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1F1F1F' }}>
-                    <label className="text-[10px] font-bold uppercase tracking-widest block mb-2" style={{ color: '#E8834A' }}>
+                    <label className="text-[11px] font-bold uppercase tracking-widest block mb-2" style={{ color: '#E8834A' }}>
                       Cliente e cidade *
                     </label>
                     <input autoFocus value={note} onChange={e => setNote(e.target.value)}
                       placeholder="Ex: Fulano · Lajeado"
                       className="w-full text-sm outline-none rounded-xl"
                       style={{ padding: '10px 14px', background: '#111', border: '1px solid rgba(232,131,74,0.4)', color: '#EFEFEF' }} />
-                    <p className="text-[10px] mt-1.5" style={{ color: '#807A73' }}>
+                    <p className="text-[11px] mt-1.5" style={{ color: '#A59F97' }}>
                       Anote a cidade — ajuda o vendedor a agrupar visitas próximas no mesmo dia.
                     </p>
                     <div className="flex gap-2 mt-2.5">
                       <button onClick={() => { setOccupyingId(null); setNote('') }} disabled={saving}
                         className="flex-1 text-xs font-semibold rounded-xl py-2.5 transition-all active:scale-95"
-                        style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#6B6560' }}>
+                        style={{ background: '#1A1A1A', border: '1px solid #252525', color: '#958E86' }}>
                         Cancelar
                       </button>
                       <button onClick={() => occupySlot(slot)} disabled={saving || !note.trim()}
@@ -372,7 +372,7 @@ export default function AgendaPage() {
 
       {/* Dica de visita longa */}
       {!loading && slots.length > 0 && (
-        <p className="text-[11px]" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+        <p className="text-[12px]" style={{ color: '#958E86', lineHeight: 1.5 }}>
           💡 Visita longa? Ocupe todos os horários que ela vai tomar (ex: das 13:00 às 15:30 → ocupe 13:00 e 14:30).
         </p>
       )}
@@ -390,7 +390,7 @@ export default function AgendaPage() {
                 <p className="text-sm font-semibold mb-1.5" style={{ color: '#EFEFEF' }}>
                   Reservar no Google Agenda?
                 </p>
-                <p className="text-xs mb-3" style={{ color: '#6B6560', lineHeight: 1.5 }}>
+                <p className="text-xs mb-3" style={{ color: '#958E86', lineHeight: 1.5 }}>
                   Cria <b style={{ color: '#B0A99F' }}>"Reservado - {calPrompt.slot?.booked_note}"</b> às{' '}
                   {timeOf(calPrompt.slot?.slot_at)} na <b style={{ color: '#B0A99F' }}>sua</b> agenda do Google
                   {profilesMap[sellerId]?.name && sellerId !== user?.id
@@ -398,7 +398,7 @@ export default function AgendaPage() {
                     : '.'}
                 </p>
                 {calPrompt.error && (
-                  <p className="text-[11px] font-semibold rounded-xl mb-3"
+                  <p className="text-[12px] font-semibold rounded-xl mb-3"
                     style={{ padding: '8px 10px', color: '#E85555', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.25)' }}>
                     {calPrompt.error}
                   </p>
@@ -406,7 +406,7 @@ export default function AgendaPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={() => setCalPrompt(null)} disabled={calPrompt.busy}
                     className="text-xs font-bold rounded-xl py-3 transition-all active:scale-95"
-                    style={{ background: '#111', border: '1px solid #252525', color: '#6B6560' }}>
+                    style={{ background: '#111', border: '1px solid #252525', color: '#958E86' }}>
                     Agora não
                   </button>
                   <button onClick={confirmCalendar} disabled={calPrompt.busy}

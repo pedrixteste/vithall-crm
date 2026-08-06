@@ -26,7 +26,7 @@ export function Sheet({ open, onClose, title, children }) {
             <h2 className="text-base font-bold" style={{ color: '#EFEFEF' }}>{title}</h2>
             <button onClick={onClose}
               className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-              style={{ background: '#252525', color: '#6B6560' }}>
+              style={{ background: '#252525', color: '#958E86' }}>
               ✕
             </button>
           </div>

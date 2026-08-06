@@ -66,7 +66,7 @@ export default function VisitaForm({ clientId, onClose, onSaved }) {
 
         {/* Onde foi a visita */}
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B6560' }}>
+          <p className="text-[12px] font-bold uppercase tracking-widest mb-3" style={{ color: '#958E86' }}>
             Onde foi a visita
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -79,7 +79,7 @@ export default function VisitaForm({ clientId, onClose, onSaved }) {
                 style={{
                   background: form.visit_location === loc.key ? 'rgba(201,168,76,0.12)' : '#111',
                   border: `1px solid ${form.visit_location === loc.key ? 'rgba(201,168,76,0.35)' : '#252525'}`,
-                  color: form.visit_location === loc.key ? '#C9A84C' : '#6B6560',
+                  color: form.visit_location === loc.key ? '#C9A84C' : '#958E86',
                 }}>
                 {form.visit_location === loc.key && '✓ '}{loc.label}
               </button>
@@ -89,7 +89,7 @@ export default function VisitaForm({ clientId, onClose, onSaved }) {
 
         {/* Exemplos apresentados */}
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B6560' }}>
+          <p className="text-[12px] font-bold uppercase tracking-widest mb-3" style={{ color: '#958E86' }}>
             Exemplos apresentados
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -99,7 +99,7 @@ export default function VisitaForm({ clientId, onClose, onSaved }) {
                 style={{
                   background: exemplos.includes(ex) ? 'rgba(201,168,76,0.12)' : 'transparent',
                   borderColor: exemplos.includes(ex) ? 'rgba(201,168,76,0.4)' : '#252525',
-                  color: exemplos.includes(ex) ? '#C9A84C' : '#6B6560',
+                  color: exemplos.includes(ex) ? '#C9A84C' : '#958E86',
                 }}>
                 {exemplos.includes(ex) && '✓ '}{ex}
               </button>

@@ -64,16 +64,16 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
               <h2 className="text-base font-bold" style={{ color: '#EFEFEF' }}>Histórico do contato</h2>
             </div>
             <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: '#252525', color: '#6B6560' }}><X size={14} /></button>
+              style={{ background: '#252525', color: '#958E86' }}><X size={14} /></button>
           </div>
-          <p className="text-xs mt-1" style={{ color: '#6B6560' }}>
+          <p className="text-xs mt-1" style={{ color: '#958E86' }}>
             {phone}{groups ? ` · ${groups.length} ${groups.length === 1 ? 'registro' : 'registros'}` : ''}
           </p>
           <div className="flex items-center gap-4 mt-2.5">
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: MARCA_COLOR }}>
+            <span className="flex items-center gap-1.5 text-[12px]" style={{ color: MARCA_COLOR }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: MARCA_COLOR }} /> Marcação
             </span>
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: VISITA_COLOR }}>
+            <span className="flex items-center gap-1.5 text-[12px]" style={{ color: VISITA_COLOR }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: VISITA_COLOR }} /> Visita
             </span>
           </div>
@@ -86,7 +86,7 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
               <div className="w-6 h-6 rounded-full border-2 animate-spin" style={{ borderColor: '#C9A84C', borderTopColor: 'transparent' }} />
             </div>
           ) : groups.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: '#6B6560' }}>Nenhum registro encontrado.</p>
+            <p className="text-sm text-center py-8" style={{ color: '#958E86' }}>Nenhum registro encontrado.</p>
           ) : groups.map(({ record, marcacaoDate, visits }) => {
             const isCurrent = record.id === currentClientId
             return (
@@ -98,13 +98,13 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Calendar size={13} style={{ color: MARCA_COLOR, flexShrink: 0 }} />
-                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: MARCA_COLOR }}>Marcação</span>
+                      <span className="text-[12px] font-bold uppercase tracking-wide" style={{ color: MARCA_COLOR }}>Marcação</span>
                       <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(marcacaoDate)}</span>
-                      {isCurrent && <span className="text-[10px]" style={{ color: '#6B6560' }}>· atual</span>}
+                      {isCurrent && <span className="text-[11px]" style={{ color: '#958E86' }}>· atual</span>}
                     </div>
-                    <ChevronRight size={14} style={{ color: '#756F68', flexShrink: 0 }} />
+                    <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />
                   </div>
-                  {visits.length === 0 && <p className="text-[11px] mt-1" style={{ color: '#E8834A' }}>Sem visita registrada</p>}
+                  {visits.length === 0 && <p className="text-[12px] mt-1" style={{ color: '#E8834A' }}>Sem visita registrada</p>}
                 </button>
 
                 {/* Visitas dessa marcação */}
@@ -115,11 +115,11 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Star size={12} style={{ color: VISITA_COLOR, flexShrink: 0 }} />
-                        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: VISITA_COLOR }}>Visita</span>
+                        <span className="text-[12px] font-bold uppercase tracking-wide" style={{ color: VISITA_COLOR }}>Visita</span>
                         <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(v.visit_date)}</span>
-                        {v.visit_outcome && <span className="text-[10px] truncate" style={{ color: '#6B6560' }}>· {OUTCOMES[v.visit_outcome] || v.visit_outcome}</span>}
+                        {v.visit_outcome && <span className="text-[11px] truncate" style={{ color: '#958E86' }}>· {OUTCOMES[v.visit_outcome] || v.visit_outcome}</span>}
                       </div>
-                      <ChevronRight size={14} style={{ color: '#756F68', flexShrink: 0 }} />
+                      <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />
                     </div>
                   </button>
                 ))}

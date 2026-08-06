@@ -25,7 +25,7 @@ const OUTCOME_OPTIONS = [
 ]
 
 const STAGE_OPTIONS = [
-  { key: 'nao_marcou',     label: 'Nao marcou',    color: '#6B6560' },
+  { key: 'nao_marcou',     label: 'Nao marcou',    color: '#958E86' },
   { key: 'marcado',        label: 'Marcado',        color: '#22D3EE' },
   { key: 'nao_visitado',   label: 'Nao visitado',  color: '#60A5FA' },
   { key: 'nao_apareceu',   label: 'Nao apareceu',  color: '#E8834A' },
@@ -226,7 +226,7 @@ export default function ClientesPage() {
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestao</p>
+          <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: '#C9A84C' }}>Gestao</p>
           <h1 style={{ color: '#EFEFEF' }}>Clientes</h1>
         </div>
         <Button onClick={() => setShowAddMenu(true)} size="md">
@@ -238,7 +238,7 @@ export default function ClientesPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#6B6560' }} />
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#958E86' }} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -250,7 +250,7 @@ export default function ClientesPage() {
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
-                <X size={13} style={{ color: '#6B6560' }} />
+                <X size={13} style={{ color: '#958E86' }} />
               </button>
             )}
           </div>
@@ -263,11 +263,11 @@ export default function ClientesPage() {
               padding: '12px 16px',
               background: showFilters || activeFilters > 0 ? 'rgba(201,168,76,0.12)' : '#161616',
               border: `1px solid ${showFilters || activeFilters > 0 ? 'rgba(201,168,76,0.35)' : '#303030'}`,
-              color: activeFilters > 0 ? '#C9A84C' : '#6B6560',
+              color: activeFilters > 0 ? '#C9A84C' : '#958E86',
             }}>
             <SlidersHorizontal size={15} />
             {activeFilters > 0 && (
-              <span className="text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center"
+              <span className="text-[12px] font-bold w-5 h-5 rounded-full flex items-center justify-center"
                 style={{ background: '#C9A84C', color: '#0A0A0A' }}>
                 {activeFilters}
               </span>
@@ -292,7 +292,7 @@ export default function ClientesPage() {
                     padding: '6px 14px',
                     background: active ? 'rgba(201,168,76,0.14)' : '#161616',
                     border: `1px solid ${active ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
-                    color: active ? '#C9A84C' : '#6B6560',
+                    color: active ? '#C9A84C' : '#958E86',
                   }}>
                   {active && '✓ '}{opt.label}
                 </button>
@@ -306,7 +306,7 @@ export default function ClientesPage() {
           <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px' }}>
 
             {/* Etapa do funil */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Etapa do funil
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -318,7 +318,7 @@ export default function ClientesPage() {
                     padding: '5px 12px',
                     background: filterStage === s.key ? `${s.color}18` : 'transparent',
                     border: `1px solid ${filterStage === s.key ? s.color + '50' : '#2A2A2A'}`,
-                    color: filterStage === s.key ? s.color : '#6B6560',
+                    color: filterStage === s.key ? s.color : '#958E86',
                   }}>
                   {filterStage === s.key ? '✓ ' : ''}{s.label}
                 </button>
@@ -326,7 +326,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Situação da matrícula */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Situação da matrícula
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -338,7 +338,7 @@ export default function ClientesPage() {
                     padding: '5px 12px',
                     background: filterMatStatus === k ? cor + '18' : 'transparent',
                     border: '1px solid ' + (filterMatStatus === k ? cor + '50' : '#2A2A2A'),
-                    color: filterMatStatus === k ? cor : '#6B6560',
+                    color: filterMatStatus === k ? cor : '#958E86',
                   }}>
                   {filterMatStatus === k ? '✓ ' : ''}{label}
                 </button>
@@ -348,7 +348,7 @@ export default function ClientesPage() {
             {/* Cidade */}
             {uniqueCities.length > 0 && (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+                <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
                   Cidade
                 </p>
                 <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -360,7 +360,7 @@ export default function ClientesPage() {
                         padding: '5px 12px',
                         background: filterCity.toLowerCase() === city.toLowerCase() ? 'rgba(96,165,250,0.12)' : 'transparent',
                         border: `1px solid ${filterCity.toLowerCase() === city.toLowerCase() ? 'rgba(96,165,250,0.4)' : '#2A2A2A'}`,
-                        color: filterCity.toLowerCase() === city.toLowerCase() ? '#60A5FA' : '#6B6560',
+                        color: filterCity.toLowerCase() === city.toLowerCase() ? '#60A5FA' : '#958E86',
                       }}>
                       {filterCity.toLowerCase() === city.toLowerCase() ? '✓ ' : ''}{city}
                     </button>
@@ -370,7 +370,7 @@ export default function ClientesPage() {
             )}
 
             {/* Fez o treinamento */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Fez o treinamento
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -384,7 +384,7 @@ export default function ClientesPage() {
                       padding: '5px 12px',
                       background: active ? 'rgba(74,222,128,0.12)' : 'transparent',
                       border: `1px solid ${active ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
-                      color: active ? '#4ADE80' : '#6B6560',
+                      color: active ? '#4ADE80' : '#958E86',
                     }}>
                     {active ? '✓ ' : ''}{t}
                   </button>
@@ -393,7 +393,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Ainda nao fez */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Ainda nao fez
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -407,7 +407,7 @@ export default function ClientesPage() {
                       padding: '5px 12px',
                       background: active ? 'rgba(232,131,74,0.12)' : 'transparent',
                       border: `1px solid ${active ? 'rgba(232,131,74,0.4)' : '#2A2A2A'}`,
-                      color: active ? '#E8834A' : '#6B6560',
+                      color: active ? '#E8834A' : '#958E86',
                     }}>
                     {active ? '✗ ' : ''}{t}
                   </button>
@@ -416,7 +416,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Periodo */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Periodo de cadastro
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: filterPeriod === 'custom' ? '12px' : '0' }}>
@@ -428,7 +428,7 @@ export default function ClientesPage() {
                     padding: '5px 12px',
                     background: filterPeriod === p.key ? 'rgba(201,168,76,0.12)' : 'transparent',
                     border: `1px solid ${filterPeriod === p.key ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}`,
-                    color: filterPeriod === p.key ? '#C9A84C' : '#6B6560',
+                    color: filterPeriod === p.key ? '#C9A84C' : '#958E86',
                   }}>
                   {filterPeriod === p.key ? '✓ ' : ''}{p.label}
                 </button>
@@ -439,7 +439,7 @@ export default function ClientesPage() {
             {filterPeriod === 'custom' && (
               <div className="flex gap-2" style={{ marginTop: '10px' }}>
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>De</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: '#9D968E' }}>De</p>
                   <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
                     className="w-full text-xs rounded-xl outline-none"
                     style={{ padding: '8px 12px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -448,7 +448,7 @@ export default function ClientesPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>Ate</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: '#9D968E' }}>Ate</p>
                   <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
                     className="w-full text-xs rounded-xl outline-none"
                     style={{ padding: '8px 12px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -460,7 +460,7 @@ export default function ClientesPage() {
             )}
 
             {/* Resultado da visita */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68', marginTop: '16px' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E', marginTop: '16px' }}>
               Resultado da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -475,7 +475,7 @@ export default function ClientesPage() {
                       padding: '5px 12px',
                       background: active ? '#60A5FA18' : 'transparent',
                       border: `1px solid ${active ? '#60A5FA60' : '#2A2A2A'}`,
-                      color: active ? '#60A5FA' : '#6B6560',
+                      color: active ? '#60A5FA' : '#958E86',
                     }}>
                     🔄 {active ? '✓ ' : ''}Retornos
                   </button>
@@ -489,7 +489,7 @@ export default function ClientesPage() {
                     padding: '5px 12px',
                     background: filterOutcome === o.key ? o.color + '18' : 'transparent',
                     border: `1px solid ${filterOutcome === o.key ? o.color + '60' : '#2A2A2A'}`,
-                    color: filterOutcome === o.key ? o.color : '#6B6560',
+                    color: filterOutcome === o.key ? o.color : '#958E86',
                   }}>
                   {o.icon} {filterOutcome === o.key ? '✓ ' : ''}{o.label}
                 </button>
@@ -497,7 +497,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Nota da visita */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
               Nota da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '4px' }}>
@@ -514,7 +514,7 @@ export default function ClientesPage() {
                     padding: '5px 12px',
                     background: filterRating === r.key ? r.color + '18' : 'transparent',
                     border: `1px solid ${filterRating === r.key ? r.color + '60' : '#2A2A2A'}`,
-                    color: filterRating === r.key ? r.color : '#6B6560',
+                    color: filterRating === r.key ? r.color : '#958E86',
                   }}>
                   {filterRating === r.key ? '✓ ' : ''}{r.label}
                 </button>
@@ -535,7 +535,7 @@ export default function ClientesPage() {
 
       {/* Contador */}
       {!loading && (
-        <p className="text-xs" style={{ color: '#6B6560' }}>
+        <p className="text-xs" style={{ color: '#958E86' }}>
           {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           {activeFilters > 0 ? ' (filtrado)' : ''}
         </p>
@@ -549,8 +549,8 @@ export default function ClientesPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center" style={{ padding: '64px 0' }}>
           <p className="text-3xl mb-4">🏢</p>
-          <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum cliente encontrado</p>
-          <p className="text-xs" style={{ color: '#6B6560' }}>
+          <p className="text-sm font-medium mb-1" style={{ color: '#958E86' }}>Nenhum cliente encontrado</p>
+          <p className="text-xs" style={{ color: '#958E86' }}>
             {activeFilters > 0 ? 'Tente ajustar os filtros' : 'Toque em "Novo" para adicionar'}
           </p>
         </div>
@@ -571,7 +571,7 @@ export default function ClientesPage() {
                     {(phoneCounts[client.id] || 0) > 1 && (
                       <span title={`Contato registrado outras ${phoneCounts[client.id] - 1}x`}
                         className="inline-flex items-center flex-shrink-0 rounded-full"
-                        style={{ padding: '2px 7px', gap: '1px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: '10px', fontWeight: 700 }}>
+                        style={{ padding: '2px 7px', gap: '1px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: '11px', fontWeight: 700 }}>
                         <Phone size={10} /><sup>{phoneCounts[client.id] - 1}</sup>
                       </span>
                     )}
@@ -580,12 +580,12 @@ export default function ClientesPage() {
                     )}
                   </div>
                   {client.contact_name && client.company_name && (
-                    <p className="text-xs truncate mt-0.5" style={{ color: '#6B6560' }}>
+                    <p className="text-xs truncate mt-0.5" style={{ color: '#958E86' }}>
                       {client.company_name}{client.contact_role ? ` · ${client.contact_role}` : ''}
                     </p>
                   )}
                   {client.phone && (
-                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#807A73' }}>
+                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#A59F97' }}>
                       <Phone size={10} style={{ flexShrink: 0 }} /> {allPhones(client).map(p => p.n).join(' · ')}
                     </p>
                   )}
@@ -593,7 +593,7 @@ export default function ClientesPage() {
                     {client.matricula_stage === 'matriculado' && client.matriculas?.length > 0 ? (
                       <div className="flex flex-wrap" style={{ gap: '4px' }}>
                         {client.matriculas.map(t => (
-                          <span key={t} className="inline-flex items-center text-[11px] font-semibold px-3 py-1 rounded-full border"
+                          <span key={t} className="inline-flex items-center text-[12px] font-semibold px-3 py-1 rounded-full border"
                             style={{ color: '#4ADE80', background: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.2)' }}>
                             ✓ {t}
                           </span>
@@ -602,7 +602,7 @@ export default function ClientesPage() {
                     ) : STAGE_BADGES[client.matricula_stage]}
                   </div>
                 </div>
-                <ChevronRight size={15} style={{ color: '#6B6560', flexShrink: 0 }} />
+                <ChevronRight size={15} style={{ color: '#958E86', flexShrink: 0 }} />
               </div>
             </Card>
           ))}
