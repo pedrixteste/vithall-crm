@@ -51,7 +51,9 @@ const POST_VISITA = ['recebeu_visita', 'matriculado', 'nao_apareceu', 'cancelado
 // atribuídas à própria pessoa — o gerente via as visitas da equipe toda com
 // os botões de resultado, e conseguia marcar "recebida/matriculada" numa
 // visita que era de outro vendedor. A visão de equipe fica nos Relatórios.
-// Só retorna visitas TRATADAS (confirmada/tentativa) e AINDA NÃO REALIZADAS.
+// Entram as TRATADAS (confirmada/tentativa) e as SEM RESPOSTA — visita sem
+// resposta sumia do dia e ninguém preenchia a estrela (caso Diana, 03/08/26:
+// a visita passou invisível e o feedback se perdeu). Só a cancelada fica fora.
 export async function fetchVisitsForDay(role, userId, offset = 0) {
   if (role !== 'vendedor' && role !== 'gerente') return []
   const { start, end } = getDayRange(offset)
@@ -60,7 +62,7 @@ export async function fetchVisitsForDay(role, userId, offset = 0) {
     .select('*')
     .eq('assigned_to', userId)
     .not('visit_scheduled_at', 'is', null)
-    .in('visit_confirmation', ['confirmada', 'tentativa'])
+    .or('visit_confirmation.in.(confirmada,tentativa),visit_confirmation.is.null')
     .not('matricula_stage', 'in', `(${POST_VISITA.join(',')})`)
     .gte('visit_scheduled_at', start)
     .lte('visit_scheduled_at', end)
@@ -140,11 +142,11 @@ export async function fetchPendingRatings(userId) {
     // registros de visita passados com estrela incompleta
     const incompletePast = cv.filter(v => v.visit_date && v.visit_date < todayStr && !isVisitRated(v))
     // visita agendada que já passou e ainda nem tem registro (nunca foi aberta).
-    // Só cobra visitas TRATADAS (confirmada/tentativa) — sem resposta ou
-    // "não confirmada" a visita nem apareceu na agenda, então não cobra.
+    // Cobra também as SEM RESPOSTA — visita não respondida passava batida e o
+    // feedback se perdia para sempre. Só a cancelada (nao_confirmada) não cobra.
     let missingScheduled = false
     let schedDate = null
-    if (c.visit_scheduled_at && isVisitTreated(c)) {
+    if (c.visit_scheduled_at && c.visit_confirmation !== 'nao_confirmada') {
       schedDate = utcDateStr(c.visit_scheduled_at)
       if (schedDate < todayStr && !cv.some(v => v.visit_date === schedDate)) missingScheduled = true
     }

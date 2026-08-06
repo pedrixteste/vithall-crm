@@ -313,7 +313,7 @@ export default function LigacoesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Matrículas</p>
-              <p className="text-xs" style={{ color: '#958E86' }}>De clientes marcados por você · automático</p>
+              <p className="text-xs" style={{ color: '#958E86' }}>Marcou a visita ou participou · automático</p>
             </div>
           </div>
           <span className="text-2xl font-bold tabular-nums" style={{ color: '#C9A84C', letterSpacing: '-1px' }}>

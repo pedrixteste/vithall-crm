@@ -1160,15 +1160,15 @@ export default function RelatoriosPage() {
       ) : (
         <button
           onClick={() => filteredCredits.length && abreMatriculas(
-            `Matrículas ${selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'das suas marcações'} · ${periodLabel}`,
+            `Matrículas com part. ${selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'sua'} · ${periodLabel}`,
             filteredCredits)}
           className="rounded-2xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.18)', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: filteredCredits.length ? 'pointer' : 'default', width: '100%', textAlign: 'left' }}>
           <div>
             <p style={{ fontSize: '13px', fontWeight: 600, color: '#EFEFEF' }}>
-              🎓 Matrículas {selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'das suas marcações'}
+              🎓 Matrículas com part. {selectedProfile ? `de ${selectedProfile.name?.split(' ')[0]}` : 'sua'}
             </p>
             <p style={{ fontSize: '12px', color: '#958E86', marginTop: '2px' }}>
-              {selectedProfile ? `clientes que ${selectedProfile.name?.split(' ')[0]} marcou e matricularam` : 'clientes que você marcou e matricularam'} · {filteredCredits.length ? 'toque para ver quem fechou' : 'período selecionado'}
+              {selectedProfile ? `matrículas em que ${selectedProfile.name?.split(' ')[0]} marcou a visita ou participou` : 'matrículas em que você marcou a visita ou participou'} · {filteredCredits.length ? 'toque para ver quem fechou' : 'período selecionado'}
             </p>
           </div>
           <span className="tabular-nums" style={{ fontSize: '26px', fontWeight: 800, color: '#C9A84C' }}>{filteredCredits.length}</span>
