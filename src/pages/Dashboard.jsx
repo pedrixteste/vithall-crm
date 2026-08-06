@@ -418,7 +418,7 @@ export default function Dashboard() {
         {period === 'custom' && (
           <div className="flex gap-2">
             <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>De</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>De</p>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
                 className="w-full text-xs rounded-xl outline-none"
                 style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -427,7 +427,7 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>Ate</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>Ate</p>
               <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
                 className="w-full text-xs rounded-xl outline-none"
                 style={{ padding: '8px 12px', background: '#161616', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -478,7 +478,7 @@ export default function Dashboard() {
           {tasks.length === 0 ? (
             <div className="text-center" style={{ padding: '40px 0' }}>
               <p style={{ fontSize: '2rem', marginBottom: '12px' }}>✅</p>
-              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa pendente</p>
+              <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma tarefa pendente</p>
             </div>
           ) : (
             <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
@@ -524,7 +524,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <button onClick={() => deleteTask(t.id)} title="Excluir" className="flex-shrink-0">
-                      <Trash2 size={14} style={{ color: '#2A2A2A' }} />
+                      <Trash2 size={14} style={{ color: '#5C5751' }} />
                     </button>
                   </li>
                 )
@@ -551,7 +551,7 @@ export default function Dashboard() {
             {scheduledVisits.length === 0 ? (
               <div className="text-center" style={{ padding: '48px 0' }}>
                 <p style={{ fontSize: '2rem', marginBottom: '12px' }}>📅</p>
-                <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita agendada</p>
+                <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma visita agendada</p>
               </div>
             ) : (
               <ul className="divide-y" style={{ borderColor: '#1C1C1C' }}>
@@ -590,7 +590,7 @@ export default function Dashboard() {
                               "{v.visit_confirmation_note}"
                             </p>
                           )}
-                          <p className="text-[10px] mt-1" style={{ color: '#333030' }}>Toque para ver detalhes →</p>
+                          <p className="text-[10px] mt-1" style={{ color: '#6B6560' }}>Toque para ver detalhes →</p>
                         </button>
 
                         {/* Lado direito */}
@@ -666,7 +666,7 @@ export default function Dashboard() {
           {recentVisits.length === 0 ? (
             <div className="text-center" style={{ padding: '48px 0' }}>
               <p style={{ fontSize: '2rem', marginBottom: '12px' }}>🗺️</p>
-              <p className="text-sm" style={{ color: '#333030' }}>
+              <p className="text-sm" style={{ color: '#6B6560' }}>
                 {profile?.role === 'pre_vendas' ? 'Nenhuma visita avaliada ainda' : 'Nenhuma visita registrada'}
               </p>
             </div>

@@ -81,7 +81,7 @@ function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick,
       </div>
       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{name}</p>
       {company && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{company}</p>}
-      {sub && <p className="text-[11px] mt-1 flex items-center gap-1 truncate" style={{ color: '#444040' }}>{sub}</p>}
+      {sub && <p className="text-[11px] mt-1 flex items-center gap-1 truncate" style={{ color: '#756F68' }}>{sub}</p>}
       {confirmStatus && <div className="mt-2"><ConfirmStrip status={confirmStatus} note={confirmNote} /></div>}
     </button>
   )
@@ -444,20 +444,20 @@ export default function VisitasHojePage() {
                   <div className="flex items-center justify-between gap-2" style={{ marginTop: '8px' }}>
                     {(v.city || v.address_street) && (
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <MapPin size={11} style={{ color: '#444040', flexShrink: 0 }} />
-                        <span className="text-xs truncate" style={{ color: '#444040' }}>
+                        <MapPin size={11} style={{ color: '#756F68', flexShrink: 0 }} />
+                        <span className="text-xs truncate" style={{ color: '#756F68' }}>
                           {[v.address_street, v.address_neighborhood, v.city].filter(Boolean).join(', ')}
                         </span>
                       </div>
                     )}
                     <div className="flex-shrink-0">{STAGE_BADGES[v.matricula_stage] || null}</div>
                   </div>
-                  <p className="text-[11px] mt-3" style={{ color: '#2A2A2A' }}>Toque para abrir o cliente →</p>
+                  <p className="text-[11px] mt-3" style={{ color: '#5C5751' }}>Toque para abrir o cliente →</p>
                 </button>
 
                 {/* Resultado da visita — muda o estágio automaticamente */}
                 <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1F1F1F' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#444040' }}>Resultado da visita</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: '#756F68' }}>Resultado da visita</p>
                   <div className="grid grid-cols-2 gap-2">
                     {STAGE_ACTIONS.map(a => {
                       const active = v.matricula_stage === a.key
@@ -624,7 +624,7 @@ export default function VisitasHojePage() {
                     </p>
                   )}
                   {!t.clients && (
-                    <p className="text-[10px] mt-1" style={{ color: '#2A2A2A' }}>Toque para opções →</p>
+                    <p className="text-[10px] mt-1" style={{ color: '#5C5751' }}>Toque para opções →</p>
                   )}
                 </button>
                 <button onClick={() => completeTask(t)} title={repete ? 'Feito hoje' : 'Concluir'}
@@ -664,7 +664,7 @@ export default function VisitasHojePage() {
       {!loading && nothingToday && !hasTomorrow && (
         <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
           <p style={{ fontSize: '3rem' }}>{isVisitor ? '📅' : '✅'}</p>
-          <p className="text-sm font-medium" style={{ color: '#333030' }}>
+          <p className="text-sm font-medium" style={{ color: '#6B6560' }}>
             {isVisitor ? 'Dia livre de visitas e ligações!' : 'Nada para hoje'}
           </p>
         </div>
@@ -837,7 +837,7 @@ export default function VisitasHojePage() {
                         <p className="text-xs truncate" style={{ color: '#6B6560' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                       )}
                       <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
-                      <p className="text-[10px] mt-1.5" style={{ color: '#2A2A2A' }}>Toque para editar →</p>
+                      <p className="text-[10px] mt-1.5" style={{ color: '#5C5751' }}>Toque para editar →</p>
                     </button>
                   ))}
                 </div>
@@ -881,7 +881,7 @@ export default function VisitasHojePage() {
                 : (prod.calls === 0 && prod.answered === 0)) && (
                 <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
                   <p style={{ fontSize: '3rem' }}>📊</p>
-                  <p className="text-sm font-medium" style={{ color: '#333030' }}>
+                  <p className="text-sm font-medium" style={{ color: '#6B6560' }}>
                     {prodDate === localDateStr() ? 'Nada produzido hoje ainda' : 'Nada produzido nesse dia'}
                   </p>
                 </div>

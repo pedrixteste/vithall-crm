@@ -85,7 +85,7 @@ export default function PipelinePage() {
             </div>
 
             {byStage(stage.key).length === 0 ? (
-              <p className="text-xs text-center" style={{ padding: '20px 0', color: '#252525' }}>
+              <p className="text-xs text-center" style={{ padding: '20px 0', color: '#55504B' }}>
                 Sem clientes
               </p>
             ) : (
@@ -110,7 +110,7 @@ export default function PipelinePage() {
                         </p>
                       )}
                     </div>
-                    <ChevronRight size={14} style={{ color: '#333030', flexShrink: 0 }} />
+                    <ChevronRight size={14} style={{ color: '#6B6560', flexShrink: 0 }} />
                   </button>
                 ))}
               </div>

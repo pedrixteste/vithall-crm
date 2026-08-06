@@ -106,7 +106,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
         {phone.trim() && (
           <>
             <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
                 Esse número é...
               </p>
               <TipoToggle value={phoneType} onChange={setPhoneType} />
@@ -167,7 +167,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
           {reminderType === 'specific_date' && (
             <div>
               <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} color="#E8834A" />
-              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
+              <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
                 Aparece no "Hoje" em cada data escolhida. Pode adicionar mais de uma.
               </p>
             </div>
@@ -181,7 +181,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
             const selStyle = { padding: '12px 10px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', borderRadius: '12px', fontSize: '14px', outline: 'none', width: '100%' }
             return (
               <div style={{ marginTop: '14px' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
                   Hora de ligar (opcional)
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
@@ -199,7 +199,7 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
                     ))}
                   </select>
                 </div>
-                <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
+                <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
                   Só p/ lembrar o melhor horário — o card fica o dia todo até você concluir.
                 </p>
               </div>

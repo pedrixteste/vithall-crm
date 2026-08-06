@@ -48,7 +48,7 @@ export default function PhoneList({ value = [], onChange, primaryFilled = true }
         <div key={i} className="rounded-2xl"
           style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>
               Telefone adicional {i + 1}
             </p>
             <button type="button" onClick={() => remover(i)} title="Remover"

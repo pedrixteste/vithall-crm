@@ -76,7 +76,7 @@ export default function GoogleCallbackPage() {
           {isError ? '❌' : '📅'}
         </div>
         <p style={{ color: '#EFEFEF', fontWeight: 600, fontSize: '16px' }}>{status}</p>
-        <p style={{ color: '#3A3A3A', fontSize: '12px', marginTop: '8px' }}>
+        <p style={{ color: '#6E6862', fontSize: '12px', marginTop: '8px' }}>
           Redirecionando para o perfil...
         </p>
       </div>

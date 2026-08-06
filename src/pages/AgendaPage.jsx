@@ -237,7 +237,7 @@ export default function AgendaPage() {
       <p className="text-xs capitalize -mt-2" style={{ color: '#6B6560' }}>
         {dateLabel}{isToday ? ' · hoje' : ''}
         {!loading && slots.length > 0 && (
-          <span style={{ color: '#444040' }}> — {livres} livre{livres !== 1 ? 's' : ''} de {slots.length}</span>
+          <span style={{ color: '#756F68' }}> — {livres} livre{livres !== 1 ? 's' : ''} de {slots.length}</span>
         )}
       </p>
 
@@ -273,9 +273,9 @@ export default function AgendaPage() {
         </div>
       ) : slots.length === 0 ? (
         <div className="text-center" style={{ padding: '48px 0' }}>
-          <CalendarClock size={28} style={{ color: '#333030', margin: '0 auto 12px' }} />
+          <CalendarClock size={28} style={{ color: '#6B6560', margin: '0 auto 12px' }} />
           <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum horário aberto neste dia</p>
-          <p className="text-xs" style={{ color: '#333030' }}>
+          <p className="text-xs" style={{ color: '#6B6560' }}>
             {podeGerir ? 'Use "Abrir horário" acima para disponibilizar.' : `${donoNome} ainda não abriu horários para este dia.`}
           </p>
         </div>
@@ -332,7 +332,7 @@ export default function AgendaPage() {
                       <p className="text-xs" style={{ color: '#B0A99F', lineHeight: 1.5 }}>{slot.booked_note}</p>
                     )}
                     {bookedByName && (
-                      <p className="text-[10px] mt-0.5" style={{ color: '#444040' }}>ocupado por {bookedByName}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#756F68' }}>ocupado por {bookedByName}</p>
                     )}
                   </div>
                 )}
@@ -347,7 +347,7 @@ export default function AgendaPage() {
                       placeholder="Ex: Fulano · Lajeado"
                       className="w-full text-sm outline-none rounded-xl"
                       style={{ padding: '10px 14px', background: '#111', border: '1px solid rgba(232,131,74,0.4)', color: '#EFEFEF' }} />
-                    <p className="text-[10px] mt-1.5" style={{ color: '#555050' }}>
+                    <p className="text-[10px] mt-1.5" style={{ color: '#807A73' }}>
                       Anote a cidade — ajuda o vendedor a agrupar visitas próximas no mesmo dia.
                     </p>
                     <div className="flex gap-2 mt-2.5">
@@ -372,7 +372,7 @@ export default function AgendaPage() {
 
       {/* Dica de visita longa */}
       {!loading && slots.length > 0 && (
-        <p className="text-[11px]" style={{ color: '#333030', lineHeight: 1.5 }}>
+        <p className="text-[11px]" style={{ color: '#6B6560', lineHeight: 1.5 }}>
           💡 Visita longa? Ocupe todos os horários que ela vai tomar (ex: das 13:00 às 15:30 → ocupe 13:00 e 14:30).
         </p>
       )}

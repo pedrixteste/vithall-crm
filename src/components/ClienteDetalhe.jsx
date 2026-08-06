@@ -243,7 +243,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
                 {describeEvent(event.event_type, event.event_data)}
               </p>
               {event.event_type === 'stage_change' && event.event_data?.from && (
-                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
+                <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '3px' }}>
                   anterior: {STAGES[event.event_data.from]?.label || event.event_data.from}
                 </p>
               )}
@@ -259,7 +259,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
                 </p>
               )}
               {event.user_name && (
-                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '3px' }}>
+                <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '3px' }}>
                   por {event.user_name}
                 </p>
               )}
@@ -270,7 +270,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
                 <button onClick={startEdit} style={{
                   width: '26px', height: '26px', borderRadius: '7px',
                   background: '#1A1A1A', border: '1px solid #2A2A2A',
-                  color: '#4A4A4A', display: 'flex', alignItems: 'center',
+                  color: '#7A746D', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', cursor: 'pointer',
                 }}>
                   <Edit2 size={11} />
@@ -278,7 +278,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
                 <button onClick={() => onDelete(event.id)} style={{
                   width: '26px', height: '26px', borderRadius: '7px',
                   background: '#1A1A1A', border: '1px solid #2A2A2A',
-                  color: '#4A4A4A', display: 'flex', alignItems: 'center',
+                  color: '#7A746D', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', cursor: 'pointer',
                 }}>
                   <Trash2 size={11} />
@@ -338,7 +338,7 @@ function TimelineEvent({ event, isLast, onDelete, onEdit }) {
             </div>
           )}
         </div>
-        <p style={{ fontSize: '10px', color: '#2A2A2A', marginTop: '5px', marginLeft: '2px' }}>
+        <p style={{ fontSize: '10px', color: '#5C5751', marginTop: '5px', marginLeft: '2px' }}>
           {formatTimeAgo(event.created_at)}
           {' · '}
           {new Date(event.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
@@ -1683,7 +1683,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
             {/* Treinamento de interesse */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>
                 Treinamento de interesse
               </p>
               <div className="flex flex-wrap" style={{ gap: '6px' }}>
@@ -1695,7 +1695,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       style={{
                         padding: '5px 12px',
                         background: selected ? 'rgba(201,168,76,0.12)' : 'transparent',
-                        color: selected ? '#C9A84C' : '#444040',
+                        color: selected ? '#C9A84C' : '#756F68',
                         border: `1px solid ${selected ? 'rgba(201,168,76,0.4)' : '#2A2A2A'}`,
                         cursor: 'pointer',
                       }}>
@@ -1708,7 +1708,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
             {/* Treinamentos matriculados — sempre visível */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>
                 Treinamentos matriculados
               </p>
               <div className="flex flex-wrap" style={{ gap: '6px' }}>
@@ -1720,7 +1720,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       style={{
                         padding: '5px 12px',
                         background: selected ? 'rgba(74,222,128,0.12)' : 'transparent',
-                        color: selected ? '#4ADE80' : '#444040',
+                        color: selected ? '#4ADE80' : '#756F68',
                         border: `1px solid ${selected ? 'rgba(74,222,128,0.4)' : '#2A2A2A'}`,
                         cursor: 'pointer',
                       }}>
@@ -1736,7 +1736,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         {/* Observações */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>Observações</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>Observações</p>
             {savingNotes && <p className="text-[10px]" style={{ color: '#6B6560' }}>Salvando...</p>}
             {notesSaved  && <p className="text-[10px]" style={{ color: '#4ADE80' }}>✓ Salvo</p>}
             {notesError  && <p className="text-[10px]" style={{ color: '#E85555' }}>Não salvou — tente de novo</p>}
@@ -1756,7 +1756,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         {/* Visita agendada */}
         {currentClient.visit_scheduled_at && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Visita agendada</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>Visita agendada</p>
             {(() => {
               // Situação da marcação (respondida por quem marcou, no lembrete).
               // Antes só quem viu o pop-up sabia que a visita tinha caído — a
@@ -1902,7 +1902,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         {/* Lembrete */}
         {currentClient.reminder_config && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>Lembrete</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>Lembrete</p>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span style={{ color: '#C9A84C' }}>🔔</span>
@@ -1921,7 +1921,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <div style={{ padding: '16px 20px', borderTop: '1px solid #222' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#333030' }}>Visitas realizadas</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#6B6560' }}>Visitas realizadas</p>
               <p className="text-3xl font-bold tabular-nums mt-1" style={{ color: '#EFEFEF', letterSpacing: '-1px' }}>
                 {visits.length}
                 <span className="text-sm font-normal ml-2" style={{ color: '#6B6560' }}>
@@ -1932,7 +1932,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             <div className="flex items-center gap-2">
               <button onClick={removeLastVisit} disabled={visits.length === 0}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
-                style={{ background: '#111', border: '1px solid #2A2A2A', color: visits.length === 0 ? '#252525' : '#6B6560' }}>
+                style={{ background: '#111', border: '1px solid #2A2A2A', color: visits.length === 0 ? '#55504B' : '#6B6560' }}>
                 <Minus size={16} />
               </button>
               <button onClick={addVisit} disabled={addingVisit}
@@ -1965,9 +1965,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {visits.length === 0 ? (
             <div className="text-center rounded-2xl" style={{ padding: '48px 0', background: '#161616', border: '1px dashed #303030' }}>
-              <Calendar size={24} className="mx-auto mb-3" style={{ color: '#252525' }} />
-              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma visita registrada</p>
-              <p className="text-xs mt-1" style={{ color: '#252525' }}>Toque em + para registrar a primeira</p>
+              <Calendar size={24} className="mx-auto mb-3" style={{ color: '#55504B' }} />
+              <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma visita registrada</p>
+              <p className="text-xs mt-1" style={{ color: '#55504B' }}>Toque em + para registrar a primeira</p>
             </div>
           ) : (
             visits.map((v, i) => (
@@ -2006,7 +2006,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       ) : null
                     })()}
                     <button onClick={() => deleteVisit(v.id)}>
-                      <Trash2 size={14} style={{ color: '#2A2A2A' }} />
+                      <Trash2 size={14} style={{ color: '#5C5751' }} />
                     </button>
                   </div>
                 </div>
@@ -2019,7 +2019,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #222' }}>
                     {v.outcome   && <p className="text-xs" style={{ color: '#6B6560' }}><span style={{ color: '#EFEFEF' }}>Resultado:</span> {v.outcome}</p>}
                     {v.next_step && <p className="text-xs mt-1" style={{ color: '#6B6560' }}><span style={{ color: '#EFEFEF' }}>Próximo passo:</span> {v.next_step}</p>}
-                    {v.notes     && <p className="text-xs italic mt-1" style={{ color: '#333030' }}>"{v.notes}"</p>}
+                    {v.notes     && <p className="text-xs italic mt-1" style={{ color: '#6B6560' }}>"{v.notes}"</p>}
                   </div>
                 )}
               </div>
@@ -2032,7 +2032,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {tab === 'tarefas' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div className="flex justify-between items-center">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#333030' }}>Follow-ups</p>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6B6560' }}>Follow-ups</p>
             <button onClick={() => setShowTarefaForm(true)}
               className="flex items-center gap-1.5 text-sm font-medium" style={{ color: '#C9A84C' }}>
               <Plus size={15} /> Nova tarefa
@@ -2040,7 +2040,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           </div>
           {tasks.length === 0 ? (
             <div className="text-center rounded-2xl" style={{ padding: '48px 0', background: '#161616', border: '1px dashed #303030' }}>
-              <p className="text-sm" style={{ color: '#333030' }}>Nenhuma tarefa registrada</p>
+              <p className="text-sm" style={{ color: '#6B6560' }}>Nenhuma tarefa registrada</p>
             </div>
           ) : (
             tasks.map(t => (
@@ -2052,13 +2052,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   {t.completed && <span style={{ color: '#4ADE80', fontSize: '11px' }}>✓</span>}
                 </button>
                 <div className="flex-1">
-                  <p className="text-sm font-medium" style={{ color: t.completed ? '#3A3530' : '#EFEFEF', textDecoration: t.completed ? 'line-through' : 'none' }}>
+                  <p className="text-sm font-medium" style={{ color: t.completed ? '#6B6560' : '#EFEFEF', textDecoration: t.completed ? 'line-through' : 'none' }}>
                     {t.title}
                   </p>
                   {t.due_date && <p className="text-xs mt-0.5" style={{ color: '#E8834A' }}>{new Date(t.due_date).toLocaleDateString('pt-BR')}</p>}
                 </div>
                 <button onClick={() => deleteTask(t.id)}>
-                  <Trash2 size={14} style={{ color: '#2A2A2A' }} />
+                  <Trash2 size={14} style={{ color: '#5C5751' }} />
                 </button>
               </div>
             ))
@@ -2088,7 +2088,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 20px 16px' }}>
               <div>
                 <p style={{ fontSize: '16px', fontWeight: 700, color: '#EFEFEF' }}>Histórico</p>
-                <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '2px' }}>
+                <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '2px' }}>
                   {currentClient.contact_name || currentClient.company_name}
                   {noShowCount > 0 && (
                     <span style={{ color: '#E85555', fontWeight: 600 }}> · 🚫 {noShowCount}x nao apareceu</span>
@@ -2108,7 +2108,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             <div style={{ overflowY: 'auto', padding: '0 20px 32px', flex: 1 }}>
               {timelineItems.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                  <p style={{ fontSize: '13px', color: '#2A2A2A' }}>Nenhum evento registrado ainda</p>
+                  <p style={{ fontSize: '13px', color: '#5C5751' }}>Nenhum evento registrado ainda</p>
                 </div>
               ) : (
                 timelineItems.map((event, i) => (
@@ -2232,7 +2232,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   color: '#EFEFEF', fontSize: '14px', outline: 'none',
                 }}
               />
-              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>
+              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '6px' }}>
                 Opcional — deixe em branco para criar a tarefa sem data
               </p>
             </div>
@@ -2283,13 +2283,13 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <input type="date" value={futuraDate} min={localDateStr()}
                 onChange={e => setFuturaDate(e.target.value)}
                 style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '14px', outline: 'none' }} />
-              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Aparece na aba Hoje da pessoa ~1 dia antes e no dia.</p>
+              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '6px' }}>Aparece na aba Hoje da pessoa ~1 dia antes e no dia.</p>
             </div>
 
             {/* Quem será lembrado — igual ao remarcar da estrela. Vazio = quem marcou. */}
             <div style={{ marginBottom: '16px' }}>
               <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6B6560', marginBottom: '8px' }}>
-                Quem deve ser lembrado? <span style={{ color: '#3A3A3A', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(padrão: você)</span>
+                Quem deve ser lembrado? <span style={{ color: '#6E6862', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(padrão: você)</span>
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
                 {REMARCAR_ROLES.map(r => {
@@ -2327,7 +2327,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <textarea value={futuraNote} onChange={e => setFuturaNote(e.target.value)} rows={3}
                 placeholder="Ex: cliente vai reformar e só quer receber a visita em setembro..."
                 style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '13px', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
-              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Fica registrado no histórico do cliente.</p>
+              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '6px' }}>Fica registrado no histórico do cliente.</p>
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -2438,7 +2438,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <textarea value={marcadoNote} onChange={e => setMarcadoNote(e.target.value)} rows={2}
                 placeholder="Ex: cliente ligou confirmando e pediu para avisar na portaria..."
                 style={{ width: '100%', background: '#1A1A1A', border: '1px solid #303030', borderRadius: '12px', padding: '12px 14px', color: '#EFEFEF', fontSize: '13px', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
-              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px' }}>Opcional — fica no histórico do cliente.</p>
+              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '6px' }}>Opcional — fica no histórico do cliente.</p>
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -2521,8 +2521,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
               {visits.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                  <p style={{ color: '#3A3A3A', fontSize: '13px', fontWeight: 600 }}>Nenhuma visita registrada ainda</p>
-                  <p style={{ color: '#2A2A2A', fontSize: '11px', marginTop: '6px' }}>A visita será registrada automaticamente após a data agendada</p>
+                  <p style={{ color: '#6E6862', fontSize: '13px', fontWeight: 600 }}>Nenhuma visita registrada ainda</p>
+                  <p style={{ color: '#5C5751', fontSize: '11px', marginTop: '6px' }}>A visita será registrada automaticamente após a data agendada</p>
                 </div>
               )}
 
@@ -2604,7 +2604,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}>
                       <div style={{ textAlign: 'left' }}>
-                        <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#3A3A3A' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6E6862' }}>
                           {visitLabel} · {visitDate}
                         </p>
                         {/* Resumo quando colapsado */}
@@ -2646,7 +2646,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {!isNoShow && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
-                            ✱ Resultado <span style={{ color: '#333' }}>(obrigatório)</span>
+                            ✱ Resultado <span style={{ color: '#5F5952' }}>(obrigatório)</span>
                           </p>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                             {OUTCOMES.map(o => {
@@ -2710,7 +2710,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 onFocus={e => e.target.style.borderColor = '#4ADE80'}
                                 onBlur={e => e.target.style.borderColor = '#2A2A2A'}
                               />
-                              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '4px' }}>
+                              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '4px' }}>
                                 Pode ser diferente do nome do cliente cadastrado
                               </p>
                             </div>
@@ -2860,7 +2860,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                   )
                                 })}
                               </div>
-                              <p style={{ fontSize: '10px', color: '#444040', marginTop: '8px' }}>
+                              <p style={{ fontSize: '10px', color: '#756F68', marginTop: '8px' }}>
                                 Cada pessoa marcada aqui recebe esta matrícula na conta dela. Tirar a marcação e salvar remove.
                               </p>
                             </div>
@@ -2899,7 +2899,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               color: edit.visit_outcome === 'grandes_chances' ? '#C9A84C' : '#60A5FA' }}>
                               {edit.visit_outcome === 'grandes_chances' ? '🔥 Quando fazer o follow-up?' : '🔮 Quando fazer o follow-up?'}
                             </p>
-                            <p style={{ fontSize: '11px', color: '#3A3A3A', marginBottom: '10px' }}>
+                            <p style={{ fontSize: '11px', color: '#6E6862', marginBottom: '10px' }}>
                               Opcional — uma tarefa será criada automaticamente
                             </p>
                             <input type="datetime-local"
@@ -2914,7 +2914,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {edit.visit_outcome === 'remarcar' && (
                           <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.2)' }}>
                             <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
-                              📅 Quem vai remarcar? <span style={{ color: '#333' }}>(obrigatório)</span>
+                              📅 Quem vai remarcar? <span style={{ color: '#5F5952' }}>(obrigatório)</span>
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
                               {REMARCAR_ROLES.map(r => {
@@ -2936,7 +2936,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                               )
                               return (
                                 <div style={{ marginTop: '10px' }}>
-                                  <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#444040', marginBottom: '8px' }}>Quem?</p>
+                                  <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#756F68', marginBottom: '8px' }}>Quem?</p>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                     {people.map(p => {
                                       const active = edit.remarcar_person === p.id
@@ -2959,7 +2959,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 da pessoa escolhida. Hora é opcional (push 5 min antes). */}
                             <div style={{ marginTop: '12px', borderTop: '1px solid rgba(34,211,238,0.15)', paddingTop: '12px' }}>
                               <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
-                                Quando ligar para remarcar? <span style={{ color: '#333' }}>(opcional)</span>
+                                Quando ligar para remarcar? <span style={{ color: '#5F5952' }}>(opcional)</span>
                               </p>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <input type="date" value={edit.remarcar_date || ''} disabled={!canRate}
@@ -2968,9 +2968,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                   style={{ flex: 2, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
                                 <input type="time" value={edit.remarcar_time || ''} disabled={!canRate || !edit.remarcar_date}
                                   onChange={e => setEdit({ remarcar_time: e.target.value })}
-                                  style={{ flex: 1, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: edit.remarcar_date ? '#EFEFEF' : '#3A3A3A', fontSize: '13px', outline: 'none' }} />
+                                  style={{ flex: 1, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: edit.remarcar_date ? '#EFEFEF' : '#6E6862', fontSize: '13px', outline: 'none' }} />
                               </div>
-                              <p style={{ fontSize: '11px', color: '#3A3A3A', marginTop: '6px', lineHeight: 1.4 }}>
+                              <p style={{ fontSize: '11px', color: '#6E6862', marginTop: '6px', lineHeight: 1.4 }}>
                                 {edit.remarcar_date
                                   ? `Fica pendente na aba Hoje da pessoa a partir de ${new Date(edit.remarcar_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}${edit.remarcar_time ? ` · aviso ${edit.remarcar_time}` : ''}.`
                                   : 'Sem data, entra como pendente já.'}
@@ -2983,7 +2983,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {!isNoShow && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
-                            ✱ Possibilidade <span style={{ color: '#333' }}>(pode marcar mais de 1 · obrigatório)</span>
+                            ✱ Possibilidade <span style={{ color: '#5F5952' }}>(pode marcar mais de 1 · obrigatório)</span>
                           </p>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {POSSIBILIDADES.map(p => {
@@ -3016,7 +3016,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {/* NOTA DA VISITA */}
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#E85555', marginBottom: '8px' }}>
-                            ✱ Nota da visita <span style={{ color: '#333' }}>(obrigatório)</span>
+                            ✱ Nota da visita <span style={{ color: '#5F5952' }}>(obrigatório)</span>
                           </p>
                           {/* Não teve — cliente não compareceu. Marca a visita como
                               não realizada e dispensa nota/resultado/possibilidade. */}
@@ -3040,7 +3040,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 const active = edit.rating === r.key
                                 return (
                                   <button key={r.key} disabled={!canRate} onClick={() => setEdit({ rating: active ? null : r.key })}
-                                    style={{ padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? r.bg : '#111', color: active ? r.color : '#3A3A3A', border: `1px solid ${active ? r.color + '55' : '#252525'}` }}>
+                                    style={{ padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? r.bg : '#111', color: active ? r.color : '#6E6862', border: `1px solid ${active ? r.color + '55' : '#252525'}` }}>
                                     {r.label}
                                   </button>
                                 )
@@ -3052,7 +3052,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {/* ANOTAÇÕES (obrigatório) + voice-to-text */}
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: isNoShow ? '#6B6560' : '#E85555', marginBottom: '8px' }}>
-                            {isNoShow ? 'Observações do vendedor' : '✱ Observações do vendedor'} <span style={{ color: '#333' }}>({isNoShow ? 'opcional' : 'obrigatório'})</span>
+                            {isNoShow ? 'Observações do vendedor' : '✱ Observações do vendedor'} <span style={{ color: '#5F5952' }}>({isNoShow ? 'opcional' : 'obrigatório'})</span>
                           </p>
                           <div style={{ position: 'relative' }}>
                             <textarea
@@ -3112,7 +3112,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 : isComplete
                                   ? 'linear-gradient(135deg, #7B1C3A 0%, #E8834A 100%)'
                                   : '#1A1A1A',
-                              color: isSavedClean ? '#4ADE80' : isComplete ? '#F0EAD6' : '#333',
+                              color: isSavedClean ? '#4ADE80' : isComplete ? '#F0EAD6' : '#5F5952',
                               border: isSavedClean ? '1px solid rgba(74,222,128,0.3)' : 'none',
                               boxShadow: isSavedClean
                                 ? 'none'

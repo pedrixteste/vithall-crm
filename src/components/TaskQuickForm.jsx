@@ -111,7 +111,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
         {repeat === 'weekly' && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040' }}>Dias</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68' }}>Dias</p>
               <button type="button" onClick={() => setDays(UTEIS)}
                 className="text-[11px] font-semibold" style={{ color: '#22D3EE' }}>
                 Dias úteis
@@ -124,7 +124,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
                     flex: 1, aspectRatio: '1', borderRadius: '50%', fontSize: '11px', fontWeight: 700,
                     background: days.includes(d.key) ? 'rgba(34,211,238,0.15)' : '#111',
                     border: `1px solid ${days.includes(d.key) ? 'rgba(34,211,238,0.45)' : '#252525'}`,
-                    color: days.includes(d.key) ? '#22D3EE' : '#555050', cursor: 'pointer',
+                    color: days.includes(d.key) ? '#22D3EE' : '#807A73', cursor: 'pointer',
                   }}>
                   {d.label}
                 </button>
@@ -155,7 +155,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
           </div>
         </div>
 
-        <p className="text-[11px] -mt-2" style={{ color: '#444040', lineHeight: 1.5 }}>
+        <p className="text-[11px] -mt-2" style={{ color: '#756F68', lineHeight: 1.5 }}>
           Com hora marcada, você recebe uma notificação 5 minutos antes.
         </p>
 
@@ -171,7 +171,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
             onChange={e => setUrgency(Number(e.target.value))}
             style={{ width: '100%', accentColor: color }}
           />
-          <div className="flex justify-between text-[10px]" style={{ color: '#444040' }}>
+          <div className="flex justify-between text-[10px]" style={{ color: '#756F68' }}>
             <span>Sem pressa</span>
             <span>Urgente</span>
           </div>

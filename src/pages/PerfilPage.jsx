@@ -237,7 +237,7 @@ export default function PerfilPage() {
           )}
 
           {!isGoogleConnected && (
-            <p style={{ fontSize: '11px', color: '#3A3A3A', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '11px', color: '#6E6862', lineHeight: 1.5 }}>
               Ao conectar, visitas agendadas aparecem automaticamente no Google Agenda.
               Quando o cliente cancelar, o evento é removido sozinho.
             </p>
@@ -273,7 +273,7 @@ export default function PerfilPage() {
                 )
               })}
             </div>
-            <p style={{ fontSize: '11px', color: '#555050', marginTop: '10px' }}>
+            <p style={{ fontSize: '11px', color: '#807A73', marginTop: '10px' }}>
               {colorInfo(freshProfile?.calendar_color)
                 ? `Escolhida: ${colorInfo(freshProfile.calendar_color).nome}`
                 : 'Sem cor escolhida — o Google usa a cor padrão da sua agenda.'}

@@ -74,7 +74,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
                       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
                       {v.company_name && <p className="text-xs truncate" style={{ color: '#6B6560' }}>{v.company_name}</p>}
                       {(v.city || v.address_street) && (
-                        <p className="text-[11px] mt-1.5 flex items-center gap-1 truncate" style={{ color: '#444040' }}>
+                        <p className="text-[11px] mt-1.5 flex items-center gap-1 truncate" style={{ color: '#756F68' }}>
                           <MapPin size={10} style={{ flexShrink: 0 }} />
                           {[v.address_street, v.address_neighborhood, v.city].filter(Boolean).join(', ')}
                         </p>

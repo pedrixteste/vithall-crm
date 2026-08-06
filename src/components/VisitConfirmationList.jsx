@@ -323,7 +323,7 @@ export default function VisitConfirmationList({ visits, onConfirmed, onEmpty }) 
                   className="w-full text-sm outline-none rounded-xl transition-all"
                   style={{ padding: '12px 14px', background: '#111111', border: '1px solid #22D3EE', color: '#EFEFEF' }}
                 />
-                <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>
+                <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>
                   A data antiga é substituída — a visita some do dia anterior e vai para o novo.
                 </p>
                 <div className="flex gap-2 mt-3">

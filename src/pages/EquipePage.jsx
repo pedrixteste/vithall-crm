@@ -98,7 +98,7 @@ export default function EquipePage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: '#444040' }}>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: '#756F68' }}>
                       {member.email || ''}
                     </p>
                   </div>
@@ -153,7 +153,7 @@ export default function EquipePage() {
 
       {/* Info sobre os papeis */}
       <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '16px' }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#333030' }}>Papeis</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B6560' }}>Papeis</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {[
             { role: 'pre_vendas', desc: 'Cadastra clientes e agenda visitas. Ve somente seus proprios contatos.' },
@@ -167,7 +167,7 @@ export default function EquipePage() {
                   style={{ padding: '3px 10px', background: r.bg, color: r.color, border: `1px solid ${r.border}` }}>
                   {r.label}
                 </span>
-                <p className="text-xs" style={{ color: '#444040' }}>{desc}</p>
+                <p className="text-xs" style={{ color: '#756F68' }}>{desc}</p>
               </div>
             )
           })}

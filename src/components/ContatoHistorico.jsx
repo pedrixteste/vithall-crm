@@ -102,7 +102,7 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                       <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(marcacaoDate)}</span>
                       {isCurrent && <span className="text-[10px]" style={{ color: '#6B6560' }}>· atual</span>}
                     </div>
-                    <ChevronRight size={14} style={{ color: '#444040', flexShrink: 0 }} />
+                    <ChevronRight size={14} style={{ color: '#756F68', flexShrink: 0 }} />
                   </div>
                   {visits.length === 0 && <p className="text-[11px] mt-1" style={{ color: '#E8834A' }}>Sem visita registrada</p>}
                 </button>
@@ -119,7 +119,7 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                         <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(v.visit_date)}</span>
                         {v.visit_outcome && <span className="text-[10px] truncate" style={{ color: '#6B6560' }}>· {OUTCOMES[v.visit_outcome] || v.visit_outcome}</span>}
                       </div>
-                      <ChevronRight size={14} style={{ color: '#444040', flexShrink: 0 }} />
+                      <ChevronRight size={14} style={{ color: '#756F68', flexShrink: 0 }} />
                     </div>
                   </button>
                 ))}

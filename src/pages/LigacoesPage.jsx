@@ -378,7 +378,7 @@ export default function LigacoesPage() {
         {calView !== 'day' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
             {daysHeader.map(d => (
-              <div key={d} className="text-center text-[10px] font-bold uppercase" style={{ color: '#2A2A2A' }}>
+              <div key={d} className="text-center text-[10px] font-bold uppercase" style={{ color: '#5C5751' }}>
                 {d}
               </div>
             ))}
@@ -449,7 +449,7 @@ export default function LigacoesPage() {
                   }}>
                   <span style={{
                     fontSize: '9px', fontWeight: 700, lineHeight: 1,
-                    color: isToday ? '#C9A84C' : '#404040',
+                    color: isToday ? '#C9A84C' : '#736D66',
                   }}>
                     {dayNum}
                   </span>
@@ -490,15 +490,15 @@ export default function LigacoesPage() {
                     gap: '6px',
                   }}>
                   {/* Dia número */}
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#C9A84C' : '#404040', lineHeight: 1 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: isToday ? '#C9A84C' : '#736D66', lineHeight: 1 }}>
                     {d.getDate()}
                   </span>
                   {/* Ligações */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <Phone size={8} style={{ color: calls > 0 ? '#60A5FA' : '#222' }} />
+                    <Phone size={8} style={{ color: calls > 0 ? '#60A5FA' : '#4A4540' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: calls > 0 ? '#60A5FA' : '#222',
+                      color: calls > 0 ? '#60A5FA' : '#4A4540',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {calls || '—'}
@@ -506,10 +506,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Atendidas */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <PhoneIncoming size={8} style={{ color: answ > 0 ? '#4ADE80' : '#222' }} />
+                    <PhoneIncoming size={8} style={{ color: answ > 0 ? '#4ADE80' : '#4A4540' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: answ > 0 ? '#4ADE80' : '#222',
+                      color: answ > 0 ? '#4ADE80' : '#4A4540',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {answ || '—'}
@@ -517,10 +517,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Marcações */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <MapPin size={8} style={{ color: appts > 0 ? '#A78BFA' : '#222' }} />
+                    <MapPin size={8} style={{ color: appts > 0 ? '#A78BFA' : '#4A4540' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: appts > 0 ? '#A78BFA' : '#222',
+                      color: appts > 0 ? '#A78BFA' : '#4A4540',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {appts || '—'}
@@ -528,10 +528,10 @@ export default function LigacoesPage() {
                   </div>
                   {/* Matrículas creditadas */}
                   <div className="flex flex-col items-center" style={{ gap: '2px' }}>
-                    <GraduationCap size={8} style={{ color: mats > 0 ? '#C9A84C' : '#222' }} />
+                    <GraduationCap size={8} style={{ color: mats > 0 ? '#C9A84C' : '#4A4540' }} />
                     <span style={{
                       fontSize: '13px', fontWeight: 800, lineHeight: 1,
-                      color: mats > 0 ? '#C9A84C' : '#222',
+                      color: mats > 0 ? '#C9A84C' : '#4A4540',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {mats || '—'}
@@ -549,7 +549,7 @@ export default function LigacoesPage() {
 
         {/* Ontem */}
         <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px 16px' }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#333030', marginBottom: '14px' }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#6B6560', marginBottom: '14px' }}>
             Ontem
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -597,7 +597,7 @@ export default function LigacoesPage() {
 
         {/* Recorde */}
         <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '18px 16px' }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#333030', marginBottom: '14px' }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#6B6560', marginBottom: '14px' }}>
             🏆 Recorde
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

@@ -238,7 +238,7 @@ export default function ClientesPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#333030' }} />
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#6B6560' }} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -306,7 +306,7 @@ export default function ClientesPage() {
           <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px' }}>
 
             {/* Etapa do funil */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Etapa do funil
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -326,7 +326,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Situação da matrícula */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Situação da matrícula
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -348,7 +348,7 @@ export default function ClientesPage() {
             {/* Cidade */}
             {uniqueCities.length > 0 && (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
                   Cidade
                 </p>
                 <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -370,7 +370,7 @@ export default function ClientesPage() {
             )}
 
             {/* Fez o treinamento */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Fez o treinamento
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -393,7 +393,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Ainda nao fez */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Ainda nao fez
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -416,7 +416,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Periodo */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Periodo de cadastro
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: filterPeriod === 'custom' ? '12px' : '0' }}>
@@ -439,7 +439,7 @@ export default function ClientesPage() {
             {filterPeriod === 'custom' && (
               <div className="flex gap-2" style={{ marginTop: '10px' }}>
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>De</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>De</p>
                   <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
                     className="w-full text-xs rounded-xl outline-none"
                     style={{ padding: '8px 12px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -448,7 +448,7 @@ export default function ClientesPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#444040' }}>Ate</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#756F68' }}>Ate</p>
                   <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
                     className="w-full text-xs rounded-xl outline-none"
                     style={{ padding: '8px 12px', background: '#111', border: '1px solid #252525', color: '#EFEFEF' }}
@@ -460,7 +460,7 @@ export default function ClientesPage() {
             )}
 
             {/* Resultado da visita */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040', marginTop: '16px' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68', marginTop: '16px' }}>
               Resultado da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
@@ -497,7 +497,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Nota da visita */}
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
               Nota da visita
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '4px' }}>
@@ -535,7 +535,7 @@ export default function ClientesPage() {
 
       {/* Contador */}
       {!loading && (
-        <p className="text-xs" style={{ color: '#333030' }}>
+        <p className="text-xs" style={{ color: '#6B6560' }}>
           {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           {activeFilters > 0 ? ' (filtrado)' : ''}
         </p>
@@ -550,7 +550,7 @@ export default function ClientesPage() {
         <div className="text-center" style={{ padding: '64px 0' }}>
           <p className="text-3xl mb-4">🏢</p>
           <p className="text-sm font-medium mb-1" style={{ color: '#6B6560' }}>Nenhum cliente encontrado</p>
-          <p className="text-xs" style={{ color: '#333030' }}>
+          <p className="text-xs" style={{ color: '#6B6560' }}>
             {activeFilters > 0 ? 'Tente ajustar os filtros' : 'Toque em "Novo" para adicionar'}
           </p>
         </div>
@@ -585,7 +585,7 @@ export default function ClientesPage() {
                     </p>
                   )}
                   {client.phone && (
-                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#555050' }}>
+                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5" style={{ color: '#807A73' }}>
                       <Phone size={10} style={{ flexShrink: 0 }} /> {allPhones(client).map(p => p.n).join(' · ')}
                     </p>
                   )}
@@ -602,7 +602,7 @@ export default function ClientesPage() {
                     ) : STAGE_BADGES[client.matricula_stage]}
                   </div>
                 </div>
-                <ChevronRight size={15} style={{ color: '#333030', flexShrink: 0 }} />
+                <ChevronRight size={15} style={{ color: '#6B6560', flexShrink: 0 }} />
               </div>
             </Card>
           ))}

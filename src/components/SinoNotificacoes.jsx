@@ -127,7 +127,7 @@ export default function SinoNotificacoes() {
               {itens.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <p className="text-sm" style={{ color: '#6B6560' }}>Nada por aqui ainda.</p>
-                  <p className="text-xs mt-1" style={{ color: '#3A3A3A' }}>
+                  <p className="text-xs mt-1" style={{ color: '#6E6862' }}>
                     Tudo que for enviado pra você aparece aqui, mesmo que o celular não avise.
                   </p>
                 </div>
@@ -151,7 +151,7 @@ export default function SinoNotificacoes() {
                             style={{ width: '6px', height: '6px', background: '#C9A84C' }} />}
                         </div>
                         <p className="text-xs mt-0.5" style={{ color: '#6B6560', lineHeight: 1.45 }}>{n.body}</p>
-                        <p className="text-[10px] mt-1" style={{ color: '#3A3A3A' }}>{quando(n.created_at)}</p>
+                        <p className="text-[10px] mt-1" style={{ color: '#6E6862' }}>{quando(n.created_at)}</p>
                       </div>
                     </div>
                   </button>

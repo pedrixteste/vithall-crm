@@ -86,7 +86,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center mt-6 text-[11px]" style={{ color: '#252525' }}>
+        <p className="text-center mt-6 text-[11px]" style={{ color: '#55504B' }}>
           Vithall Treinamentos © 2025
         </p>
       </div>

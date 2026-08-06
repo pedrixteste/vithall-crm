@@ -633,7 +633,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         {form.phone.trim() && (
           <>
             <div className="rounded-2xl" style={{ background: '#111', border: '1px solid #1C1C1C', padding: '14px 16px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#444040' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#756F68' }}>
                 Esse número é...
               </p>
               <TipoToggle value={form.phone_type} onChange={t => set('phone_type', t)} />
@@ -895,7 +895,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
               Quando quer ser lembrado desse cliente?
             </p>
           </div>
-          <p className="text-xs" style={{ color: '#383030', marginBottom: '14px' }}>
+          <p className="text-xs" style={{ color: '#6B6560', marginBottom: '14px' }}>
             Opcional - escolha para receber notificacoes
           </p>
 
@@ -919,7 +919,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {/* Dias da semana */}
           {reminderType === 'weekly' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>Dias</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>Dias</p>
               <div style={{ display: 'flex', gap: '5px' }}>
                 {WEEK_DAYS.map((d, i) => (
                   <button key={d.key} type="button"
@@ -932,7 +932,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                       fontWeight: 700,
                       background: reminderDays.includes(d.key) ? 'rgba(201,168,76,0.15)' : '#111',
                       border: `1px solid ${reminderDays.includes(d.key) ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#555050',
+                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#807A73',
                       cursor: 'pointer',
                     }}>
                     {d.label}
@@ -945,24 +945,24 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           {/* Data específica — uma ou várias datas + horário opcional */}
           {reminderType === 'specific_date' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
                 Datas do lembrete
               </p>
               <SpecificDates dates={reminderDatesList} setDates={setReminderDatesList} />
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', margin: '12px 0 8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', margin: '12px 0 8px' }}>
                 Horário (opcional)
               </p>
               <input type="time" value={reminderDateTime} onChange={e => setReminderDateTime(e.target.value)}
                 className="w-full text-sm outline-none rounded-xl"
                 style={{ padding: '12px 14px', background: '#111111', border: '1px solid #252525', color: '#EFEFEF' }} />
-              <p className="text-[11px] mt-1.5" style={{ color: '#555050' }}>Você será lembrado em cada data escolhida. Pode adicionar mais de uma.</p>
+              <p className="text-[11px] mt-1.5" style={{ color: '#807A73' }}>Você será lembrado em cada data escolhida. Pode adicionar mais de uma.</p>
             </div>
           )}
 
           {/* Horarios (só para lembretes recorrentes: todo dia / dias da semana) */}
           {reminderType && reminderType !== 'specific_date' && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
                 Horarios (pode escolher mais de um)
               </p>
 
@@ -1123,7 +1123,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
                     {slotPrompt.busy ? 'Criando a visita...' : 'Não quero tirar a reserva'}
                   </span>
-                  <span className="text-[11px] block mt-0.5" style={{ color: '#555050' }}>
+                  <span className="text-[11px] block mt-0.5" style={{ color: '#807A73' }}>
                     Ficam dois eventos no horário: a reserva e a visita
                   </span>
                 </button>
@@ -1132,7 +1132,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
                   <span className="text-xs font-bold block" style={{ color: '#B0A99F' }}>
                     Essa marcação não vai para o Google
                   </span>
-                  <span className="text-[11px] block mt-0.5" style={{ color: '#555050' }}>
+                  <span className="text-[11px] block mt-0.5" style={{ color: '#807A73' }}>
                     A visita fica só no CRM; o vendedor não recebe a ficha
                   </span>
                 </button>

@@ -150,7 +150,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
               Lembrete por notificação
             </p>
           </div>
-          <p className="text-xs" style={{ color: '#383030', marginBottom: '14px' }}>
+          <p className="text-xs" style={{ color: '#6B6560', marginBottom: '14px' }}>
             Opcional — receba uma notificação sobre esta tarefa
           </p>
 
@@ -172,7 +172,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
 
           {reminderType === 'weekly' && (
             <div style={{ marginBottom: '14px' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>Dias</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>Dias</p>
               <div style={{ display: 'flex', gap: '5px' }}>
                 {WEEK_DAYS.map(d => (
                   <button key={d.key} type="button" onClick={() => toggleDay(d.key)}
@@ -180,7 +180,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
                       flex: 1, aspectRatio: '1', borderRadius: '50%', fontSize: '11px', fontWeight: 700,
                       background: reminderDays.includes(d.key) ? 'rgba(201,168,76,0.15)' : '#111',
                       border: `1px solid ${reminderDays.includes(d.key) ? 'rgba(201,168,76,0.4)' : '#252525'}`,
-                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#555050', cursor: 'pointer',
+                      color: reminderDays.includes(d.key) ? '#C9A84C' : '#807A73', cursor: 'pointer',
                     }}>
                     {d.label}
                   </button>
@@ -204,7 +204,7 @@ export default function TarefaForm({ clientId = null, onClose, onSaved }) {
 
           {reminderType && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#444040', marginBottom: '8px' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#756F68', marginBottom: '8px' }}>
                 Horários
               </p>
               <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '10px' }}>

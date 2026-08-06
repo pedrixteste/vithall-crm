@@ -74,7 +74,7 @@ export default function Layout({ children }) {
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden sm:flex flex-col w-52 border-r flex-shrink-0 pt-4"
           style={{ background: '#0A0A0A', borderColor: '#1C1C1C' }}>
-          <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#2A2A2A' }}>
+          <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#5C5751' }}>
             Navegação
           </p>
           {navItems.map(({ to, label, icon: Icon }) => (
