@@ -126,7 +126,7 @@ export async function fetchPendingRatings(userId) {
 
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, assigned_to')
+    .select('id, contact_name, company_name, city, visit_scheduled_at, visit_confirmation, assigned_to, matricula_stage')
     .eq('assigned_to', userId)
   if (!clients || clients.length === 0) return []
 
@@ -142,11 +142,17 @@ export async function fetchPendingRatings(userId) {
     // registros de visita passados com estrela incompleta
     const incompletePast = cv.filter(v => v.visit_date && v.visit_date < todayStr && !isVisitRated(v))
     // visita agendada que já passou e ainda nem tem registro (nunca foi aberta).
-    // Cobra também as SEM RESPOSTA — visita não respondida passava batida e o
-    // feedback se perdia para sempre. Só a cancelada (nao_confirmada) não cobra.
+    // Tratada (confirmada/tentativa): cobra sempre, como desde o início.
+    // SEM RESPOSTA: cobra só se o cliente ainda está em estágio pré-visita —
+    // visita não respondida passava batida e o feedback se perdia (caso Diana);
+    // mas se o desfecho já foi registrado pelo estágio (recebeu visita,
+    // matriculado...), cobrar a marcação antiga de novo é só ruído (caso André/Joel).
+    const semResposta = !c.visit_confirmation
+    const cobravel = isVisitTreated(c) ||
+      (semResposta && !POST_VISITA.includes(c.matricula_stage))
     let missingScheduled = false
     let schedDate = null
-    if (c.visit_scheduled_at && c.visit_confirmation !== 'nao_confirmada') {
+    if (c.visit_scheduled_at && cobravel) {
       schedDate = utcDateStr(c.visit_scheduled_at)
       if (schedDate < todayStr && !cv.some(v => v.visit_date === schedDate)) missingScheduled = true
     }
