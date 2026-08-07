@@ -45,7 +45,7 @@ export const isVisitTreated = (c) =>
 // Estágios em que a visita JÁ ACONTECEU e foi resolvida — não é mais uma
 // visita "a fazer". Uma visita matriculada/avaliada hoje deixava de ser
 // pendência real mas continuava contando (estava só nao_visitado no filtro).
-const POST_VISITA = ['recebeu_visita', 'matriculado', 'nao_apareceu', 'cancelado']
+export const POST_VISITA = ['recebeu_visita', 'matriculado', 'nao_apareceu', 'cancelado']
 
 // Visitas agendadas para um dia (offset). Só para quem FAZ visita e SÓ as
 // atribuídas à própria pessoa — o gerente via as visitas da equipe toda com

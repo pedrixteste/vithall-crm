@@ -7,7 +7,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits } from '../lib/clientStage'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
-import { CONFIRMATION_INFO, NO_SHOW_RATING } from '../lib/visitConfirmation'
+import { CONFIRMATION_INFO, NO_SHOW_RATING, POST_VISITA } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import ClienteForm from './ClienteForm'
@@ -545,10 +545,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     let fetched = data || []
 
     // Após a data da visita agendada passar, criar o registro automaticamente.
-    // Só para visita TRATADA (confirmada/tentativa) — sem resposta ou "não
-    // confirmada" a visita não apareceu na agenda, não cria nem cobra estrela.
-    if (currentClient.visit_scheduled_at &&
-        (currentClient.visit_confirmation === 'confirmada' || currentClient.visit_confirmation === 'tentativa')) {
+    // Tratada (confirmada/tentativa): cria sempre. SEM RESPOSTA: cria se o
+    // cliente ainda está em estágio pré-visita — mesma regra da trava; sem isso
+    // a trava cobrava a visita não respondida mas a ficha nunca criava a
+    // estrela para preencher (caso Diana/Arthur: a estrela nem existia).
+    // Cancelada (nao_confirmada) não cria.
+    const confVisita = currentClient.visit_confirmation
+    const criaRegistro = confVisita === 'confirmada' || confVisita === 'tentativa' ||
+      (!confVisita && !POST_VISITA.includes(currentClient.matricula_stage))
+    if (currentClient.visit_scheduled_at && criaRegistro) {
       const scheduledDate = new Date(currentClient.visit_scheduled_at)
       if (scheduledDate < new Date()) {
         const dateStr = localDateStr(scheduledDate)
