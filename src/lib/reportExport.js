@@ -13,6 +13,7 @@ const ORIGINS = [
   { key: 'lead organico',    label: 'Lead orgânico' },
   { key: 'feiras',            label: 'Eventos' },
   { key: 'indicacao',         label: 'Indicação' },
+  { key: 'oportunidade criada', label: 'Oportunidade criada' },
 ]
 const ROLE_LABELS = { pre_vendas: 'Pré-vendas', vendedor: 'Vendedor', gerente: 'Gerente' }
 

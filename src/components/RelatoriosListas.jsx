@@ -10,6 +10,7 @@ const ORIGENS = [
   { key: 'lead organico',     label: 'Lead orgânico' },
   { key: 'feiras',            label: 'Eventos' },
   { key: 'indicacao',         label: 'Indicação' },
+  { key: 'oportunidade criada', label: 'Oportunidade criada' },
 ]
 const STAGES = {
   nao_marcou:     'Não marcou ainda',

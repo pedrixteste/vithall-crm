@@ -22,7 +22,7 @@ const DIAS_LIVRES = [
   { key: 'qui', label: 'Qui' }, { key: 'sex', label: 'Sex' },
 ]
 
-const ORIGINS = ['frias contatinhos', 'frias listas', 'lead campanha', 'lead organico', 'feiras', 'indicacao']
+const ORIGINS = ['frias contatinhos', 'frias listas', 'lead campanha', 'lead organico', 'feiras', 'indicacao', 'oportunidade criada']
 const ORIGIN_LABELS = {
   'frias contatinhos': 'Frias contatinhos',
   'frias listas':      'Frias listas',
@@ -30,6 +30,7 @@ const ORIGIN_LABELS = {
   'lead organico':     'Lead orgânico',
   'feiras':            'Eventos',
   'indicacao':         'Indicacao',
+  'oportunidade criada': 'Oportunidade criada',
 }
 
 const MATRICULA_STAGES = [

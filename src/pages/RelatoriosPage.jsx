@@ -24,6 +24,7 @@ const ORIGINS = [
   { key: 'lead organico',    label: 'Lead orgânico' },
   { key: 'feiras',            label: 'Eventos' },
   { key: 'indicacao',         label: 'Indicacao' },
+  { key: 'oportunidade criada', label: 'Oportunidade criada' },
 ]
 const PERIODS = [
   { key: 'day',   label: 'Dia'    },

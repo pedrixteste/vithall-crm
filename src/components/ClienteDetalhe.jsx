@@ -37,6 +37,7 @@ const ORIGIN_LABELS = {
   'lead organico':     { label: 'Lead orgânico',       color: '#EAB308' },
   'feiras':            { label: 'Evento',             color: '#A78BFA' },
   'indicacao':         { label: 'Indicacao',          color: '#4ADE80' },
+  'oportunidade criada': { label: 'Oportunidade criada', color: '#22D3EE' },
 }
 
 const DAYS_PT = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb' }

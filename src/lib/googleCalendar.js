@@ -81,6 +81,7 @@ const ORIGIN_LABELS = {
   'lead organico':     'Lead orgânico',
   'feiras':            'Eventos',
   'indicacao':         'Indicacao',
+  'oportunidade criada': 'Oportunidade criada',
 }
 
 const fmtDate = (v) => {
