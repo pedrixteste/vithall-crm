@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Sheet } from './ui/Sheet'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
-import { PhoneCall } from 'lucide-react'
+import { PhoneCall, Mic, MicOff } from 'lucide-react'
 import SpecificDates from './SpecificDates'
 import { reminderDates } from '../lib/utils'
 import PhoneList, { TipoToggle } from './PhoneList'
@@ -44,6 +44,84 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
 
   const titleCase = str => str.replace(/(^|\s)\S/g, l => l.toUpperCase())
   const toggleDay = d => setReminderDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+
+  // ── Voz → texto na descrição (mesmo esquema do ClienteForm) ──
+  const [listening, setListening] = useState(false)
+  const recognitionRef     = useRef(null)
+  const notesBaseRef       = useRef('')
+  const finalTranscriptRef = useRef('')
+  const listeningRef       = useRef(false)
+
+  function buildRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.continuous = false      // melhor compatibilidade mobile
+    rec.interimResults = true   // mostra texto enquanto fala
+
+    rec.onresult = e => {
+      let interim = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalTranscriptRef.current += e.results[i][0].transcript + ' '
+        } else {
+          interim += e.results[i][0].transcript
+        }
+      }
+      const base = notesBaseRef.current
+      const combined = (finalTranscriptRef.current + interim).trim()
+      setNotes(base ? base.trimEnd() + ' ' + combined : combined)
+    }
+
+    rec.onerror = e => {
+      if (e.error === 'not-allowed') {
+        alert('Microfone bloqueado. Toque no cadeado da URL e permita o acesso ao microfone.')
+        listeningRef.current = false
+        setListening(false)
+      }
+      // outros erros (no-speech, aborted): ignora, onend vai reiniciar
+    }
+
+    rec.onend = () => {
+      if (listeningRef.current) {
+        // auto-restart para simular gravacao continua
+        setTimeout(() => {
+          if (listeningRef.current) {
+            try {
+              const next = buildRecognition()
+              recognitionRef.current = next
+              next.start()
+            } catch (_) {}
+          }
+        }, 150)
+      } else {
+        setListening(false)
+      }
+    }
+
+    return rec
+  }
+
+  function toggleListening() {
+    if (listeningRef.current) {
+      listeningRef.current = false
+      recognitionRef.current?.stop()
+      setListening(false)
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      alert('Seu navegador nao suporta reconhecimento de voz. Use Chrome ou Safari.')
+      return
+    }
+    notesBaseRef.current       = notes
+    finalTranscriptRef.current = ''
+    listeningRef.current       = true
+    setListening(true)
+    const rec = buildRecognition()
+    recognitionRef.current = rec
+    rec.start()
+  }
 
   async function handleDelete() {
     if (!initialData?.id) return
@@ -212,15 +290,45 @@ export default function CallbackForm({ onClose, onSaved, initialData }) {
         <Input label="Onde encontrou na lista" value={listLocation}
           onChange={e => setListLocation(e.target.value)} placeholder="Ex: Pág 55, linha 12" />
 
-        {/* Descrição (opcional) */}
+        {/* Descrição (opcional) — com voz → texto, igual ao ClienteForm */}
         <div>
           <label className="text-xs font-semibold uppercase tracking-widest block mb-2" style={{ color: '#958E86' }}>
             Descricao (opcional)
           </label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-            placeholder="Anote o contexto para lembrar quando for ligar (ex: o que ficou combinado, interesse, melhor abordagem...)"
-            className="w-full text-sm outline-none resize-none rounded-xl"
-            style={{ padding: '12px 14px', background: '#111', border: '1px solid #252525', color: '#EFEFEF', lineHeight: '1.5' }} />
+          <div className="relative">
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+              placeholder="Anote o contexto para lembrar quando for ligar (ex: o que ficou combinado, interesse, melhor abordagem...)"
+              className="w-full text-sm outline-none resize-none rounded-xl transition-all"
+              style={{
+                padding: '12px 48px 12px 14px',
+                background: '#111',
+                border: `1px solid ${listening ? '#E85555' : '#252525'}`,
+                color: '#EFEFEF',
+                lineHeight: '1.5',
+                boxShadow: listening ? '0 0 0 3px rgba(232,85,85,0.08)' : 'none',
+              }} />
+            <button
+              type="button"
+              onClick={toggleListening}
+              title={listening ? 'Parar gravacao' : 'Gravar com voz'}
+              className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              style={{
+                background: listening ? 'rgba(232,85,85,0.15)' : 'rgba(201,168,76,0.08)',
+                border: `1px solid ${listening ? 'rgba(232,85,85,0.4)' : 'rgba(201,168,76,0.2)'}`,
+                animation: listening ? 'pulse 1.5s infinite' : 'none',
+              }}>
+              {listening
+                ? <MicOff size={14} style={{ color: '#E85555' }} />
+                : <Mic size={14} style={{ color: '#C9A84C' }} />
+              }
+            </button>
+          </div>
+          {listening && (
+            <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: '#E85555' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E85555', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+              Ouvindo... toque em parar quando terminar
+            </p>
+          )}
         </div>
 
         {error && (
