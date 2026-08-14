@@ -12,7 +12,7 @@ import {
   fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
-import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel } from '../lib/utils'
+import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel, reminderDates } from '../lib/utils'
 import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
@@ -34,6 +34,30 @@ const FEEDBACK_OUTCOMES = {
   sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno por ligação', remarcar: 'Remarcar',
 }
 const RATING_LABELS = { pessima: 'Péssima', razoavel: 'Razoável', boa: 'Boa', otima: 'Ótima' }
+
+// "registrado hoje" / "registrado em 05/08" — data em que o "ligar depois"
+// foi CADASTRADO no app (created_at, automática), não a data do retorno.
+function regLabel(createdAt) {
+  if (localDateStr(new Date(createdAt)) === localDateStr()) return 'registrado hoje'
+  return 'registrado em ' + new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+// Chave de ordenação "quando a ligação deve acontecer": atrasados primeiro
+// (pela data específica que passou, mais antigo em cima), depois os de hoje
+// por horário; sem horário vai para o fim do seu dia.
+function cbDueKey(c) {
+  const cfg = c.reminder_config || {}
+  const today = localDateStr()
+  let date = today
+  if (cfg.type === 'specific_date') {
+    const ds = reminderDates(cfg)
+    if (!ds.includes(today)) {
+      const past = ds.filter(d => d < today).sort()
+      if (past.length) date = past[0]
+    }
+  }
+  return `${date} ${cfg.time || '99:99'}`
+}
 
 function reminderLabel(daysUntil, ts) {
   if (daysUntil === 0) return 'Hoje'
@@ -137,6 +161,8 @@ export default function VisitasHojePage() {
   const [tasks, setTasks]                   = useState([]) // "A fazer": tarefas/follow-ups em aberto
   const [callbacks, setCallbacks]           = useState([]) // "pediu p/ ligar depois" que caem hoje
   const [view, setView]                     = useState('lembretes') // 'lembretes' | 'produzido'
+  const [filter, setFilter]                 = useState('tudo')      // chip de categoria ativo
+  const [cbOrder, setCbOrder]               = useState('cadastro')  // ordem do "Ligar depois": 'cadastro' | 'marcacao'
   const [profilesList, setProfilesList]     = useState([])          // p/ seletor do gerente
   const [prodPerson, setProdPerson]         = useState(null)        // de quem ver a produção (gerente)
   const [prodDate, setProdDate]             = useState(localDateStr()) // dia do "produzido" (calendário)
@@ -356,6 +382,27 @@ export default function VisitasHojePage() {
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
   const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0
 
+  // ── Filtro por categoria (chips) — só categorias com item aparecem ──
+  const cats = [
+    { key: 'confirmar',    label: 'Confirmar',    color: '#C9A84C', count: showConfirm ? toConfirm.length : 0 },
+    { key: 'visitas',      label: 'Visitas',      color: '#A78BFA', count: isVisitor ? todayVisits.length : answeredToday.length },
+    { key: 'ligacoes',     label: 'Ligações',     color: '#E8834A', count: todayCalls.length },
+    { key: 'lembretes',    label: 'Lembretes',    color: '#22D3EE', count: reminders.length },
+    { key: 'ligar_depois', label: 'Ligar depois', color: '#E8834A', count: callbacks.length },
+    { key: 'afazer',       label: 'A fazer',      color: '#E8834A', count: tasks.length },
+    { key: 'feedbacks',    label: 'Feedbacks',    color: '#F472B6', count: feedbacks.length },
+  ].filter(c => c.count > 0)
+  // Se a categoria filtrada esvaziou (deu ✓ em tudo), volta pro "Tudo" sozinho
+  const activeFilter = cats.some(c => c.key === filter) ? filter : 'tudo'
+  const show = (key) => activeFilter === 'tudo' || activeFilter === key
+
+  // ── "Ligar depois" agrupado pela data de CADASTRO no app ──
+  const todayStr  = localDateStr()
+  const cbHoje    = callbacks.filter(c => localDateStr(new Date(c.created_at)) === todayStr)
+  const cbAntigos = callbacks.filter(c => localDateStr(new Date(c.created_at)) !== todayStr)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // mais recente em cima
+  const cbPorMarcacao = [...callbacks].sort((a, b) => cbDueKey(a).localeCompare(cbDueKey(b)))
+
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
 
@@ -384,8 +431,29 @@ export default function VisitasHojePage() {
 
       {view === 'lembretes' && (<>
 
+      {/* Filtro por categoria — só aparece quando há 2+ categorias no dia */}
+      {!loading && cats.length >= 2 && (
+        <div className="flex flex-wrap" style={{ gap: '6px' }}>
+          {[{ key: 'tudo', label: 'Tudo', color: '#C9A84C', count: null }, ...cats].map(c => {
+            const active = activeFilter === c.key
+            return (
+              <button key={c.key} onClick={() => setFilter(c.key)}
+                className="text-xs font-semibold rounded-full transition-all active:scale-95"
+                style={{
+                  padding: '6px 13px',
+                  background: active ? `${c.color}24` : '#161616',
+                  border: `1px solid ${active ? `${c.color}73` : '#2A2A2A'}`,
+                  color: active ? c.color : '#958E86',
+                }}>
+                {active ? '✓ ' : ''}{c.label}{c.count != null ? ` · ${c.count}` : ''}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Confirmar visitas (hoje + amanhã) — destaque dourado */}
-      {!loading && showConfirm && (
+      {!loading && showConfirm && show('confirmar') && (
         <div className="rounded-2xl" style={{ background: '#15140F', border: '1px solid rgba(201,168,76,0.22)', padding: '16px' }}>
           <SectionLabel color="#C9A84C">Confirmar visitas</SectionLabel>
           <p className="text-xs mt-1 mb-4" style={{ color: '#958E86' }}>
@@ -402,7 +470,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Pré-vendas: visitas de hoje já respondidas no pop-up (coloridas por status) */}
-      {!loading && !isVisitor && answeredToday.length > 0 && (
+      {!loading && !isVisitor && answeredToday.length > 0 && show('visitas') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel>Visitas de hoje</SectionLabel>
           {answeredToday.map(c => (
@@ -412,7 +480,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Visitas de hoje — vendedor/gerente, com botões de resultado */}
-      {!loading && isVisitor && todayVisits.length > 0 && (
+      {!loading && isVisitor && todayVisits.length > 0 && show('visitas') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionLabel>Visitas de hoje</SectionLabel>
           {todayVisits.map(v => {
@@ -504,7 +572,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Ligações de hoje — todos os perfis */}
-      {!loading && todayCalls.length > 0 && (
+      {!loading && todayCalls.length > 0 && show('ligacoes') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#E8834A">📞 Ligações de hoje</SectionLabel>
           {todayCalls.map(c => (
@@ -521,7 +589,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Lembretes chegando (≤3 dias) — clientes que a pessoa marcou p/ lembrar */}
-      {!loading && reminders.length > 0 && (
+      {!loading && reminders.length > 0 && show('lembretes') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#22D3EE"><span className="inline-flex items-center gap-1.5"><Bell size={12} /> Lembretes</span></SectionLabel>
           {reminders.map(c => (
@@ -536,54 +604,89 @@ export default function VisitasHojePage() {
         </div>
       )}
 
-      {/* Ligar depois — clientes que pediram retorno (fora da lista de clientes) */}
-      {!loading && callbacks.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5"><Phone size={12} /> Ligar depois</span></SectionLabel>
-          {callbacks.map(c => (
-            /* Nome/telefone ligam; a descrição e o lápis abrem a edição — assim
-               não precisa caçar o contato no Produzido hoje pra corrigir algo */
-            <div key={c.id} className="rounded-2xl"
-              style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
-              <div className="flex items-center gap-3">
-                <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
-                    {c.reminder_config?.time && (
-                      <span className="text-[11px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
-                        style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
-                        <Clock size={9} /> {c.reminder_config.time}
-                      </span>
-                    )}
-                  </div>
-                  {(c.company_name || c.contact_role) && (
-                    <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+      {/* Ligar depois — clientes que pediram retorno (fora da lista de clientes).
+          Agrupado pela data de CADASTRO no app (hoje × dias anteriores); o
+          seletor troca para ordem de marcação (quando a ligação deve acontecer) */}
+      {!loading && callbacks.length > 0 && show('ligar_depois') && (() => {
+        const renderCb = (c) => (
+          /* Nome/telefone ligam; a descrição e o lápis abrem a edição — assim
+             não precisa caçar o contato no Produzido hoje pra corrigir algo */
+          <div key={c.id} className="rounded-2xl"
+            style={{ background: '#161616', border: '1px solid #252525', borderLeft: '3px solid #E8834A', padding: '14px 16px' }}>
+            <div className="flex items-center gap-3">
+              <a href={`tel:${c.phone}`} className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+                  {c.reminder_config?.time && (
+                    <span className="text-[11px] font-bold rounded-full flex-shrink-0 flex items-center gap-1"
+                      style={{ padding: '2px 8px', background: 'rgba(232,131,74,0.12)', border: '1px solid rgba(232,131,74,0.3)', color: '#E8834A' }}>
+                      <Clock size={9} /> {c.reminder_config.time}
+                    </span>
                   )}
-                  <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
-                </a>
-                <button onClick={() => setEditingCallback(c)} title="Editar contato"
-                  className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
-                  style={{ width: '38px', height: '38px', background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.22)', color: '#E8834A' }}>
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => completeCallback(c.id)} title="Já liguei"
-                  className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
-                  style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
-                  ✓
-                </button>
-              </div>
-              {c.notes && (
-                <button onClick={() => setEditingCallback(c)} className="w-full text-left">
-                  <p className="text-[12px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
-                </button>
-              )}
+                </div>
+                {(c.company_name || c.contact_role) && (
+                  <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
+                )}
+                <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
+                <p className="text-[11px] mt-1" style={{ color: '#8B857D' }}>📅 {regLabel(c.created_at)}</p>
+              </a>
+              <button onClick={() => setEditingCallback(c)} title="Editar contato"
+                className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                style={{ width: '38px', height: '38px', background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.22)', color: '#E8834A' }}>
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => completeCallback(c.id)} title="Já liguei"
+                className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all active:scale-95"
+                style={{ width: '38px', height: '38px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ADE80' }}>
+                ✓
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+            {c.notes && (
+              <button onClick={() => setEditingCallback(c)} className="w-full text-left">
+                <p className="text-[12px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.notes}</p>
+              </button>
+            )}
+          </div>
+        )
+        const subLabel = (txt) => (
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: '#958E86', marginTop: '2px' }}>{txt}</p>
+        )
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="flex items-center justify-between gap-2">
+              <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5"><Phone size={12} /> Ligar depois</span></SectionLabel>
+              {/* Ordem: Cadastro (quando foi registrado) | Marcação (quando ligar) */}
+              <div className="flex rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid #252525' }}>
+                {[['cadastro', 'Cadastro'], ['marcacao', 'Marcação']].map(([v, label], i) => (
+                  <button key={v} onClick={() => setCbOrder(v)}
+                    className="text-[11px] font-bold transition-all"
+                    style={{
+                      padding: '5px 11px',
+                      background: cbOrder === v ? 'rgba(232,131,74,0.14)' : '#111',
+                      color: cbOrder === v ? '#E8834A' : '#958E86',
+                      borderRight: i === 0 ? '1px solid #252525' : 'none',
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {cbOrder === 'cadastro' ? (
+              <>
+                {cbHoje.length > 0 && subLabel('Registrados hoje')}
+                {cbHoje.map(renderCb)}
+                {cbAntigos.length > 0 && subLabel('Registrados em dias anteriores')}
+                {cbAntigos.map(renderCb)}
+              </>
+            ) : (
+              cbPorMarcacao.map(renderCb)
+            )}
+          </div>
+        )
+      })()}
 
       {/* A fazer — tarefas/follow-ups em aberto (substitui a aba Tarefas) */}
-      {!loading && tasks.length > 0 && (
+      {!loading && tasks.length > 0 && show('afazer') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#E8834A"><span className="inline-flex items-center gap-1.5">✓ A fazer</span></SectionLabel>
           {tasks.map(t => {
@@ -639,7 +742,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Pré-vendas: estrelas preenchidas hoje nas visitas que ele marcou (aviso) */}
-      {!loading && !isVisitor && feedbacks.length > 0 && (
+      {!loading && !isVisitor && feedbacks.length > 0 && show('feedbacks') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <SectionLabel color="#F472B6"><span className="inline-flex items-center gap-1.5"><Star size={12} /> Feedbacks de visitas</span></SectionLabel>
           <p className="text-xs -mt-1" style={{ color: '#958E86' }}>
@@ -661,7 +764,7 @@ export default function VisitasHojePage() {
       )}
 
       {/* Estado vazio do dia */}
-      {!loading && nothingToday && !hasTomorrow && (
+      {!loading && nothingToday && !hasTomorrow && activeFilter === 'tudo' && (
         <div className="flex flex-col items-center justify-center" style={{ paddingTop: '50px', gap: '12px' }}>
           <p style={{ fontSize: '3rem' }}>{isVisitor ? '📅' : '✅'}</p>
           <p className="text-sm font-medium" style={{ color: '#958E86' }}>
@@ -670,8 +773,8 @@ export default function VisitasHojePage() {
         </div>
       )}
 
-      {/* ── AMANHÃ ── prévia do dia seguinte */}
-      {!loading && hasTomorrow && (
+      {/* ── AMANHÃ ── prévia do dia seguinte (só no "Tudo": filtro é do dia) */}
+      {!loading && hasTomorrow && activeFilter === 'tudo' && (
         <>
           <div className="flex items-center gap-3" style={{ marginTop: '6px' }}>
             <div style={{ height: '1px', background: '#1F1F1F', flex: 1 }} />
