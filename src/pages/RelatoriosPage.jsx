@@ -488,7 +488,18 @@ export default function RelatoriosPage() {
   const visitsInPeriod   = filteredClients.flatMap(c =>
     (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
   )
-  const enrolledInPeriod = clientsInPeriod.filter(c => c.matricula_stage === 'matriculado')
+  // Dia em que a matrícula aconteceu (NÃO o dia do cadastro): a visita que
+  // terminou em matrícula → o crédito lançado → por último, o cadastro.
+  const matriculaDia = (c) => {
+    const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada' && v.visit_date)
+      .map(v => v.visit_date).sort().pop()
+    if (mv) return mv
+    const cr = credits.filter(x => x.client_id === c.id && x.credit_date).map(x => x.credit_date).sort()[0]
+    if (cr) return cr
+    return localDateStr(c.created_at)
+  }
+  const enrolledInPeriod = filteredClients.filter(c =>
+    c.matricula_stage === 'matriculado' && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
   const noShowsInPeriod  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const totalCallsPeriod = filteredLogs
     .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
@@ -505,6 +516,10 @@ export default function RelatoriosPage() {
   const filteredCredits = profile?.role === 'gerente' && selectedPerson !== 'all'
     ? creditsInPeriod.filter(cr => cr.credited_to === selectedPerson)
     : creditsInPeriod
+  // Número verde do funil: pro pré-vendas é a mesma conta do card dourado
+  // (matrículas em que marcou a visita ou participou) — ele não "tem" clientes
+  // matriculados, tem participação nas matrículas.
+  const matriculasFechadas = profile?.role === 'pre_vendas' ? filteredCredits.length : enrolledInPeriod.length
   // Contagem por pessoa (visão de comissões do gerente)
   const creditsByPerson = (() => {
     const map = {}
@@ -558,7 +573,7 @@ export default function RelatoriosPage() {
   const bookingShowRate = clientsInPeriod.length > 0 && visitsInPeriod.length > 0
     ? Math.round((visitsInPeriod.length / clientsInPeriod.length) * 100) : null
   const visitConvRate = visitsInPeriod.length > 0
-    ? Math.round((enrolledInPeriod.length / visitsInPeriod.length) * 100) : null
+    ? Math.round((matriculasFechadas / visitsInPeriod.length) * 100) : null
 
   // ── Médias acumuladas ─────────────────────────────────────────────
 
@@ -596,7 +611,7 @@ export default function RelatoriosPage() {
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
           atendidas:  filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
-          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at).startsWith(m)).length,
+          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c).startsWith(m)).length,
         }
       })
     }
@@ -618,7 +633,7 @@ export default function RelatoriosPage() {
         visitas:    allVisits.filter(v => v.visit_date === ds).length,
         calls:      filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
         atendidas:  filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.answered || 0), 0),
-        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at) === ds).length,
+        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c) === ds).length,
       }
     })
   })()
@@ -760,7 +775,7 @@ export default function RelatoriosPage() {
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
           atendidas:  allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
-          matriculas: uniq.filter(c => c.matricula_stage === 'matriculado' && c.created_at && localDateStr(c.created_at).startsWith(m)).length,
+          matriculas: uniq.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c).startsWith(m)).length,
         }
       })
     }
@@ -1056,9 +1071,9 @@ export default function RelatoriosPage() {
             rateLabel={visitConvRate !== null ? `${visitConvRate}% viraram matricula` : null}
             onInfo={visitConvRate !== null ? () => setStatInfo({
               title: 'Viraram matrícula',
-              text: `Das visitas realizadas no período, quantas terminaram em matrícula fechada: ${enrolledInPeriod.length} matrículas de ${visitsInPeriod.length} visitas = ${visitConvRate}%.`,
+              text: `Das visitas realizadas no período, quantas terminaram em matrícula fechada: ${matriculasFechadas} matrículas de ${visitsInPeriod.length} visitas = ${visitConvRate}%.`,
             }) : null} />
-          <FunnelStep label="Matriculas fechadas" value={enrolledInPeriod.length} color="#4ADE80" isLast />
+          <FunnelStep label="Matriculas fechadas" value={matriculasFechadas} color="#4ADE80" isLast />
         </div>
       </div>
 
