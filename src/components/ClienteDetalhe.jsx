@@ -1067,6 +1067,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const customPoss = (v.visit_possibilities || []).find(p => !POSSIBILIDADES.includes(p))
       initial[v.id] = {
         rating:                  v.rating           || null,
+        // Não teve já salvo: "Remarcar?" começa em Não (a decisão foi tomada na época);
+        // um Não teve novo obriga a responder Sim/Não antes de salvar.
+        noshow_remarcar:         v.rating === NO_SHOW_RATING ? false : undefined,
         visit_notes:             v.visit_notes      || '',
         visit_outcome:           v.visit_outcome    || null,
         outcome_training:        Array.isArray(v.outcome_training) ? v.outcome_training : (v.outcome_training ? [v.outcome_training] : []),
@@ -1270,7 +1273,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
     // Remarcar → cria a tarefa pendente para QUEM foi escolhido remarcar
     // (papel + pessoa na estrela). Sem escolha, cai em quem preencheu.
-    if (edit.visit_outcome === 'remarcar') {
+    const noShowRemarcar = edit.rating === NO_SHOW_RATING && edit.noshow_remarcar === true
+    if (edit.visit_outcome === 'remarcar' || noShowRemarcar) {
       const clientLabel = currentClient.contact_name || currentClient.company_name || 'cliente'
       const assignee = edit.remarcar_person || user.id
       const encaminhada = assignee !== user.id
@@ -1284,7 +1288,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         // aba Hoje de quem foi escolhido; com hora, o reminder-sweep avisa antes.
         due_date:  edit.remarcar_date || null,
         due_time:  edit.remarcar_date ? (edit.remarcar_time || null) : null,
-        notes:     'Gerado automaticamente após visita marcada para remarcar.'
+        notes:     (noShowRemarcar
+                     ? 'Gerado automaticamente: cliente não compareceu à visita, remarcar.'
+                     : 'Gerado automaticamente após visita marcada para remarcar.')
                    + (encaminhada ? ` Encaminhada por ${profile?.name || 'um colega'}.` : ''),
       })
     }
@@ -2562,7 +2568,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 const partList     = edit.credit_participants || []
 
                 // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
-                const isComplete = isNoShow || (
+                // Não teve: precisa responder se vai remarcar; "Sim" exige escolher quem
+                // (a menos que a equipe nem tenha carregado — cai no próprio usuário).
+                const noShowOk = edit.noshow_remarcar === false ||
+                  (edit.noshow_remarcar === true && (!!edit.remarcar_person || teamProfiles.length === 0))
+                const isComplete = isNoShow ? noShowOk : (
                   !!edit.visit_outcome && !!edit.rating && !!edit.visit_notes?.trim() && poss.length > 0 &&
                   (!poss.includes('outros_eventos') || !!edit.outros_eventos_text?.trim()) &&
                   // Remarcar: escolher quem vai remarcar (a menos que a equipe nem
@@ -2595,6 +2605,78 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   const curr = poss
                   setEdit({ visit_possibilities: curr.includes(key) ? curr.filter(p => p !== key) : [...curr, key] })
                 }
+                // Bloco "Quem vai remarcar? / Quando ligar?" — usado pelo resultado
+                // "Remarcar" E pelo "Não teve → Remarcar? Sim". Função (não componente)
+                // pra não remontar os inputs a cada tecla.
+                function renderRemarcar() {
+                  return (
+                          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.2)' }}>
+                            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
+                              📅 Quem vai remarcar? <span style={{ color: '#8E8881' }}>(obrigatório)</span>
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                              {REMARCAR_ROLES.map(r => {
+                                const active = edit.remarcar_role === r.key
+                                return (
+                                  <button key={r.key} disabled={!canRate}
+                                    onClick={() => setEdit({ remarcar_role: r.key, remarcar_person: null })}
+                                    style={{ padding: '9px 6px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? `${r.color}22` : '#111', color: active ? r.color : '#958E86', border: `1px solid ${active ? `${r.color}66` : '#252525'}` }}>
+                                    {r.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {edit.remarcar_role && (() => {
+                              const people = teamProfiles.filter(p => p.role === edit.remarcar_role)
+                              if (people.length === 0) return (
+                                <p style={{ fontSize: '12px', color: '#958E86', marginTop: '10px' }}>Ninguém com esse papel na equipe.</p>
+                              )
+                              return (
+                                <div style={{ marginTop: '10px' }}>
+                                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9D968E', marginBottom: '8px' }}>Quem?</p>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {people.map(p => {
+                                      const active = edit.remarcar_person === p.id
+                                      const nome = (p.name || '').split(' ')[0] || p.name || '—'
+                                      return (
+                                        <button key={p.id} disabled={!canRate}
+                                          onClick={() => setEdit({ remarcar_person: p.id })}
+                                          style={{ padding: '7px 13px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(34,211,238,0.15)' : 'transparent', color: active ? '#22D3EE' : '#958E86', border: `1px solid ${active ? 'rgba(34,211,238,0.45)' : '#2A2A2A'}` }}>
+                                          {active ? '✓ ' : ''}{nome}{p.id === user.id ? ' (você)' : ''}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })()}
+
+                            {/* Quando LIGAR para remarcar — vira o prazo da tarefa.
+                                A partir desse dia ela fica pendente na aba Hoje
+                                da pessoa escolhida. Hora é opcional (push 5 min antes). */}
+                            <div style={{ marginTop: '12px', borderTop: '1px solid rgba(34,211,238,0.15)', paddingTop: '12px' }}>
+                              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
+                                Quando ligar para remarcar? <span style={{ color: '#8E8881' }}>(opcional)</span>
+                              </p>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <input type="date" value={edit.remarcar_date || ''} disabled={!canRate}
+                                  min={localDateStr()}
+                                  onChange={e => setEdit({ remarcar_date: e.target.value })}
+                                  style={{ flex: 2, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
+                                <input type="time" value={edit.remarcar_time || ''} disabled={!canRate || !edit.remarcar_date}
+                                  onChange={e => setEdit({ remarcar_time: e.target.value })}
+                                  style={{ flex: 1, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: edit.remarcar_date ? '#EFEFEF' : '#979089', fontSize: '13px', outline: 'none' }} />
+                              </div>
+                              <p style={{ fontSize: '12px', color: '#979089', marginTop: '6px', lineHeight: 1.4 }}>
+                                {edit.remarcar_date
+                                  ? `Fica pendente na aba Hoje da pessoa a partir de ${new Date(edit.remarcar_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}${edit.remarcar_time ? ` · aviso ${edit.remarcar_time}` : ''}.`
+                                  : 'Sem data, entra como pendente já.'}
+                              </p>
+                            </div>
+                          </div>
+                  )
+                }
 
                 const visitLabel = i === 0 ? 'Visita mais recente' : `${visits.length - i}ª visita`
                 const visitDate  = new Date(v.visit_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -2617,7 +2699,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                         {isCollapsed && (isNoShow || outcomeObj || ratingObj || poss.length > 0) && (
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
                             {isNoShow && (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#B0A99F' }}>🚷 Não teve</span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#B0A99F' }}>🚷 Não teve{edit.noshow_remarcar === true ? ' · remarcar' : ''}</span>
                             )}
                             {outcomeObj && (
                               <span style={{ fontSize: '12px', fontWeight: 600, color: outcomeObj.color }}>
@@ -2916,74 +2998,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           </div>
                         )}
 
-                        {/* Remarcar → escolher quem vai remarcar: papel e depois a pessoa */}
-                        {edit.visit_outcome === 'remarcar' && (
-                          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.2)' }}>
-                            <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
-                              📅 Quem vai remarcar? <span style={{ color: '#8E8881' }}>(obrigatório)</span>
-                            </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                              {REMARCAR_ROLES.map(r => {
-                                const active = edit.remarcar_role === r.key
-                                return (
-                                  <button key={r.key} disabled={!canRate}
-                                    onClick={() => setEdit({ remarcar_role: r.key, remarcar_person: null })}
-                                    style={{ padding: '9px 6px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default', background: active ? `${r.color}22` : '#111', color: active ? r.color : '#958E86', border: `1px solid ${active ? `${r.color}66` : '#252525'}` }}>
-                                    {r.label}
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            {edit.remarcar_role && (() => {
-                              const people = teamProfiles.filter(p => p.role === edit.remarcar_role)
-                              if (people.length === 0) return (
-                                <p style={{ fontSize: '12px', color: '#958E86', marginTop: '10px' }}>Ninguém com esse papel na equipe.</p>
-                              )
-                              return (
-                                <div style={{ marginTop: '10px' }}>
-                                  <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9D968E', marginBottom: '8px' }}>Quem?</p>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                    {people.map(p => {
-                                      const active = edit.remarcar_person === p.id
-                                      const nome = (p.name || '').split(' ')[0] || p.name || '—'
-                                      return (
-                                        <button key={p.id} disabled={!canRate}
-                                          onClick={() => setEdit({ remarcar_person: p.id })}
-                                          style={{ padding: '7px 13px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: canRate ? 'pointer' : 'default', background: active ? 'rgba(34,211,238,0.15)' : 'transparent', color: active ? '#22D3EE' : '#958E86', border: `1px solid ${active ? 'rgba(34,211,238,0.45)' : '#2A2A2A'}` }}>
-                                          {active ? '✓ ' : ''}{nome}{p.id === user.id ? ' (você)' : ''}
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )
-                            })()}
-
-                            {/* Quando LIGAR para remarcar — vira o prazo da tarefa.
-                                A partir desse dia ela fica pendente na aba Hoje
-                                da pessoa escolhida. Hora é opcional (push 5 min antes). */}
-                            <div style={{ marginTop: '12px', borderTop: '1px solid rgba(34,211,238,0.15)', paddingTop: '12px' }}>
-                              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
-                                Quando ligar para remarcar? <span style={{ color: '#8E8881' }}>(opcional)</span>
-                              </p>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <input type="date" value={edit.remarcar_date || ''} disabled={!canRate}
-                                  min={localDateStr()}
-                                  onChange={e => setEdit({ remarcar_date: e.target.value })}
-                                  style={{ flex: 2, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: '#EFEFEF', fontSize: '13px', outline: 'none' }} />
-                                <input type="time" value={edit.remarcar_time || ''} disabled={!canRate || !edit.remarcar_date}
-                                  onChange={e => setEdit({ remarcar_time: e.target.value })}
-                                  style={{ flex: 1, background: '#111', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 12px', color: edit.remarcar_date ? '#EFEFEF' : '#979089', fontSize: '13px', outline: 'none' }} />
-                              </div>
-                              <p style={{ fontSize: '12px', color: '#979089', marginTop: '6px', lineHeight: 1.4 }}>
-                                {edit.remarcar_date
-                                  ? `Fica pendente na aba Hoje da pessoa a partir de ${new Date(edit.remarcar_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}${edit.remarcar_time ? ` · aviso ${edit.remarcar_time}` : ''}.`
-                                  : 'Sem data, entra como pendente já.'}
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                        {/* Remarcar → escolher quem vai remarcar (e quando ligar) */}
+                        {edit.visit_outcome === 'remarcar' && renderRemarcar()}
 
                         {/* POSSIBILIDADE (multi-select) — não se aplica no não comparecimento */}
                         {!isNoShow && (
@@ -3040,6 +3056,38 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                             }}>
                             🚷 Não teve <span style={{ fontWeight: 500, opacity: 0.8 }}>· cliente não compareceu</span>
                           </button>
+                          {/* Não teve → Remarcar a visita? Sim abre "quem" + "quando ligar"
+                              (mesmo bloco do resultado Remarcar); a tarefa cai na aba Hoje
+                              da pessoa escolhida na data marcada. */}
+                          {isNoShow && (
+                            <div style={{ marginTop: '10px' }}>
+                              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#22D3EE', marginBottom: '8px' }}>
+                                📅 Remarcar a visita? <span style={{ color: '#8E8881' }}>(obrigatório)</span>
+                              </p>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                {[{ v: true, label: 'Sim, remarcar' }, { v: false, label: 'Não' }].map(o => {
+                                  const active = edit.noshow_remarcar === o.v
+                                  return (
+                                    <button key={String(o.v)} disabled={!canRate}
+                                      onClick={() => setEdit(o.v
+                                        ? { noshow_remarcar: true }
+                                        : { noshow_remarcar: false, remarcar_role: null, remarcar_person: null, remarcar_date: '', remarcar_time: '' })}
+                                      style={{ padding: '10px 6px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default',
+                                        background: active ? 'rgba(34,211,238,0.13)' : '#111', color: active ? '#22D3EE' : '#958E86',
+                                        border: `1px solid ${active ? 'rgba(34,211,238,0.5)' : '#252525'}` }}>
+                                      {o.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                              {edit.noshow_remarcar === true && (
+                                <div style={{ marginTop: '8px' }}>{renderRemarcar()}</div>
+                              )}
+                              {edit.noshow_remarcar === false && (
+                                <p style={{ fontSize: '12px', color: '#979089', marginTop: '6px' }}>Sem remarcação — o cliente fica em "Não apareceu".</p>
+                              )}
+                            </div>
+                          )}
                           {!isNoShow && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                               {RATINGS.map(r => {
