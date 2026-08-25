@@ -210,6 +210,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   // Cadeia da reserva: substituir | confirmar_nao | sem_reserva | ocupar | pronto
   const [slotPrompt, setSlotPrompt] = useState(null)
   const dupPendingRef = useRef(null) // segura o dup até o pop-up da agenda fechar
+  // Cadastro novo com marcação abre pop-ups DEPOIS de gravar, com o form ainda
+  // aberto atrás — clicar "Salvar" de novo criava um cliente DUPLICADO. Guardar
+  // o id criado transforma qualquer novo clique em atualização do mesmo registro.
+  const savedIdRef    = useRef(null)
 
   // Fim do pop-up do Google Agenda → mostra o de número repetido (se houver)
   function finishAfterCalendar() {
@@ -367,6 +371,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     }
     // Visita remarcada (data mudou) → confirmação antiga não vale mais e
     // quem mudou a data passa a ser o responsável por confirmar
+    const editingId = initialData?.id || savedIdRef.current
     const oldVisitIso = initialData?.visit_scheduled_at ? new Date(initialData.visit_scheduled_at).toISOString() : null
     const dateChanged = newVisitIso && newVisitIso !== oldVisitIso
     if (initialData?.id) {
@@ -384,17 +389,18 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       Object.assign(payload, bookingStamp(initialData, { isReschedule: !!oldVisitIso }))
     }
     // created_by só no cadastro — editar não pode trocar quem marcou
-    const res = initialData?.id
-      ? await supabase.from('clients').update(payload).eq('id', initialData.id)
+    const res = editingId
+      ? await supabase.from('clients').update(payload).eq('id', editingId)
       : await supabase.from('clients').insert({ ...payload, created_by: user.id }).select('id').single()
 
     if (res.error) {
       setError('Erro ao salvar. Tente novamente.')
     } else {
+      if (!editingId && res.data?.id) savedIdRef.current = res.data.id
       // Rastro da marcação/remarcação no histórico da ficha
       if (dateChanged) {
         logVisitScheduled({
-          clientId: initialData?.id || res.data?.id,
+          clientId: editingId || res.data?.id,
           userId:   user.id,
           userName: profile?.name,
           from:     oldVisitIso,
