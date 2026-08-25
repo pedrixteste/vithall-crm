@@ -11,7 +11,7 @@ import { Phone, Calendar, Star, X, ChevronRight } from 'lucide-react'
 
 const OUTCOMES = {
   matriculada: 'Matriculada', grandes_chances: 'Grandes chances', chance_futura: 'Chance futura',
-  sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno ligação', remarcar: 'Remarcar',
+  pouca_chance: 'Pouca chance', sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno ligação', remarcar: 'Remarcar',
 }
 const MARCA_COLOR = '#60A5FA'
 const VISITA_COLOR = '#A78BFA'

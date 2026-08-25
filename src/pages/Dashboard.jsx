@@ -43,7 +43,7 @@ const PERIOD_OPTIONS = [
 // no "Visitas recentes" para ele ver como foi a visita que marcou.
 const FEEDBACK_OUTCOMES = {
   matriculada: 'Matriculada 🎉', grandes_chances: 'Grandes chances', chance_futura: 'Chance futura',
-  sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno por ligação', remarcar: 'Remarcar',
+  pouca_chance: 'Pouca chance', sem_chance: 'Sem chance', retorno_pessoalmente: 'Retorno pessoal', retorno_ligacao: 'Retorno por ligação', remarcar: 'Remarcar',
 }
 const RATING_LABELS = { pessima: 'Péssima', razoavel: 'Razoável', boa: 'Boa', otima: 'Ótima', nao_teve: 'Não teve' }
 

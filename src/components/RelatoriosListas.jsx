@@ -26,6 +26,7 @@ const OUTCOMES = {
   matriculada:          'Matriculada',
   grandes_chances:      'Grandes chances',
   chance_futura:        'Chance futura',
+  pouca_chance:         'Pouca chance',
   sem_chance:           'Sem chance',
   retorno_pessoalmente: 'Retorno pessoalmente',
   retorno_ligacao:      'Retorno por ligação',

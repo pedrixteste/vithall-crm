@@ -58,6 +58,7 @@ const OUTCOMES = [
   { key: 'matriculada',          label: 'Matriculada',          icon: '✅', color: '#4ADE80' },
   { key: 'grandes_chances',      label: 'Grandes chances',      icon: '🔥', color: '#C9A84C' },
   { key: 'chance_futura',        label: 'Chance futura',        icon: '🔮', color: '#60A5FA' },
+  { key: 'pouca_chance',         label: 'Pouca chance',         icon: '📉', color: '#B0A99F' },
   { key: 'sem_chance',           label: 'Sem chance',           icon: '🚫', color: '#E85555' },
   { key: 'retorno_pessoalmente', label: 'Retorno presencial',   icon: '📍', color: '#A78BFA' },
   { key: 'retorno_ligacao',      label: 'Retorno ligação',      icon: '📞', color: '#E8834A' },
