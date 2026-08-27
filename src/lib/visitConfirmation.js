@@ -239,6 +239,9 @@ export async function fetchAnsweredVisitsForDay(userId, offset = 0) {
     .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .not('visit_confirmation', 'is', null)
+    // Cliente cancelou depois de confirmar → a visita não vai acontecer;
+    // continuar aparecendo como "Confirmada" na aba Hoje só confundia.
+    .neq('matricula_stage', 'cancelado')
     .gte('visit_scheduled_at', start)
     .lte('visit_scheduled_at', end)
     .order('visit_scheduled_at', { ascending: true })
@@ -378,6 +381,8 @@ export async function fetchVisitsToConfirm(userId) {
     .or(scheduledByMe(userId))
     .not('visit_scheduled_at', 'is', null)
     .is('visit_confirmation', null)
+    // Cancelado não pede confirmação — a visita já morreu
+    .neq('matricula_stage', 'cancelado')
     .gte('visit_scheduled_at', start.toISOString())
     .lte('visit_scheduled_at', end.toISOString())
     .order('visit_scheduled_at', { ascending: true })
