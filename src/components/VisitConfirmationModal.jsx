@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
 import VisitConfirmationList from './VisitConfirmationList'
-import { STAGE_BADGES } from './ui/Badge'
+import { STAGE_BADGES, stageBadgeKey } from './ui/Badge'
 
 // Pop-up ao abrir o app — espelha o conteúdo da aba "Hoje" da pessoa:
 //  - confirmações de visitas que ela marcou (hoje + amanhã), com botões
@@ -69,7 +69,7 @@ export default function VisitConfirmationModal({ visits, todayVisits = [], onClo
                         <Clock size={12} style={{ color: isPast ? '#E8834A' : '#4ADE80' }} />
                         <span className="text-xs font-bold tabular-nums" style={{ color: isPast ? '#E8834A' : '#4ADE80' }}>{timeLabel}</span>
                         {isPast && <span className="text-[10px] font-semibold rounded-full" style={{ padding: '1px 7px', background: 'rgba(232,131,74,0.1)', color: '#E8834A' }}>já passou</span>}
-                        <div className="ml-auto">{STAGE_BADGES[v.matricula_stage] || null}</div>
+                        <div className="ml-auto">{STAGE_BADGES[stageBadgeKey(v)] || null}</div>
                       </div>
                       <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{v.contact_name}</p>
                       {v.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{v.company_name}</p>}

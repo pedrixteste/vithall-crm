@@ -488,6 +488,11 @@ export default function RelatoriosPage() {
   const visitsInPeriod   = filteredClients.flatMap(c =>
     (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
   )
+  // Matrícula PENDENTE ainda não é matrícula: só conta nos números quando a
+  // situação for efetivada (regra do caso Heleno, 28/08/26)
+  const matriculaReal = (c) =>
+    c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') !== 'pendente'
+
   // Dia em que a matrícula aconteceu (NÃO o dia do cadastro): a visita que
   // terminou em matrícula → o crédito lançado → por último, o cadastro.
   const matriculaDia = (c) => {
@@ -499,7 +504,7 @@ export default function RelatoriosPage() {
     return localDateStr(c.created_at)
   }
   const enrolledInPeriod = filteredClients.filter(c =>
-    c.matricula_stage === 'matriculado' && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
+    matriculaReal(c) && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
   const noShowsInPeriod  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const totalCallsPeriod = filteredLogs
     .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
@@ -512,7 +517,10 @@ export default function RelatoriosPage() {
     ? Math.round((totalAnsweredPeriod / totalCallsPeriod) * 100) : null
 
   // Créditos de matrícula no período (comissão de quem marcou a visita)
+  const clienteDoCredito = (id) => clients.find(x => x.id === id) || creditClients.find(x => x.id === id)
   const creditsInPeriod = credits.filter(cr => inRange(new Date(cr.credit_date + 'T12:00:00')))
+    // matrícula pendente: o crédito só passa a contar quando efetivar
+    .filter(cr => { const c = clienteDoCredito(cr.client_id); return !c || (c.matricula_status || 'efetivada') !== 'pendente' })
   const filteredCredits = profile?.role === 'gerente' && selectedPerson !== 'all'
     ? creditsInPeriod.filter(cr => cr.credited_to === selectedPerson)
     : creditsInPeriod
@@ -564,7 +572,7 @@ export default function RelatoriosPage() {
 
   // ── All-time ─────────────────────────────────────────────────────
 
-  const allEnrolled = filteredClients.filter(c => c.matricula_stage === 'matriculado')
+  const allEnrolled = filteredClients.filter(matriculaReal)
 
   // ── Métricas do funil ────────────────────────────────────────────
 
@@ -611,7 +619,7 @@ export default function RelatoriosPage() {
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
           atendidas:  filteredLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
-          matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c).startsWith(m)).length,
+          matriculas: filteredClients.filter(c => matriculaReal(c) && matriculaDia(c).startsWith(m)).length,
         }
       })
     }
@@ -633,7 +641,7 @@ export default function RelatoriosPage() {
         visitas:    allVisits.filter(v => v.visit_date === ds).length,
         calls:      filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.calls || 0), 0),
         atendidas:  filteredLogs.filter(l => l.log_date === ds).reduce((s, l) => s + (l.answered || 0), 0),
-        matriculas: filteredClients.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c) === ds).length,
+        matriculas: filteredClients.filter(c => matriculaReal(c) && matriculaDia(c) === ds).length,
       }
     })
   })()
@@ -702,7 +710,7 @@ export default function RelatoriosPage() {
         : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
       const inPeriod   = mc.filter(c => inRange(new Date(c.created_at)))
       const visits     = mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
-      const matriculas = mc.filter(c => c.matricula_stage === 'matriculado')
+      const matriculas = mc.filter(matriculaReal)
       const logsInRange = dailyLogs.filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
       const calls      = logsInRange.reduce((s, l) => s + (l.calls || 0), 0)
       const atendidas  = logsInRange.reduce((s, l) => s + (l.answered || 0), 0)
@@ -775,7 +783,7 @@ export default function RelatoriosPage() {
           visitas:    allVisits.filter(v => v.visit_date?.startsWith(m)).length,
           calls:      allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.calls || 0), 0),
           atendidas:  allLogs.filter(l => l.log_date?.startsWith(m)).reduce((s, l) => s + (l.answered || 0), 0),
-          matriculas: uniq.filter(c => c.matricula_stage === 'matriculado' && matriculaDia(c).startsWith(m)).length,
+          matriculas: uniq.filter(c => matriculaReal(c) && matriculaDia(c).startsWith(m)).length,
         }
       })
     }

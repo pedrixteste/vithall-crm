@@ -261,7 +261,8 @@ export default function Dashboard() {
 
     // Matrículas: crédito de comissão (mesma fonte do "Produzido hoje"),
     // que vai p/ quem marcou a visita — SEMPRE só as da própria pessoa.
-    const matq = porDia(supabase.from('matricula_credits').select('id', { count: 'exact' }), 'credit_date')
+    // Traz a situação da matrícula junto: pendente não conta até efetivar
+    const matq = porDia(supabase.from('matricula_credits').select('id, clients(matricula_status)'), 'credit_date')
       .eq('credited_to', user.id)
 
     const [ret, v, pend, cl, rv, mc, dl] = await Promise.all([
@@ -283,7 +284,8 @@ export default function Dashboard() {
       calls: a.calls + (l.calls || 0), answered: a.answered + (l.answered || 0),
     }), { calls: 0, answered: 0 })
     setStats({
-      retornos: ret.count || 0, visits: v.count || 0, pending: pend, closed: cl.count || 0,
+      retornos: ret.count || 0, visits: v.count || 0, pending: pend,
+      closed: (cl.data || []).filter(m => (m.clients?.matricula_status || 'efetivada') !== 'pendente').length,
       marcacoes: mc.count || 0, callsToday: somaLogs.calls, answeredToday: somaLogs.answered,
     })
     // Pré-vendas não faz visita: em vez das visitas "dele", mostra as que ele

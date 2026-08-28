@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil, Repeat } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import CallbackForm from '../components/CallbackForm'
-import { STAGE_BADGES } from '../components/ui/Badge'
+import { STAGE_BADGES, stageBadgeKey } from '../components/ui/Badge'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
@@ -300,7 +300,9 @@ export default function VisitasHojePage() {
       }
     }
     setProd({
-      marcacoes: marc.data || [], visitas, matriculas: mats.data || [],
+      marcacoes: marc.data || [], visitas,
+      // pendente ainda não é matrícula — só entra no Produzido quando efetivar
+      matriculas: (mats.data || []).filter(m => (m.clients?.matricula_status || 'efetivada') !== 'pendente'),
       calls: dlog.data?.calls || 0, answered: dlog.data?.answered || 0,
       callbacksToday: cbt.data || [],
     })
@@ -540,7 +542,7 @@ export default function VisitasHojePage() {
                         </span>
                       </div>
                     )}
-                    <div className="flex-shrink-0">{STAGE_BADGES[v.matricula_stage] || null}</div>
+                    <div className="flex-shrink-0">{STAGE_BADGES[stageBadgeKey(v)] || null}</div>
                   </div>
                   <p className="text-[12px] mt-3" style={{ color: '#8B857D' }}>Toque para abrir o cliente →</p>
                 </button>

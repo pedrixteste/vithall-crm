@@ -33,4 +33,12 @@ export const STAGE_BADGES = {
   cancelado:      <Badge variant="bordo">Cancelou visita</Badge>,
   recebeu_visita: <Badge variant="purple">Recebeu visita</Badge>,
   matriculado:    <Badge variant="green">Matriculado!!</Badge>,
+  matricula_pendente: <Badge variant="gold">⏳ Matricula pendente</Badge>,
 }
+
+// Estágio a EXIBIR: matriculado com situação pendente vira o estágio virtual
+// "Matrícula pendente" — automático, ninguém marca isso na mão.
+export const stageBadgeKey = (c) =>
+  c?.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === 'pendente'
+    ? 'matricula_pendente'
+    : c?.matricula_stage

@@ -8,7 +8,7 @@ import TaskQuickForm from '../components/TaskQuickForm'
 import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import { Card } from '../components/ui/Card'
-import { STAGE_BADGES } from '../components/ui/Badge'
+import { STAGE_BADGES, stageBadgeKey } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
 import { phoneDigits, allPhones, allPhoneDigits } from '../lib/utils'
@@ -32,6 +32,7 @@ const STAGE_OPTIONS = [
   { key: 'nao_apareceu',   label: 'Nao apareceu',  color: '#E8834A' },
   { key: 'recebeu_visita', label: 'Recebeu visita', color: '#A78BFA' },
   { key: 'matriculado',    label: 'Matriculado!!', color: '#4ADE80' },
+  { key: 'matricula_pendente', label: 'Matricula pendente', color: '#C9A84C' },
 ]
 
 const PERIOD_OPTIONS = [
@@ -174,7 +175,13 @@ export default function ClientesPage() {
       c.contact_name?.toLowerCase().includes(q) ||
       (qDigits && allPhoneDigits(c).some(d => d.includes(qDigits)))
 
-    const matchesStage   = !filterStage || c.matricula_stage === filterStage
+    // "Matrícula pendente" é estágio VIRTUAL (matriculado + situação pendente);
+    // o chip "Matriculado!!" passa a mostrar só as efetivadas
+    const isPendMat = c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === 'pendente'
+    const matchesStage = !filterStage ||
+      (filterStage === 'matricula_pendente' ? isPendMat
+        : filterStage === 'matriculado' ? (c.matricula_stage === 'matriculado' && !isPendMat)
+        : c.matricula_stage === filterStage)
     const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
     const matchesHasDone = filterHasDone.length === 0 ||
       filterHasDone.some(t => (c.matriculas || []).includes(t))
@@ -600,7 +607,7 @@ export default function ClientesPage() {
                           </span>
                         ))}
                       </div>
-                    ) : STAGE_BADGES[client.matricula_stage]}
+                    ) : STAGE_BADGES[stageBadgeKey(client)]}
                   </div>
                 </div>
                 <ChevronRight size={15} style={{ color: '#958E86', flexShrink: 0 }} />
