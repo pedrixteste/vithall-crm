@@ -94,6 +94,28 @@ function ConfirmStrip({ status, note }) {
 }
 
 // Card compacto (prévia) — usado em ligações e nas coisas de amanhã
+// Telefones do card, cada um discando o próprio número — antes o card inteiro
+// ligava só pro primeiro e o segundo número não era clicável.
+function PhoneDial({ c }) {
+  const ps = allPhones(c)
+  if (!ps.length) return null
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      <Phone size={10} style={{ flexShrink: 0 }} />
+      {ps.map((p, i) => (
+        <span key={i} className="inline-flex items-center">
+          {i > 0 && <span style={{ margin: '0 3px', opacity: 0.6 }}>·</span>}
+          <span role="link"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); window.location.href = 'tel:' + p.n.replace(/[^\d+]/g, '') }}
+            style={{ textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' }}>
+            {p.n}
+          </span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function CompactCard({ time, tag, tagColor, name, company, sub, isPast, onClick, confirmStatus, confirmNote }) {
   return (
     <button onClick={onClick} className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
@@ -580,7 +602,7 @@ export default function VisitasHojePage() {
               time={timeOf(c.call_back_at)}
               tag="Ligar" tagColor="#E8834A"
               name={c.contact_name} company={c.company_name}
-              sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
+              sub={c.phone ? <PhoneDial c={c} /> : null}
               isPast={new Date(c.call_back_at) < new Date()}
               onClick={() => setSelected(c)}
             />
@@ -597,7 +619,7 @@ export default function VisitasHojePage() {
               time={reminderLabel(c.daysUntil, c.reminderDate)}
               tag="Lembrete" tagColor="#22D3EE"
               name={c.contact_name} company={c.company_name}
-              sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
+              sub={c.phone ? <PhoneDial c={c} /> : null}
               onClick={() => setSelected(c)}
             />
           ))}
@@ -627,7 +649,7 @@ export default function VisitasHojePage() {
                 {(c.company_name || c.contact_role) && (
                   <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                 )}
-                <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
+                <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#E8834A' }}><PhoneDial c={c} /></p>
                 <p className="text-[11px] mt-1" style={{ color: '#8B857D' }}>📅 {regLabel(c.created_at)}</p>
               </a>
               <button onClick={() => setEditingCallback(c)} title="Editar contato"
@@ -808,7 +830,7 @@ export default function VisitasHojePage() {
                   time={timeOf(c.call_back_at)}
                   tag="Ligar" tagColor="#E8834A"
                   name={c.contact_name} company={c.company_name}
-                  sub={c.phone ? <><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</> : null}
+                  sub={c.phone ? <PhoneDial c={c} /> : null}
                   onClick={() => setSelected(c)}
                 />
               ))}
@@ -939,7 +961,7 @@ export default function VisitasHojePage() {
                       {(c.company_name || c.contact_role) && (
                         <p className="text-xs truncate" style={{ color: '#958E86' }}>{[c.company_name, c.contact_role].filter(Boolean).join(' · ')}</p>
                       )}
-                      <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><Phone size={10} /> {allPhones(c).map(p => p.n).join(' · ')}</p>
+                      <p className="text-[12px] mt-0.5 flex items-center gap-1" style={{ color: '#F472B6' }}><PhoneDial c={c} /></p>
                       <p className="text-[11px] mt-1.5" style={{ color: '#8B857D' }}>Toque para editar →</p>
                     </button>
                   ))}
