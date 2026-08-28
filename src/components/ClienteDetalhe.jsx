@@ -1071,6 +1071,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         // Não teve já salvo: "Remarcar?" começa em Não (a decisão foi tomada na época);
         // um Não teve novo obriga a responder Sim/Não antes de salvar.
         noshow_remarcar:         v.rating === NO_SHOW_RATING ? false : undefined,
+        // Dias livres: cópia editável da ficha — o vendedor atualiza na estrela
+        // sem precisar abrir o lápis; salva no cliente ao concluir.
+        dias_livres:             currentClient.dias_livres ? [...currentClient.dias_livres] : [],
         visit_notes:             v.visit_notes      || '',
         visit_outcome:           v.visit_outcome    || null,
         outcome_training:        Array.isArray(v.outcome_training) ? v.outcome_training : (v.outcome_training ? [v.outcome_training] : []),
@@ -1160,6 +1163,15 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       }
       await logEvent('stage_change', { from: currentClient.matricula_stage, to: 'nao_apareceu' })
       setCurrentClient(c => ({ ...c, matricula_stage: 'nao_apareceu' }))
+    }
+
+    // Dias livres mexidos na estrela → atualiza a ficha do cliente
+    const diasNovos = edit.dias_livres || []
+    const diasAntes = currentClient.dias_livres || []
+    if ([...diasNovos].sort().join() !== [...diasAntes].sort().join()) {
+      const { error: dlErr } = await supabase.from('clients')
+        .update({ dias_livres: diasNovos }).eq('id', currentClient.id)
+      if (!dlErr) setCurrentClient(c => ({ ...c, dias_livres: diasNovos }))
     }
 
     // Avisa quem marcou a visita que o feedback foi preenchido (push, fire-and-forget)
@@ -3142,6 +3154,39 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           {isListening && (
                             <p style={{ fontSize: '12px', color: '#E85555', marginTop: '4px', fontWeight: 600 }}>● Gravando... toque no microfone para parar</p>
                           )}
+                        </div>
+
+                        {/* Dias livres do cliente — atalho pra atualizar a ficha sem abrir
+                            o lápis. AZUL = já estava na ficha (veio do cadastro);
+                            DOURADO = adicionado agora, aqui na estrela. */}
+                        <div>
+                          <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#958E86', marginBottom: '8px' }}>
+                            📅 Dias livres do cliente <span style={{ color: '#8E8881' }}>(opcional)</span>
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                            {['seg', 'ter', 'qua', 'qui', 'sex'].map(dk => {
+                              const marcado = (edit.dias_livres || []).includes(dk)
+                              const daFicha = (currentClient.dias_livres || []).includes(dk)
+                              const tom = daFicha ? '96,165,250' : '201,168,76' // azul: veio da ficha · dourado: marcado agora
+                              return (
+                                <button key={dk} disabled={!canRate}
+                                  onClick={() => setEdit({ dias_livres: marcado
+                                    ? (edit.dias_livres || []).filter(x => x !== dk)
+                                    : [...(edit.dias_livres || []), dk] })}
+                                  style={{ padding: '10px 4px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: canRate ? 'pointer' : 'default',
+                                    background: marcado ? `rgba(${tom},0.12)` : '#111',
+                                    color: marcado ? (daFicha ? '#60A5FA' : '#C9A84C') : '#958E86',
+                                    border: `1px solid ${marcado ? `rgba(${tom},0.4)` : '#252525'}` }}>
+                                  {DIAS_LIVRES_LABEL[dk]}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <p style={{ fontSize: '11px', color: '#8E8881', marginTop: '6px', lineHeight: 1.5 }}>
+                            {(currentClient.dias_livres || []).length > 0
+                              ? <><span style={{ color: '#60A5FA', fontWeight: 700 }}>Azul</span> = preenchido no cadastro · <span style={{ color: '#C9A84C', fontWeight: 700 }}>dourado</span> = adicionado agora. Salva na ficha ao concluir.</>
+                              : 'Descobriu dias em que o cliente está livre? Marque aqui — vai pra ficha ao concluir.'}
+                          </p>
                         </div>
 
                         {/* Erro de salvamento — o botão NÃO fica verde e a
