@@ -755,6 +755,8 @@ export default function RelatoriosPage() {
       // matrículas de clientes que a pessoa marcou (comissão), no período —
       // com a LISTA de quem fechou, que agora sai no relatório
       const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
+        // pendente não entra no relatório até efetivar (mesma regra da tela)
+        .filter(cr => { const c = clienteDoCredito(cr.client_id); return !c || (c.matricula_status || 'efetivada') !== 'pendente' })
       return { ...p, memberClients, logs, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
     })
 

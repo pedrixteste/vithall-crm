@@ -36,8 +36,17 @@ function calcMetrics(memberClients, logs, periodStart, periodEnd) {
   const inPeriod   = memberClients.filter(c => inR(new Date(c.created_at)))
   const visits     = memberClients.flatMap(c =>
     (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
-  const allEnrolled = memberClients.filter(c => c.matricula_stage === 'matriculado')
-  const enrolled   = inPeriod.filter(c => c.matricula_stage === 'matriculado')
+  // Mesmas regras da tela: pendente não é matrícula até efetivar, e a
+  // matrícula conta pela DATA em que aconteceu (visita matriculada), não
+  // pela data de cadastro do cliente
+  const isReal = (c) => c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') !== 'pendente'
+  const matDia = (c) => {
+    const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada' && v.visit_date)
+      .map(v => v.visit_date).sort().pop()
+    return mv ? new Date(mv + 'T12:00:00') : new Date(c.created_at)
+  }
+  const allEnrolled = memberClients.filter(isReal)
+  const enrolled   = allEnrolled.filter(c => inR(matDia(c)))
   const noShow     = inPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const canceled   = inPeriod.filter(c => c.matricula_stage === 'cancelado')
   const logsInPeriod = logs.filter(l => inR(new Date(l.log_date + 'T12:00:00')))
@@ -317,7 +326,7 @@ function enrolledSection(members) {
         <div class="enr-head">
           ${esc(m.name)} <span>· ${m.enrolled.length} ${plural(m.enrolled.length, 'matrícula')}</span>
         </div>
-        <table>
+        <div class="tbl-wrap"><table>
           <thead><tr>
             <th class="l">Cliente</th><th class="l">Empresa</th>
             <th>Data</th><th>Valor</th><th>Situação</th>
@@ -328,14 +337,14 @@ function enrolledSection(members) {
               <td class="l b">${esc(e.matriculado || e.nome)}</td>
               <td class="l c-mute">${esc(e.empresa || '—')}</td>
               <td>${new Date(e.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-              <td class="c-gold b">${e.valor ? 'R$ ' + esc(e.valor) : '—'}</td>
+              <td class="c-gold b">${e.valor ? 'R$ ' + esc(String(e.valor).replace(/^\s*R\$\s*/i, '')) : '—'}</td>
               <td>
                 <span class="pill ${e.status === 'pendente' ? 'pill-warn' : 'pill-ok'}">${e.status === 'pendente' ? 'Pendente' : 'Efetivada'}</span>
                 ${e.status === 'pendente' && e.nota ? `<div class="pill-note">${esc(e.nota)}</div>` : ''}
               </td>
             </tr>`).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>`).join('')}
   </div>`
 }
@@ -353,7 +362,7 @@ function monthlySection(monthly) {
   return `
   <div class="section">
     <div class="section-title">Resumo Mês a Mês</div>
-    <table>
+    <div class="tbl-wrap"><table>
       <thead><tr>
         <th class="l">Mês</th>
         ${METS.map(([, l, c]) => `<th style="color:${c}">${l}</th>`).join('')}
@@ -369,7 +378,7 @@ function monthlySection(monthly) {
           }).join('')}
         </tr>`).join('')}
       </tbody>
-    </table>
+    </table></div>
     <div class="foot-note">🔥 marca o melhor mês em cada métrica</div>
   </div>`
 }
@@ -486,16 +495,9 @@ export function generateReportHTML({
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Fundo e cor precisam sair na impressão, senão vira tudo branco */
   .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
 
-  /* Tela estreita (celular): menos colunas pros números não serem cortados */
-  @media screen and (max-width: 560px) {
-    .card-grid { grid-template-columns: repeat(2, 1fr); }
-    .hl-grid, .tr-grid, .ind-grid, .comp-grid { grid-template-columns: 1fr; }
-    .comp-grid { gap: 18px; }
-  }
-
+  /* Fundo e cor precisam sair na impressão, senão vira tudo branco */
   @media print {
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { background: #fff; }
@@ -616,6 +618,7 @@ export function generateReportHTML({
   .or-val { width: 22px; text-align: right; font-size: 12px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 
   /* ── Tabelas ───────────────────────────────────────────── */
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
   thead th {
     padding: 9px 7px; text-align: center; font-size: 9.5px;
@@ -679,6 +682,28 @@ export function generateReportHTML({
     color: #F5EFE0; font-weight: 700; font-size: 13.5px; border-radius: 13px;
     cursor: pointer; border: none; box-shadow: 0 6px 22px rgba(123,28,58,.32);
     font-family: inherit;
+  }
+
+  /* ── Celular (tela estreita) — precisa ficar DEPOIS das regras base ── */
+  @media screen and (max-width: 640px) {
+    .wrap { padding-bottom: 90px; }
+    .header { padding: 22px 18px 20px; }
+    .header-top { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .header-meta { text-align: left; }
+    .header h1 { font-size: 22px; margin-top: 16px; }
+    .section { padding: 18px 14px; margin: 12px 8px 0; }
+    .card-grid { grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .card { padding: 12px 12px 11px; }
+    .card-value { font-size: 25px; letter-spacing: -0.8px; }
+    .hl-grid, .tr-grid, .ind-grid, .comp-grid { grid-template-columns: 1fr; }
+    .comp-grid { gap: 20px; }
+    .fn-label { width: 66px; font-size: 11px; }
+    .fn-step { width: 46px; }
+    .or-label { width: 96px; }
+    table { font-size: 11px; }
+    thead th, tbody td { padding: 8px 6px; }
+    thead th:first-child { min-width: 110px; }
+    .print-btn { bottom: 16px; right: 16px; padding: 12px 20px; font-size: 12.5px; }
   }
 </style>
 </head>
@@ -748,7 +773,7 @@ export function generateReportHTML({
   ${showTable ? `
   <div class="section ${members.length > 6 ? 'page-break' : ''}">
     <div class="section-title">Desempenho Individual — Período</div>
-    <table>
+    <div class="tbl-wrap"><table>
       <thead>
         <tr>
           <th class="l">Pessoa</th>
@@ -778,7 +803,7 @@ export function generateReportHTML({
           <td>${fmtPct(totals.convVE)}</td>
         </tr>
       </tbody>
-    </table>
+    </table></div>
   </div>` : ''}
 
   <!-- ── TREINAMENTOS + ORIGENS ── -->
