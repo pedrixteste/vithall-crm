@@ -1476,12 +1476,9 @@ export default function RelatoriosPage() {
                   Período do relatório
                 </p>
                 <p style={{ fontSize: '14px', fontWeight: 600, color: '#C9A84C' }}>
-                  {period === 'week'  ? 'Últimos 7 dias'
-                   : period === 'month' ? 'Últimos 30 dias'
-                   : period === 'year'  ? 'Últimos 12 meses'
-                   : customFrom || customTo
-                     ? `${customFrom || '...'} a ${customTo || 'hoje'}`
-                     : 'Personalizado'}
+                  {/* Mesmo rótulo da tela e do PDF — a etiqueta antiga era fixa
+                      e dizia "Últimos 30 dias" mesmo com um mês específico escolhido */}
+                  {periodLabel}
                 </p>
                 <p style={{ fontSize: '12px', color: '#979089', marginTop: '2px' }}>
                   Ajuste o filtro de período antes de exportar
