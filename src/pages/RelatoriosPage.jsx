@@ -420,6 +420,11 @@ export default function RelatoriosPage() {
 
   const specific = periodMode === 'specific'
 
+  // Conta supervisora (profiles.supervisor): enxerga também os OUTROS gerentes
+  // nos relatórios — filtro por pessoa, ranking e exportação. Gerente comum
+  // continua vendo só vendedores e pré-vendas.
+  const pessoasRelatorio = profiles.filter(p => p.role !== 'gerente' || profile?.supervisor === true)
+
   const periodEnd = (() => {
     if (period === 'custom' && customTo) return new Date(customTo + 'T23:59:59')
     if (period === 'day' && specDay) return new Date(specDay + 'T23:59:59')
@@ -719,8 +724,7 @@ export default function RelatoriosPage() {
 
   // ── Ranking da equipe ──────────────────────────────────────────────
 
-  const teamStats = profiles
-    .filter(p => p.role !== 'gerente')
+  const teamStats = pessoasRelatorio
     .map(p => {
       const mc = p.role === 'pre_vendas'
         ? clients.filter(c => c.created_by === p.id)
@@ -762,7 +766,7 @@ export default function RelatoriosPage() {
     }
     let exportProfiles = []
     if (exportScope === 'all') {
-      exportProfiles = profiles.filter(p => p.role !== 'gerente')
+      exportProfiles = pessoasRelatorio
     } else if (exportScope === 'pre_vendas') {
       exportProfiles = profiles.filter(p => p.role === 'pre_vendas')
     } else if (exportScope === 'vendedores') {
@@ -1035,7 +1039,7 @@ export default function RelatoriosPage() {
             Ver dados de
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {[{ id: 'all', name: 'Equipe toda', role: null }, ...profiles.filter(p => p.role !== 'gerente')].map(p => (
+            {[{ id: 'all', name: 'Equipe toda', role: null }, ...pessoasRelatorio].map(p => (
               <button key={p.id} onClick={() => setSelectedPerson(p.id)}
                 style={{
                   padding: '8px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
@@ -1560,7 +1564,7 @@ export default function RelatoriosPage() {
                       fontSize: '14px', outline: 'none', appearance: 'none',
                     }}>
                     <option value="">Selecionar pessoa...</option>
-                    {profiles.filter(p => p.role !== 'gerente').map(p => (
+                    {pessoasRelatorio.map(p => (
                       <option key={p.id} value={p.id}>{p.name} — {ROLE_LABELS[p.role]}</option>
                     ))}
                   </select>
@@ -1569,7 +1573,7 @@ export default function RelatoriosPage() {
 
               {/* Escolha livre de pessoas (personalizado) */}
               {exportScope === 'custom' && (() => {
-                const gente = profiles.filter(p => p.role !== 'gerente')
+                const gente = pessoasRelatorio
                 const toggle = (id) => setExportPeople(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id])
                 return (
                   <div>
