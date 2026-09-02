@@ -517,14 +517,13 @@ export function generateReportHTML({
     /* No papel não existe rolagem: a tabela abre inteira na largura do A4,
        com os títulos quebrando linha em vez de cortar coluna */
     .tbl-wrap { overflow: visible !important; }
-    thead th { white-space: normal; }
+    thead th { white-space: normal; font-size: 9px; letter-spacing: .04em; }
     thead th:first-child { min-width: 80px; }
-    .t-name, .t-name em { white-space: normal; }
-    .t-name { overflow-wrap: anywhere; }
-    /* Respiros menores no papel: a tabela de 10 colunas cabe inteira no A4
+    .t-name { white-space: normal; }
+    /* Respiros menores no papel: a tabela de 11 colunas cabe inteira no A4
        sem mexer no tamanho dos números (conferido a 741px = A4 com margens) */
     .section { margin: 14px 8px 0; padding: 20px 14px; }
-    thead th, tbody td { padding: 8px 4px; }
+    thead th, tbody td { padding: 8px 3px; }
   }
   @page { margin: 12mm 7mm; size: A4; }
 
