@@ -800,8 +800,16 @@ export default function RelatoriosPage() {
       monthly,
     })
 
-    const win = window.open('', '_blank')
-    if (win) { win.document.write(html); win.document.close() }
+    // Blob URL em vez de document.write: no celular, o "about:blank" ignora a
+    // <meta viewport> e o relatório renderiza espremido num canto da tela
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const win  = window.open(url, '_blank')
+    if (!win) { // pop-up bloqueado: cai no modo antigo
+      const w2 = window.open('', '_blank')
+      if (w2) { w2.document.write(html); w2.document.close() }
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
     setShowExportModal(false)
   }
 

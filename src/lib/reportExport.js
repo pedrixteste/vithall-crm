@@ -487,6 +487,15 @@ export function generateReportHTML({
   }
 
   /* Fundo e cor precisam sair na impressão, senão vira tudo branco */
+  .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+
+  /* Tela estreita (celular): menos colunas pros números não serem cortados */
+  @media screen and (max-width: 560px) {
+    .card-grid { grid-template-columns: repeat(2, 1fr); }
+    .hl-grid, .tr-grid, .ind-grid, .comp-grid { grid-template-columns: 1fr; }
+    .comp-grid { gap: 18px; }
+  }
+
   @media print {
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { background: #fff; }
@@ -775,7 +784,7 @@ export function generateReportHTML({
   <!-- ── TREINAMENTOS + ORIGENS ── -->
   <div class="section keep">
     <div class="section-title">Composição das Matrículas</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px">
+    <div class="comp-grid">
       <div>${trainingsSection(totalTrainings)}</div>
       <div>${originsSection(totalOrigins)}</div>
     </div>
