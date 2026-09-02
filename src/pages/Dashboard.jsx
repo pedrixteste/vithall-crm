@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { creditoConta } from '../lib/matricula'
 import { useAuth } from '../contexts/AuthContext'
 import { MapPin, CheckSquare, TrendingUp, Plus, Calendar, CalendarCheck, ExternalLink, RotateCcw, CheckCircle2, XCircle, PhoneCall, PhoneForwarded, Clock, Trash2, Repeat, Star } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -285,7 +286,7 @@ export default function Dashboard() {
     }), { calls: 0, answered: 0 })
     setStats({
       retornos: ret.count || 0, visits: v.count || 0, pending: pend,
-      closed: (cl.data || []).filter(m => (m.clients?.matricula_status || 'efetivada') !== 'pendente').length,
+      closed: (cl.data || []).filter(m => creditoConta(m.clients)).length,
       marcacoes: mc.count || 0, callsToday: somaLogs.calls, answeredToday: somaLogs.answered,
     })
     // Pré-vendas não faz visita: em vez das visitas "dele", mostra as que ele

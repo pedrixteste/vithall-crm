@@ -33,6 +33,7 @@ const STAGE_OPTIONS = [
   { key: 'recebeu_visita', label: 'Recebeu visita', color: '#A78BFA' },
   { key: 'matriculado',    label: 'Matriculado!!', color: '#4ADE80' },
   { key: 'matricula_pendente', label: 'Matricula pendente', color: '#C9A84C' },
+  { key: 'matricula_cancelada', label: 'Matricula cancelada', color: '#E8748A' },
 ]
 
 const PERIOD_OPTIONS = [
@@ -177,10 +178,11 @@ export default function ClientesPage() {
 
     // "Matrícula pendente" é estágio VIRTUAL (matriculado + situação pendente);
     // o chip "Matriculado!!" passa a mostrar só as efetivadas
-    const isPendMat = c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === 'pendente'
+    const matSt = c.matricula_stage === 'matriculado' ? (c.matricula_status || 'efetivada') : null
     const matchesStage = !filterStage ||
-      (filterStage === 'matricula_pendente' ? isPendMat
-        : filterStage === 'matriculado' ? (c.matricula_stage === 'matriculado' && !isPendMat)
+      (filterStage === 'matricula_pendente'  ? matSt === 'pendente'
+        : filterStage === 'matricula_cancelada' ? matSt === 'cancelada'
+        : filterStage === 'matriculado' ? matSt === 'efetivada'
         : c.matricula_stage === filterStage)
     const matchesCity    = !filterCity  || c.city?.trim().toLowerCase() === filterCity.toLowerCase()
     const matchesHasDone = filterHasDone.length === 0 ||
@@ -338,7 +340,7 @@ export default function ClientesPage() {
               Situação da matrícula
             </p>
             <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
-              {[['efetivada', '✅ Efetivadas', '#4ADE80'], ['pendente', '⏳ Pendentes', '#E8834A']].map(([k, label, cor]) => (
+              {[['efetivada', '✅ Efetivadas', '#4ADE80'], ['pendente', '⏳ Pendentes', '#E8834A'], ['cancelada', '❌ Canceladas', '#E8748A']].map(([k, label, cor]) => (
                 <button key={k} type="button"
                   onClick={() => setFilterMatStatus(f => f === k ? '' : k)}
                   className="text-xs font-semibold rounded-full transition-all"

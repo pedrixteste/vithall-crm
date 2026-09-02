@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 // carregado sob demanda para não pesar quem só abre a tela pra ver os números.
 import { localDateStr } from '../lib/utils'
 import { visitasDaMarcacao } from '../lib/visitMetrics'
+import { matriculaConta, creditoConta } from '../lib/matricula'
 import RelatoriosListas from '../components/RelatoriosListas'
 
 // ── Constantes ─────────────────────────────────────────────────────
@@ -503,8 +504,7 @@ export default function RelatoriosPage() {
       )
   // Matrícula PENDENTE ainda não é matrícula: só conta nos números quando a
   // situação for efetivada (regra do caso Heleno, 28/08/26)
-  const matriculaReal = (c) =>
-    c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') !== 'pendente'
+  const matriculaReal = matriculaConta
 
   // Dia em que a matrícula aconteceu (NÃO o dia do cadastro): a visita que
   // terminou em matrícula → o crédito lançado → por último, o cadastro.
@@ -533,7 +533,7 @@ export default function RelatoriosPage() {
   const clienteDoCredito = (id) => clients.find(x => x.id === id) || creditClients.find(x => x.id === id)
   const creditsInPeriod = credits.filter(cr => inRange(new Date(cr.credit_date + 'T12:00:00')))
     // matrícula pendente: o crédito só passa a contar quando efetivar
-    .filter(cr => { const c = clienteDoCredito(cr.client_id); return !c || (c.matricula_status || 'efetivada') !== 'pendente' })
+    .filter(cr => creditoConta(clienteDoCredito(cr.client_id)))
   const filteredCredits = profile?.role === 'gerente' && selectedPerson !== 'all'
     ? creditsInPeriod.filter(cr => cr.credited_to === selectedPerson)
     : creditsInPeriod
@@ -781,7 +781,7 @@ export default function RelatoriosPage() {
       // com a LISTA de quem fechou, que agora sai no relatório
       const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
         // pendente não entra no relatório até efetivar (mesma regra da tela)
-        .filter(cr => { const c = clienteDoCredito(cr.client_id); return !c || (c.matricula_status || 'efetivada') !== 'pendente' })
+        .filter(cr => creditoConta(clienteDoCredito(cr.client_id)))
       return { ...p, memberClients, logs, bookingsByClient, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
     })
 
@@ -824,6 +824,8 @@ export default function RelatoriosPage() {
       periodEnd,
       periodLabel: pLabel,
       exportedBy:  profile?.name || 'Gerente',
+      // nomes p/ "cancelada por Fulano" no relatório
+      peopleNames: Object.fromEntries(profiles.map(p => [p.id, p.name])),
       monthly,
     })
 

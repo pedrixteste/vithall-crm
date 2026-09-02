@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap, CheckCircle2, XCircle, PhoneCall, CalendarClock } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits } from '../lib/clientStage'
+import { matriculaStatus, reembolsoTexto } from '../lib/matricula'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
 import { CONFIRMATION_INFO, NO_SHOW_RATING, POST_VISITA } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
@@ -123,6 +124,11 @@ function describeEvent(type, data) {
   }
   if (type === 'matricula_added')   return `Matriculado em ${data?.training}`
   if (type === 'matricula_removed') return `Matricula removida: ${data?.training}`
+  if (type === 'matricula_cancelada') {
+    const r = data?.reembolso === 'sim' ? 'reembolso integral' : data?.reembolso === 'parcial' ? `reembolso parcial${data?.valor ? ` (R$ ${data.valor})` : ''}` : data?.reembolso === 'nao' ? 'sem reembolso' : ''
+    return `Matrícula cancelada${data?.motivo ? ` — ${data.motivo}` : ''}${r ? ` · ${r}` : ''}`
+  }
+  if (type === 'matricula_reativada') return `Matrícula reativada (${data?.situacao === 'pendente' ? 'pendente' : 'efetivada'})`
   if (type === 'stage_change') {
     return STAGES[data?.to]?.label || data?.to || '—'
   }
@@ -141,6 +147,8 @@ function getEventColor(type, data) {
   }
   if (type === 'matricula_added')   return '#4ADE80'
   if (type === 'matricula_removed') return '#E85555'
+  if (type === 'matricula_cancelada') return '#E8748A'
+  if (type === 'matricula_reativada') return '#4ADE80'
   if (type === 'visit')             return '#A78BFA'
   if (type === 'visit_scheduled')   return '#22D3EE'
   if (type === 'created')           return '#C9A84C'
@@ -153,6 +161,8 @@ function getEventIcon(type, data) {
   if (type === 'visit_scheduled')   return data?.from ? '🔁' : '📌'
   if (type === 'matricula_added')   return '✅'
   if (type === 'matricula_removed') return '❌'
+  if (type === 'matricula_cancelada') return '❌'
+  if (type === 'matricula_reativada') return '♻️'
   if (type === 'stage_change') {
     if (data?.to === 'nao_apareceu')   return '🚫'
     if (data?.to === 'cancelado')      return '📵'
@@ -411,6 +421,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [matStatusDraft, setMatStatusDraft]       = useState('efetivada')
   const [matStatusNoteDraft, setMatStatusNoteDraft] = useState('')
   const [savingMatStatus, setSavingMatStatus]     = useState(false)
+  const [reembolsoDraft, setReembolsoDraft]       = useState(null)  // 'sim' | 'parcial' | 'nao'
+  const [reembolsoValorDraft, setReembolsoValorDraft] = useState('')
+  const [cancelArmed, setCancelArmed]             = useState(false) // 2º toque confirma o cancelamento
   const [showRating, setShowRating]           = useState(false)
   const [ratingEdits, setRatingEdits]         = useState({})
   const [savingRatingId, setSavingRatingId]   = useState(null)
@@ -620,16 +633,46 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
   // Salva a situação da matrícula editada na ficha (chip "Matrícula: ...")
   async function saveMatStatus() {
+    const antes = matriculaStatus(currentClient)
+    const cancelando = matStatusDraft === 'cancelada'
+    if (cancelando) {
+      if (!matStatusNoteDraft.trim()) { alert('Informe o motivo do cancelamento.'); return }
+      if (!reembolsoDraft) { alert('Informe se houve reembolso.'); return }
+      if (reembolsoDraft === 'parcial' && !reembolsoValorDraft.trim()) { alert('Informe quanto foi reembolsado.'); return }
+      // Cancelar mexe em comissão de várias pessoas: pede um segundo toque
+      if (!cancelArmed) { setCancelArmed(true); return }
+    }
     setSavingMatStatus(true)
     const payload = {
       matricula_status:      matStatusDraft,
-      matricula_status_note: matStatusDraft === 'pendente' ? (matStatusNoteDraft.trim() || null) : null,
+      matricula_status_note: matStatusDraft === 'efetivada' ? null : (matStatusNoteDraft.trim() || null),
+      // Campos do cancelamento: preenchidos ao cancelar, limpos ao sair de cancelada
+      matricula_reembolso:       cancelando ? reembolsoDraft : null,
+      matricula_reembolso_valor: cancelando && reembolsoDraft === 'parcial' ? reembolsoValorDraft.trim() : null,
+      matricula_cancelada_em:    cancelando ? (currentClient.matricula_cancelada_em || new Date().toISOString()) : null,
+      matricula_cancelada_por:   cancelando ? (currentClient.matricula_cancelada_por || user.id) : null,
     }
     const { error } = await supabase.from('clients').update(payload).eq('id', currentClient.id)
     setSavingMatStatus(false)
     if (error) { alert('Não foi possível salvar — verifique sua internet e tente de novo.'); return }
     setCurrentClient(c => ({ ...c, ...payload }))
     setEditingMatStatus(false)
+    setCancelArmed(false)
+    // Rastro no histórico + aviso no sino dos gerentes (os créditos ficam no
+    // banco, congelados — reativar devolve tudo)
+    const nome = currentClient.contact_name || currentClient.company_name || 'Cliente'
+    if (cancelando && antes !== 'cancelada') {
+      await logEvent('matricula_cancelada', { motivo: payload.matricula_status_note, reembolso: reembolsoDraft, valor: payload.matricula_reembolso_valor })
+      supabase.rpc('notificar_gerentes', {
+        p_title: `Matrícula cancelada — ${nome}`,
+        p_body:  `${profile?.name || 'Alguém'} cancelou. Motivo: ${payload.matricula_status_note}. ${reembolsoTexto({ ...currentClient, ...payload }) || ''}`,
+        p_url:   '/clientes',
+      }).then(() => {}, () => {})
+      fetchHistory()
+    } else if (!cancelando && antes === 'cancelada') {
+      await logEvent('matricula_reativada', { situacao: matStatusDraft })
+      fetchHistory()
+    }
   }
 
   async function toggleTask(task) {
@@ -1605,36 +1648,56 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               )}
             </div>
 
-            {/* Situação da matrícula — efetivada/pendente (só p/ matriculado).
-                Pendente carrega a descrição do que falta; editável na ficha
-                para o vendedor efetivar depois sem reabrir a estrela. */}
+            {/* Situação da matrícula — efetivada / pendente / cancelada (só p/
+                matriculado). Pendente e cancelada carregam a descrição;
+                cancelada tem também reembolso, data e quem cancelou. Editável
+                na ficha pelo gerente ou pelo vendedor responsável. */}
             {currentClient.matricula_stage === 'matriculado' && (() => {
-              const pend = currentClient.matricula_status === 'pendente'
-              const cor = pend ? '#E8834A' : '#4ADE80'
+              const st  = matriculaStatus(currentClient)
+              const cor = st === 'cancelada' ? '#E8748A' : st === 'pendente' ? '#E8834A' : '#4ADE80'
+              const rotulo = st === 'cancelada' ? '❌ Cancelada' : st === 'pendente' ? '⏳ Pendente' : '✅ Efetivada'
+              const canEditMat = profile?.role === 'gerente' || canRate
+              const abrir = () => {
+                if (!canEditMat) return
+                setMatStatusDraft(st)
+                setMatStatusNoteDraft(currentClient.matricula_status_note || '')
+                setReembolsoDraft(currentClient.matricula_reembolso || null)
+                setReembolsoValorDraft(currentClient.matricula_reembolso_valor || '')
+                setCancelArmed(false)
+                setEditingMatStatus(e => !e)
+              }
+              const canceladaPor = teamProfiles.find(p => p.id === currentClient.matricula_cancelada_por)?.name?.split(' ')[0]
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div className="flex items-center gap-2.5 text-sm">
                     <GraduationCap size={14} style={{ color: cor }} />
                     <span style={{ color: '#958E86' }}>Matrícula: </span>
-                    <button onClick={() => { if (!canRate) return; setMatStatusDraft(currentClient.matricula_status || 'efetivada'); setMatStatusNoteDraft(currentClient.matricula_status_note || ''); setEditingMatStatus(e => !e) }}
+                    <button onClick={abrir}
                       className="text-xs font-semibold rounded-full transition-all"
-                      style={{ padding: '4px 12px', background: `${cor}18`, color: cor, border: `1px solid ${cor}40`, cursor: canRate ? 'pointer' : 'default' }}>
-                      {pend ? '⏳ Pendente' : '✅ Efetivada'}{canRate ? ' ▾' : ''}
+                      style={{ padding: '4px 12px', background: `${cor}18`, color: cor, border: `1px solid ${cor}40`, cursor: canEditMat ? 'pointer' : 'default' }}>
+                      {rotulo}{canEditMat ? ' ▾' : ''}
                     </button>
                   </div>
-                  {pend && currentClient.matricula_status_note && !editingMatStatus && (
+                  {st !== 'efetivada' && currentClient.matricula_status_note && !editingMatStatus && (
                     <p className="text-xs" style={{ color: '#B0A99F', paddingLeft: '22px', lineHeight: 1.5 }}>
                       "{currentClient.matricula_status_note}"
                     </p>
                   )}
+                  {st === 'cancelada' && !editingMatStatus && (
+                    <p className="text-xs" style={{ color: '#E8748A', paddingLeft: '22px', lineHeight: 1.5 }}>
+                      {reembolsoTexto(currentClient) || 'Reembolso não informado'}
+                      {currentClient.matricula_cancelada_em && ` · cancelada em ${new Date(currentClient.matricula_cancelada_em).toLocaleDateString('pt-BR')}`}
+                      {canceladaPor && ` por ${canceladaPor}`}
+                      <span style={{ color: '#8B857D' }}> · fora dos números de todo mundo</span>
+                    </p>
+                  )}
                   {editingMatStatus && (
                     <div style={{ paddingLeft: '22px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        {[['efetivada', '✅ Efetivada'], ['pendente', '⏳ Pendente']].map(([k, label]) => {
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {[['efetivada', '✅ Efetivada', '#4ADE80'], ['pendente', '⏳ Pendente', '#E8834A'], ['cancelada', '❌ Cancelada', '#E8748A']].map(([k, label, c2]) => {
                           const sel = matStatusDraft === k
-                          const c2 = k === 'efetivada' ? '#4ADE80' : '#E8834A'
                           return (
-                            <button key={k} onClick={() => setMatStatusDraft(k)}
+                            <button key={k} onClick={() => { setMatStatusDraft(k); setCancelArmed(false) }}
                               className="text-xs font-semibold rounded-full"
                               style={{ padding: '5px 12px', background: sel ? `${c2}22` : 'transparent', color: c2, border: `1px solid ${c2}${sel ? '60' : '25'}`, cursor: 'pointer' }}>
                               {sel ? '✓ ' : ''}{label}
@@ -1647,16 +1710,48 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                           placeholder='Ex: "Foi matriculado para uma turma dia 6/7/2029"'
                           style={{ width: '100%', background: '#111', border: '1px solid rgba(232,131,74,0.3)', borderRadius: '10px', padding: '9px 11px', color: '#EFEFEF', fontSize: '12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
                       )}
+                      {matStatusDraft === 'cancelada' && (
+                        <>
+                          <p className="text-[11px]" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+                            Desistência com ou sem reembolso (doença, mudança, etc.). A matrícula sai dos números de <b>todo mundo</b> — vendedor, quem marcou e participantes — inclusive de meses anteriores. Dá pra reativar depois.
+                          </p>
+                          <textarea value={matStatusNoteDraft} onChange={e => { setMatStatusNoteDraft(e.target.value); setCancelArmed(false) }} rows={2}
+                            placeholder='Motivo do cancelamento (obrigatório) — ex: "problema de saúde, pediu o dinheiro de volta"'
+                            style={{ width: '100%', background: '#111', border: '1px solid rgba(232,116,138,0.35)', borderRadius: '10px', padding: '9px 11px', color: '#EFEFEF', fontSize: '12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+                          <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#958E86' }}>Pediu reembolso?</p>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {[['sim', 'Sim, integral'], ['parcial', 'Parcial'], ['nao', 'Não']].map(([k, label]) => {
+                              const sel = reembolsoDraft === k
+                              return (
+                                <button key={k} onClick={() => { setReembolsoDraft(k); setCancelArmed(false) }}
+                                  className="text-xs font-semibold rounded-full"
+                                  style={{ padding: '5px 12px', background: sel ? 'rgba(232,116,138,0.15)' : 'transparent', color: sel ? '#E8748A' : '#958E86', border: `1px solid ${sel ? 'rgba(232,116,138,0.5)' : '#2A2A2A'}`, cursor: 'pointer' }}>
+                                  {sel ? '✓ ' : ''}{label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {reembolsoDraft === 'parcial' && (
+                            <input value={reembolsoValorDraft} onChange={e => { setReembolsoValorDraft(e.target.value); setCancelArmed(false) }}
+                              placeholder="Quanto foi reembolsado? Ex: 1.500,00" inputMode="decimal"
+                              style={{ width: '100%', background: '#111', border: '1px solid rgba(232,116,138,0.35)', borderRadius: '10px', padding: '9px 11px', color: '#EFEFEF', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                        </>
+                      )}
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={() => setEditingMatStatus(false)}
+                        <button onClick={() => { setEditingMatStatus(false); setCancelArmed(false) }}
                           className="text-xs font-semibold rounded-full"
                           style={{ padding: '5px 12px', background: 'transparent', color: '#958E86', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
-                          Cancelar
+                          Voltar
                         </button>
                         <button onClick={saveMatStatus} disabled={savingMatStatus}
                           className="text-xs font-bold rounded-full"
-                          style={{ padding: '5px 14px', background: 'rgba(74,222,128,0.12)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.4)', cursor: 'pointer' }}>
-                          {savingMatStatus ? 'Salvando...' : 'Salvar'}
+                          style={matStatusDraft === 'cancelada'
+                            ? { padding: '5px 14px', background: cancelArmed ? 'rgba(232,85,85,0.22)' : 'rgba(232,116,138,0.12)', color: cancelArmed ? '#FF8A8A' : '#E8748A', border: `1px solid ${cancelArmed ? 'rgba(232,85,85,0.6)' : 'rgba(232,116,138,0.4)'}`, cursor: 'pointer' }
+                            : { padding: '5px 14px', background: 'rgba(74,222,128,0.12)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.4)', cursor: 'pointer' }}>
+                          {savingMatStatus ? 'Salvando...'
+                            : matStatusDraft === 'cancelada' ? (cancelArmed ? 'Tem certeza? Toque de novo para cancelar' : 'Cancelar matrícula')
+                            : st === 'cancelada' ? 'Reativar matrícula' : 'Salvar'}
                         </button>
                       </div>
                     </div>

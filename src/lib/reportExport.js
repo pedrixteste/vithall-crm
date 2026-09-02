@@ -49,7 +49,7 @@ function calcMetrics(memberClients, logs, periodStart, periodEnd, member = {}) {
   // Mesmas regras da tela: pendente não é matrícula até efetivar, e a
   // matrícula conta pela DATA em que aconteceu (visita matriculada), não
   // pela data de cadastro do cliente
-  const isReal = (c) => c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') !== 'pendente'
+  const isReal = (c) => c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === 'efetivada'
   const matDia = (c) => {
     const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada' && v.visit_date)
       .map(v => v.visit_date).sort().pop()
@@ -413,6 +413,7 @@ export function generateReportHTML({
   periodLabel,
   exportedBy,
   monthly,      // resumo mês a mês (período anual) ou null
+  peopleNames = {}, // id → nome (quem cancelou uma matrícula)
 }) {
   const now = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -471,6 +472,21 @@ export function generateReportHTML({
     trainings: totalTrainings, origins: totalOrigins,
     periodStart, periodEnd,
   })
+
+  // Matrículas canceladas no período (desistência com/sem reembolso) — saem
+  // dos números retroativamente; aqui ficam listadas pra não sumir sem rastro
+  const inRangeCancel = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
+  const canceladas = (() => {
+    const seen = new Set(); const out = []
+    for (const c of members.flatMap(m => m.memberClients)) {
+      if (seen.has(c.id)) continue; seen.add(c.id)
+      if (c.matricula_stage !== 'matriculado' || c.matricula_status !== 'cancelada' || !c.matricula_cancelada_em) continue
+      if (!inRangeCancel(new Date(c.matricula_cancelada_em))) continue
+      out.push(c)
+    }
+    return out.sort((a, b) => new Date(b.matricula_cancelada_em) - new Date(a.matricula_cancelada_em))
+  })()
+  const canceladasComReembolso = canceladas.filter(c => c.matricula_reembolso === 'sim' || c.matricula_reembolso === 'parcial').length
 
   const showTable = members.length > 1
 
@@ -775,10 +791,11 @@ export function generateReportHTML({
       ${metricCard('Matr. de marcações', fmt(totals.creditos), 'comissão — de quem marcou',            '#A8823C')}
     </div>
 
-    ${totals.noShow > 0 || totals.canceled > 0 ? `
+    ${totals.noShow > 0 || totals.canceled > 0 || canceladas.length > 0 ? `
     <div class="flags">
       ${totals.noShow > 0 ? `<div class="flag flag-red">🚫 <b>${totals.noShow}</b> não ${plural(totals.noShow, 'apareceu', 'apareceram')}</div>` : ''}
       ${totals.canceled > 0 ? `<div class="flag flag-amb">📵 <b>${totals.canceled}</b> ${plural(totals.canceled, 'cancelou', 'cancelaram')}</div>` : ''}
+      ${canceladas.length > 0 ? `<div class="flag flag-red">❌ <b>${canceladas.length}</b> ${plural(canceladas.length, 'matrícula cancelada', 'matrículas canceladas')}${canceladasComReembolso ? ` · ${canceladasComReembolso} com reembolso` : ''}</div>` : ''}
     </div>` : ''}
 
     <div class="divider"></div>
@@ -849,6 +866,33 @@ export function generateReportHTML({
   </div>
 
   ${enrolledSection(membersWithMetrics)}
+
+  ${canceladas.length ? `
+  <div class="section">
+    <div class="section-title">Matrículas Canceladas no Período</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l">Cliente</th><th class="l">Empresa</th>
+        <th>Cancelada em</th><th class="l">Motivo</th><th>Reembolso</th><th>Por</th>
+      </tr></thead>
+      <tbody>
+        ${canceladas.map(c => {
+          const r = c.matricula_reembolso
+          const reemb = r === 'sim' ? 'Integral' : r === 'parcial' ? ('Parcial' + (c.matricula_reembolso_valor ? ' · R$ ' + esc(String(c.matricula_reembolso_valor).replace(/^\s*R\$\s*/i, '')) : '')) : r === 'nao' ? 'Não' : '—'
+          return `
+            <tr>
+              <td class="l b">${esc(c.contact_name || c.company_name || '—')}</td>
+              <td class="l c-mute">${esc(c.company_name || '—')}</td>
+              <td>${new Date(c.matricula_cancelada_em).toLocaleDateString('pt-BR')}</td>
+              <td class="l" style="white-space:normal;max-width:260px">${esc(c.matricula_status_note || '—')}</td>
+              <td class="${r === 'nao' ? 'c-mute' : 'c-gold b'}">${reemb}</td>
+              <td class="c-mute">${esc(peopleNames[c.matricula_cancelada_por] || '—')}</td>
+            </tr>`
+        }).join('')}
+      </tbody>
+    </table></div>
+    <div class="foot-note">Canceladas saem dos números de matrícula de todo mundo (vendedor, quem marcou e participantes), inclusive de meses anteriores.</div>
+  </div>` : ''}
 
   <!-- ── CARDS INDIVIDUAIS (para grupos) ── -->
   ${showTable ? `

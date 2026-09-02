@@ -5,6 +5,7 @@ import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTrian
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES, stageBadgeKey } from '../components/ui/Badge'
+import { creditoConta } from '../lib/matricula'
 import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
@@ -302,7 +303,7 @@ export default function VisitasHojePage() {
     setProd({
       marcacoes: marc.data || [], visitas,
       // pendente ainda não é matrícula — só entra no Produzido quando efetivar
-      matriculas: (mats.data || []).filter(m => (m.clients?.matricula_status || 'efetivada') !== 'pendente'),
+      matriculas: (mats.data || []).filter(m => creditoConta(m.clients)),
       calls: dlog.data?.calls || 0, answered: dlog.data?.answered || 0,
       callbacksToday: cbt.data || [],
     })
