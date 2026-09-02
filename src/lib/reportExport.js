@@ -1,3 +1,5 @@
+import { visitasDaMarcacao } from './visitMetrics'
+
 // Gerador de relatório HTML para impressão/PDF
 // Abre em nova aba — File > Print > Salvar como PDF
 
@@ -31,11 +33,15 @@ function esc(s) {
 }
 
 /** Calcula métricas de um conjunto de clientes/logs */
-function calcMetrics(memberClients, logs, periodStart, periodEnd) {
+function calcMetrics(memberClients, logs, periodStart, periodEnd, member = {}) {
   const inR = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
   const inPeriod   = memberClients.filter(c => inR(new Date(c.created_at)))
-  const visits     = memberClients.flatMap(c =>
-    (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
+  // Pré-vendas: só as visitas que nasceram da marcação dela (qualidade da
+  // marcação). Vendedor/gerente: todas as visitas do período.
+  const visits     = member.role === 'pre_vendas'
+    ? visitasDaMarcacao(memberClients, member.bookingsByClient, member.id, inR)
+    : memberClients.flatMap(c =>
+        (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
   // Visitas do período incluem clientes marcados ANTES dele e segundas visitas —
   // por isso "visitas ÷ marcações" passava de 100%. A taxa certa é: das
   // marcações feitas no período, quantas já viraram pelo menos uma visita.
@@ -423,7 +429,7 @@ export function generateReportHTML({
   // Calcula métricas por membro
   const membersWithMetrics = members.map(m => ({
     ...m,
-    ...calcMetrics(m.memberClients, m.logs, periodStart, periodEnd),
+    ...calcMetrics(m.memberClients, m.logs, periodStart, periodEnd, m),
   }))
 
   // Total geral (soma de todos)

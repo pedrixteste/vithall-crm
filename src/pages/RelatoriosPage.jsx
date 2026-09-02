@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 // O gerador do relatório (HTML completo + Destaques) só é usado ao exportar —
 // carregado sob demanda para não pesar quem só abre a tela pra ver os números.
 import { localDateStr } from '../lib/utils'
+import { visitasDaMarcacao } from '../lib/visitMetrics'
 import RelatoriosListas from '../components/RelatoriosListas'
 
 // ── Constantes ─────────────────────────────────────────────────────
@@ -353,6 +354,7 @@ export default function RelatoriosPage() {
   const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
   const [creditClients, setCreditClients]     = useState([]) // clientes de créditos fora da carteira (participações)
   const [reschedules, setReschedules]         = useState({}) // client_id → datas das remarcações
+  const [bookingsByClient, setBookingsByClient] = useState({}) // client_id → [{ at, user_id }] (quem marcou cada visita)
   const [view, setView]                       = useState('graficos') // graficos | listas
 
   useEffect(() => { fetchData() }, [profile])
@@ -371,15 +373,18 @@ export default function RelatoriosPage() {
     // primeira e a atual — a lista completa vive no histórico.
     const { data: bookings } = await supabase
       .from('client_history')
-      .select('client_id, created_at, event_data')
+      .select('client_id, created_at, event_data, user_id')
       .eq('event_type', 'visit_scheduled')
       .order('created_at', { ascending: true })
     const byClient = {}
+    const allBookings = {}
     for (const b of bookings || []) {
+      ;(allBookings[b.client_id] ||= []).push({ at: b.created_at, user_id: b.user_id })
       if (!b.event_data?.from) continue // primeira marcação não é remarcação
       ;(byClient[b.client_id] ||= []).push(b.created_at)
     }
     setReschedules(byClient)
+    setBookingsByClient(allBookings)
 
     const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
     setProfiles(profilesData || [])
@@ -485,9 +490,17 @@ export default function RelatoriosPage() {
   }
 
   const clientsInPeriod  = filteredClients.filter(c => inRange(new Date(c.created_at)))
-  const visitsInPeriod   = filteredClients.flatMap(c =>
-    (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
-  )
+  // Pré-vendas (logado, ou escolhido no filtro do gerente): só as visitas que
+  // nasceram da marcação dela — mede a qualidade da marcação, não o trabalho
+  // do vendedor que remarca depois. Ver lib/visitMetrics.
+  const preVendasEmFoco = profile?.role === 'pre_vendas' ? user.id
+    : (profile?.role === 'gerente' && selectedPerson !== 'all' && profiles.find(p => p.id === selectedPerson)?.role === 'pre_vendas') ? selectedPerson
+    : null
+  const visitsInPeriod   = preVendasEmFoco
+    ? visitasDaMarcacao(filteredClients, bookingsByClient, preVendasEmFoco, inRange)
+    : filteredClients.flatMap(c =>
+        (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
+      )
   // Matrícula PENDENTE ainda não é matrícula: só conta nos números quando a
   // situação for efetivada (regra do caso Heleno, 28/08/26)
   const matriculaReal = (c) =>
@@ -712,7 +725,9 @@ export default function RelatoriosPage() {
         ? clients.filter(c => c.created_by === p.id)
         : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
       const inPeriod   = mc.filter(c => inRange(new Date(c.created_at)))
-      const visits     = mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
+      const visits     = p.role === 'pre_vendas'
+        ? visitasDaMarcacao(mc, bookingsByClient, p.id, inRange)
+        : mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
       const matriculas = mc.filter(matriculaReal)
       const logsInRange = dailyLogs.filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
       const calls      = logsInRange.reduce((s, l) => s + (l.calls || 0), 0)
@@ -737,6 +752,13 @@ export default function RelatoriosPage() {
   // ── Exportar relatório ─────────────────────────────────────────────
 
   async function handleExport() {
+    // A janela é aberta AGORA, no clique — depois dos "await" o navegador do
+    // PC já não considera que foi a pessoa que pediu e bloqueia como pop-up.
+    // Só depois, com o relatório pronto, a janela é apontada para ele.
+    const win = window.open('', '_blank')
+    if (win) {
+      try { win.document.write('<p style="font-family:sans-serif;padding:24px;color:#555">Gerando relatório…</p>') } catch { /* nada */ }
+    }
     let exportProfiles = []
     if (exportScope === 'all') {
       exportProfiles = profiles.filter(p => p.role !== 'gerente')
@@ -748,7 +770,7 @@ export default function RelatoriosPage() {
       const person = exportPersonId ? profiles.find(p => p.id === exportPersonId) : null
       exportProfiles = person ? [person] : []
     }
-    if (!exportProfiles.length) return
+    if (!exportProfiles.length) { win?.close(); return }
 
     const members = exportProfiles.map(p => {
       const memberClients = p.role === 'pre_vendas'
@@ -760,7 +782,7 @@ export default function RelatoriosPage() {
       const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
         // pendente não entra no relatório até efetivar (mesma regra da tela)
         .filter(cr => { const c = clienteDoCredito(cr.client_id); return !c || (c.matricula_status || 'efetivada') !== 'pendente' })
-      return { ...p, memberClients, logs, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
+      return { ...p, memberClients, logs, bookingsByClient, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
     })
 
     const pLabel = periodLabel
@@ -809,12 +831,14 @@ export default function RelatoriosPage() {
     // <meta viewport> e o relatório renderiza espremido num canto da tela
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url  = URL.createObjectURL(blob)
-    const win  = window.open(url, '_blank')
-    if (!win) { // pop-up bloqueado: cai no modo antigo
-      const w2 = window.open('', '_blank')
-      if (w2) { w2.document.write(html); w2.document.close() }
+    if (win) {
+      win.location.href = url
+    } else {
+      // Bloqueado mesmo no clique: abre na própria aba (o "voltar" traz o CRM)
+      alert('O navegador bloqueou a janela do relatório. Ele vai abrir nesta aba — use o botão Voltar para retornar ao CRM. (Pra não acontecer de novo, libere pop-ups para o CRM.)')
+      window.location.href = url
     }
-    setTimeout(() => URL.revokeObjectURL(url), 60000)
+    setTimeout(() => URL.revokeObjectURL(url), 120000)
     setShowExportModal(false)
   }
 
