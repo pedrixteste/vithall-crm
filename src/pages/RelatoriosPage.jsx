@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { localDateStr } from '../lib/utils'
 import { visitasDaMarcacao } from '../lib/visitMetrics'
 import { matriculaConta, creditoConta } from '../lib/matricula'
+import { personMetrics, visitaRealizada } from '../lib/personMetrics'
 import RelatoriosListas from '../components/RelatoriosListas'
 
 // ── Constantes ─────────────────────────────────────────────────────
@@ -496,17 +497,24 @@ export default function RelatoriosPage() {
     return true
   }
 
-  const clientsInPeriod  = filteredClients.filter(c => inRange(new Date(c.created_at)))
-  // Pré-vendas (logado, ou escolhido no filtro do gerente): só as visitas que
-  // nasceram da marcação dela — mede a qualidade da marcação, não o trabalho
-  // do vendedor que remarca depois. Ver lib/visitMetrics.
-  const preVendasEmFoco = profile?.role === 'pre_vendas' ? user.id
-    : (profile?.role === 'gerente' && selectedPerson !== 'all' && profiles.find(p => p.id === selectedPerson)?.role === 'pre_vendas') ? selectedPerson
-    : null
-  const visitsInPeriod   = preVendasEmFoco
-    ? visitasDaMarcacao(filteredClients, bookingsByClient, preVendasEmFoco, inRange)
+  // Pessoa em foco: a própria (vendedor/pré-vendas) ou a escolhida pelo gerente.
+  // Sem foco (gerente em "Equipe toda") os números são da empresa inteira.
+  const focoId   = profile?.role === 'gerente' ? (selectedPerson !== 'all' ? selectedPerson : null) : user.id
+  const focoRole = profile?.role === 'gerente' ? profiles.find(p => p.id === focoId)?.role : profile?.role
+  // Regra única (lib/personMetrics): marcações = clientes que ELA cadastrou;
+  // visitas = pré-vendas → só as nascidas das marcações dela; vendedor → dos
+  // clientes atribuídos a ela. Antes "marcações" de vendedor incluía cliente
+  // que outra pessoa cadastrou e só foi atribuído a ele.
+  const pmFoco = focoId ? personMetrics({ person: { id: focoId, role: focoRole }, clients, bookingsByClient, inRange, credits }) : null
+  const clientsInPeriod  = pmFoco
+    ? pmFoco._marcacoesList
+    : filteredClients.filter(c => inRange(new Date(c.created_at)))
+  const visitsInPeriod   = pmFoco
+    ? (focoRole === 'pre_vendas'
+        ? visitasDaMarcacao(clients, bookingsByClient, focoId, inRange)
+        : clients.filter(c => c.assigned_to === focoId).flatMap(c => (c.visits || []).filter(v => visitaRealizada(v) && inRange(new Date(v.visit_date + 'T12:00:00')))))
     : filteredClients.flatMap(c =>
-        (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00')))
+        (c.visits || []).filter(v => visitaRealizada(v) && inRange(new Date(v.visit_date + 'T12:00:00')))
       )
   // Matrícula PENDENTE ainda não é matrícula: só conta nos números quando a
   // situação for efetivada (regra do caso Heleno, 28/08/26)
@@ -522,8 +530,10 @@ export default function RelatoriosPage() {
     if (cr) return cr
     return localDateStr(c.created_at)
   }
-  const enrolledInPeriod = filteredClients.filter(c =>
-    matriculaReal(c) && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
+  // Vendedor/gerente em foco: matrículas fechadas nos clientes ATRIBUÍDOS a ele
+  const enrolledInPeriod = (pmFoco && focoRole !== 'pre_vendas')
+    ? pmFoco._matriculasList
+    : filteredClients.filter(c => matriculaReal(c) && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
   const noShowsInPeriod  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
   const totalCallsPeriod = filteredLogs
     .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
@@ -726,14 +736,9 @@ export default function RelatoriosPage() {
 
   const teamStats = pessoasRelatorio
     .map(p => {
-      const mc = p.role === 'pre_vendas'
-        ? clients.filter(c => c.created_by === p.id)
-        : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
-      const inPeriod   = mc.filter(c => inRange(new Date(c.created_at)))
-      const visits     = p.role === 'pre_vendas'
-        ? visitasDaMarcacao(mc, bookingsByClient, p.id, inRange)
-        : mc.flatMap(c => (c.visits || []).filter(v => inRange(new Date(v.visit_date + 'T12:00:00'))))
-      const matriculas = mc.filter(matriculaReal)
+      const pm = personMetrics({ person: p, clients, bookingsByClient, inRange, credits })
+      const matriculas = pm._matriculasAcumList
+      const visits     = { length: pm.visitas }
       const logsInRange = dailyLogs.filter(l => l.user_id === p.id && inRange(new Date(l.log_date + 'T12:00:00')))
       const calls      = logsInRange.reduce((s, l) => s + (l.calls || 0), 0)
       const atendidas  = logsInRange.reduce((s, l) => s + (l.answered || 0), 0)
@@ -743,14 +748,18 @@ export default function RelatoriosPage() {
         : null
       return {
         ...p,
-        marcacoes:  inPeriod.length,
-        visitas:    visits.length,
-        matriculas: matriculas.length,
+        marcacoes:  pm.marcacoes,
+        visitas:    pm.visitas,
+        visitasMarc: pm.visitasMarc,
+        visitasTotais: pm.visitasTotais,
+        matriculas: pm.matriculas,
         ligacoes:   calls,
         atendidas,
         creditos:   creditsByPerson[p.id] || 0, // matrículas de clientes marcados por ela (comissão)
         avgVisits:  avgV,
-        convRate:   visits.length > 0 ? Math.round((matriculas.length / visits.length) * 100) : null,
+        convRate:   p.role === 'pre_vendas'
+          ? (pm.visitasMarc > 0 ? Math.round(((creditsByPerson[p.id] || 0) / pm.visitasMarc) * 100) : null)
+          : pm.convVE,
       }
     })
 
@@ -780,16 +789,16 @@ export default function RelatoriosPage() {
     if (!exportProfiles.length) { win?.close(); return }
 
     const members = exportProfiles.map(p => {
-      const memberClients = p.role === 'pre_vendas'
-        ? clients.filter(c => c.created_by === p.id)
-        : clients.filter(c => c.assigned_to === p.id || c.created_by === p.id)
+      // Lista COMPLETA: a regra (lib/personMetrics) filtra por quem cadastrou /
+      // a quem está atribuído — assim ninguém conta cliente dos outros
+      const memberClients = clients
       const logs = dailyLogs.filter(l => l.user_id === p.id)
       // matrículas de clientes que a pessoa marcou (comissão), no período —
       // com a LISTA de quem fechou, que agora sai no relatório
       const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
         // pendente não entra no relatório até efetivar (mesma regra da tela)
         .filter(cr => creditoConta(clienteDoCredito(cr.client_id)))
-      return { ...p, memberClients, logs, bookingsByClient, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
+      return { ...p, memberClients, logs, bookingsByClient, credits, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
     })
 
     const pLabel = periodLabel

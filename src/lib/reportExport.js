@@ -1,4 +1,4 @@
-import { visitasDaMarcacao } from './visitMetrics'
+import { personMetrics, scopeTotals, matriculaDia } from './personMetrics'
 
 // Gerador de relatório HTML para impressão/PDF
 // Abre em nova aba — File > Print > Salvar como PDF
@@ -32,59 +32,22 @@ function esc(s) {
   ))
 }
 
-/** Calcula métricas de um conjunto de clientes/logs */
-function calcMetrics(memberClients, logs, periodStart, periodEnd, member = {}) {
+/** Métricas de uma pessoa no período — regra única em lib/personMetrics
+ *  (memberClients é a lista COMPLETA de clientes; a regra filtra por quem
+ *  cadastrou / a quem está atribuído). */
+function calcMetrics(memberClients, logs, periodStart, periodEnd, member = {}, credits = []) {
   const inR = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
-  const inPeriod   = memberClients.filter(c => inR(new Date(c.created_at)))
-  // Pré-vendas: só as visitas que nasceram da marcação dela (qualidade da
-  // marcação). Vendedor/gerente: todas as visitas do período.
-  const visits     = member.role === 'pre_vendas'
-    ? visitasDaMarcacao(memberClients, member.bookingsByClient, member.id, inR)
-    : memberClients.flatMap(c =>
-        (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
-  // Visitas do período incluem clientes marcados ANTES dele e segundas visitas —
-  // por isso "visitas ÷ marcações" passava de 100%. A taxa certa é: das
-  // marcações feitas no período, quantas já viraram pelo menos uma visita.
-  const marcacoesComVisita = inPeriod.filter(c => (c.visits || []).length > 0)
-  // Mesmas regras da tela: pendente não é matrícula até efetivar, e a
-  // matrícula conta pela DATA em que aconteceu (visita matriculada), não
-  // pela data de cadastro do cliente
-  const isReal = (c) => c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === 'efetivada'
-  const matDia = (c) => {
-    const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada' && v.visit_date)
-      .map(v => v.visit_date).sort().pop()
-    return mv ? new Date(mv + 'T12:00:00') : new Date(c.created_at)
-  }
-  const allEnrolled = memberClients.filter(isReal)
-  const enrolled   = allEnrolled.filter(c => inR(matDia(c)))
-  const noShow     = inPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
-  const canceled   = inPeriod.filter(c => c.matricula_stage === 'cancelado')
+  const pm = personMetrics({ person: member, clients: memberClients, bookingsByClient: member.bookingsByClient, inRange: inR, credits })
   const logsInPeriod = logs.filter(l => inR(new Date(l.log_date + 'T12:00:00')))
   const calls    = logsInPeriod.reduce((s, l) => s + (l.calls || 0), 0)
   const answered = logsInPeriod.reduce((s, l) => s + (l.answered || 0), 0)
-
-  const trainings = TRAININGS.map(t => ({
-    label: t, count: allEnrolled.filter(c => (c.matriculas || []).includes(t)).length
-  }))
-  const origins = ORIGINS.map(o => ({
-    label: o.label, count: allEnrolled.filter(c => c.origin === o.key).length
-  }))
-
   return {
-    marcacoes:  inPeriod.length,
-    visitas:    visits.length,
-    matriculas: enrolled.length,
-    noShow:     noShow.length,
-    canceled:   canceled.length,
+    ...pm,
     calls,
     answered,
     answerRate: pct(answered, calls),
-    marcacoesComVisita: marcacoesComVisita.length,
-    convMV:     pct(marcacoesComVisita.length, inPeriod.length),
-    convVE:     pct(enrolled.length, visits.length),
-    trainings,
-    origins,
-    totalEnrolled: allEnrolled.length,
+    // pré-vendas: conversão visita→matrícula pelas matrículas de marcações (créditos)
+    convVE: member.role === 'pre_vendas' ? pct(member.creditos || 0, pm.visitasMarc) : pm.convVE,
   }
 }
 
@@ -229,7 +192,7 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
 
   // — Dinheiro: só sai se TODAS as matrículas tiverem valor legível, senão o
   //   total sairia menor que a realidade e viraria informação errada
-  const todas = members.flatMap(m => m.enrolled || [])
+  const todas = (() => { const seen = new Set(); return members.flatMap(m => m.enrolled || []).filter(e => !seen.has(e.id) && seen.add(e.id)) })()
   if (todas.length >= 2) {
     const valores = todas.map(e => parseMoney(e.valor))
     if (valores.every(v => v != null)) {
@@ -282,7 +245,8 @@ function memberRow(m, i, isTop) {
       <td>${fmt(m.calls || 0)}</td>
       <td class="c-teal">${fmt(m.answered || 0)}</td>
       <td>${fmt(m.marcacoes)}</td>
-      <td>${fmt(m.visitas)}</td>
+      <td>${fmt(m.visitasMarc)}</td>
+      <td>${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.visitasTotais)}</td>
       <td class="c-green b">${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.matriculas)}</td>
       <td class="c-gold b">${fmt(m.creditos || 0)}</td>
       <td class="c-mute">${m.noShow || '·'}</td>
@@ -429,20 +393,27 @@ export function generateReportHTML({
   }[scope] || scope
 
   // Calcula métricas por membro
+  const credits = members.flatMap(m => m.credits || [])
   const membersWithMetrics = members.map(m => ({
     ...m,
-    ...calcMetrics(m.memberClients, m.logs, periodStart, periodEnd, m),
+    ...calcMetrics(m.memberClients, m.logs, periodStart, periodEnd, m, credits),
   }))
 
-  // Total geral (soma de todos)
+  // Totais do grupo — cada cliente/visita/matrícula conta UMA vez (antes
+  // somava por pessoa: Amanda marcou + Gabrielle vendeu = contava 2)
+  const allClients = members[0]?.memberClients || []
+  const inRangeT = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
+  const st = scopeTotals({ people: members, clients: allClients, inRange: inRangeT, credits })
   const totals = {
     name: scope === 'individual' ? membersWithMetrics[0]?.name : 'Total da equipe',
     role: membersWithMetrics[0]?.role,
     calls:      membersWithMetrics.reduce((s, m) => s + (m.calls || 0), 0),
     answered:   membersWithMetrics.reduce((s, m) => s + (m.answered || 0), 0),
-    marcacoes:  membersWithMetrics.reduce((s, m) => s + m.marcacoes, 0),
-    visitas:    membersWithMetrics.reduce((s, m) => s + m.visitas, 0),
-    matriculas: membersWithMetrics.reduce((s, m) => s + m.matriculas, 0),
+    marcacoes:  st.marcacoes,
+    marcacoesComVisita: st.marcacoesComVisita,
+    visitas:    st.visitas,
+    visitasMarc: membersWithMetrics.reduce((s, m) => s + (m.visitasMarc || 0), 0),
+    matriculas: st.matriculas,
     // Uma matrícula pode contar para várias pessoas (participantes), mas no
     // total da equipe ela é UMA — por isso conta clientes distintos.
     creditos:   (() => {
@@ -450,22 +421,20 @@ export function generateReportHTML({
       membersWithMetrics.forEach(m => (m.enrolled || []).forEach(e => ids.add(e.id)))
       return ids.size || membersWithMetrics.reduce((s, m) => s + (m.creditos || 0), 0)
     })(),
-    noShow:     membersWithMetrics.reduce((s, m) => s + m.noShow, 0),
-    canceled:   membersWithMetrics.reduce((s, m) => s + m.canceled, 0),
+    noShow:     st.noShow,
+    canceled:   st.canceled,
+    convMV:     st.convMV,
+    convVE:     st.convVE,
   }
-  totals.marcacoesComVisita = membersWithMetrics.reduce((s, m) => s + (m.marcacoesComVisita || 0), 0)
-  totals.convMV     = pct(totals.marcacoesComVisita, totals.marcacoes)
-  totals.convVE     = pct(totals.matriculas, totals.visitas)
   totals.answerRate = pct(totals.answered, totals.calls)
 
-  // Trainings e origins do total
-  const totalTrainings = TRAININGS.map((t, i) => ({
-    label: t,
-    count: membersWithMetrics.reduce((s, m) => s + (m.trainings?.[i]?.count || 0), 0),
+  // Composição: das matrículas do PERÍODO, cada cliente uma vez
+  const matsPeriodo = st._matriculasList
+  const totalTrainings = TRAININGS.map(t => ({
+    label: t, count: matsPeriodo.filter(c => (c.matriculas || []).includes(t)).length,
   }))
-  const totalOrigins = ORIGINS.map((o, i) => ({
-    label: o.label,
-    count: membersWithMetrics.reduce((s, m) => s + (m.origins?.[i]?.count || 0), 0),
+  const totalOrigins = ORIGINS.map(o => ({
+    label: o.label, count: matsPeriodo.filter(c => c.origin === o.key).length,
   }))
 
   const highlights = buildHighlights({
@@ -479,8 +448,10 @@ export function generateReportHTML({
   const inRangeCancel = (d) => (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd)
   const canceladas = (() => {
     const seen = new Set(); const out = []
-    for (const c of members.flatMap(m => m.memberClients)) {
+    const grupoIds = new Set(members.map(m => m.id))
+    for (const c of allClients) {
       if (seen.has(c.id)) continue; seen.add(c.id)
+      if (!grupoIds.has(c.created_by) && !grupoIds.has(c.assigned_to)) continue
       if (c.matricula_stage !== 'matriculado' || c.matricula_status !== 'cancelada' || !c.matricula_cancelada_em) continue
       if (!inRangeCancel(new Date(c.matricula_cancelada_em))) continue
       out.push(c)
@@ -831,7 +802,8 @@ export function generateReportHTML({
           <th>Ligações</th>
           <th>Atendidas</th>
           <th>Marcações</th>
-          <th>Visitas</th>
+          <th>Visitas das marcações</th>
+          <th>Visitas totais</th>
           <th>Matrículas</th>
           <th>Matr. de marcações</th>
           <th>Não apareceu</th>
@@ -846,6 +818,7 @@ export function generateReportHTML({
           <td>${totals.calls}</td>
           <td class="c-teal">${totals.answered}</td>
           <td>${totals.marcacoes}</td>
+          <td>${totals.visitasMarc}</td>
           <td>${totals.visitas}</td>
           <td class="c-green">${totals.matriculas}</td>
           <td class="c-gold">${totals.creditos}</td>
@@ -859,7 +832,7 @@ export function generateReportHTML({
 
   <!-- ── TREINAMENTOS + ORIGENS ── -->
   <div class="section keep">
-    <div class="section-title">Composição das Matrículas</div>
+    <div class="section-title">Composição das Matrículas do Período</div>
     <div class="comp-grid">
       <div>${trainingsSection(totalTrainings)}</div>
       <div>${originsSection(totalOrigins)}</div>

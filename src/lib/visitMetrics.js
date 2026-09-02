@@ -9,6 +9,8 @@
 //
 // bookingsByClient: { client_id: [{ at: ISO, user_id }] } — histórico de
 // marcações (client_history.visit_scheduled), em ordem cronológica.
+// Pode receber TODOS os clientes: a 1ª visita só conta se o cliente foi
+// cadastrado pela pessoa (created_by); as seguintes, se ela remarcou.
 export function visitasDaMarcacao(clients, bookingsByClient, userId, inRange) {
   const out = []
   for (const c of clients) {
@@ -17,7 +19,7 @@ export function visitasDaMarcacao(clients, bookingsByClient, userId, inRange) {
       .sort((a, b) => a.visit_date.localeCompare(b.visit_date))
     vs.forEach((v, i) => {
       if (inRange && !inRange(new Date(v.visit_date + 'T12:00:00'))) return
-      if (i === 0) { out.push(v); return }
+      if (i === 0) { if (c.created_by === userId) out.push(v); return }
       // Visita seguinte: conta só se a marcação que a gerou (a última
       // registrada entre a visita anterior e esta) foi do próprio pré-vendas
       const prev = vs[i - 1].visit_date
