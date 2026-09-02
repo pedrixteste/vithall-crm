@@ -425,6 +425,7 @@ export function generateReportHTML({
     pre_vendas:  'Equipe de Pré-Vendas',
     vendedores:  'Equipe de Vendedores',
     all:         'Equipe Completa',
+    custom:      `Personalizado — ${nameList(members)}`,
   }[scope] || scope
 
   // Calcula métricas por membro

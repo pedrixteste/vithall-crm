@@ -351,6 +351,7 @@ export default function RelatoriosPage() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportScope, setExportScope]         = useState('all')
   const [exportPersonId, setExportPersonId]   = useState(null)
+  const [exportPeople, setExportPeople]       = useState([]) // escopo "personalizado": ids escolhidos
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, atendidas: false, marcacoes: true, visitas: true, matriculas: false })
   const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
   const [creditClients, setCreditClients]     = useState([]) // clientes de créditos fora da carteira (participações)
@@ -769,6 +770,8 @@ export default function RelatoriosPage() {
     } else if (exportScope === 'individual') {
       const person = exportPersonId ? profiles.find(p => p.id === exportPersonId) : null
       exportProfiles = person ? [person] : []
+    } else if (exportScope === 'custom') {
+      exportProfiles = profiles.filter(p => exportPeople.includes(p.id))
     }
     if (!exportProfiles.length) { win?.close(); return }
 
@@ -1525,6 +1528,7 @@ export default function RelatoriosPage() {
                     { key: 'vendedores', label: 'Vendedores',         sub: 'Apenas a equipe de vendas' },
                     { key: 'pre_vendas', label: 'Pré-vendas',         sub: 'Apenas a equipe de pré-vendas' },
                     { key: 'individual', label: 'Pessoa individual',  sub: 'Selecionar uma pessoa específica' },
+                    { key: 'custom',     label: 'Personalizado',      sub: 'Escolher quais pessoas entram no relatório' },
                   ].map(opt => (
                     <button key={opt.key} onClick={() => setExportScope(opt.key)}
                       style={{
@@ -1563,17 +1567,58 @@ export default function RelatoriosPage() {
                 </div>
               )}
 
+              {/* Escolha livre de pessoas (personalizado) */}
+              {exportScope === 'custom' && (() => {
+                const gente = profiles.filter(p => p.role !== 'gerente')
+                const toggle = (id) => setExportPeople(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id])
+                return (
+                  <div>
+                    <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#979089' }}>
+                        Pessoas ({exportPeople.length} de {gente.length})
+                      </p>
+                      <button onClick={() => setExportPeople(exportPeople.length === gente.length ? [] : gente.map(p => p.id))}
+                        style={{ background: 'none', border: 'none', color: '#C9A84C', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                        {exportPeople.length === gente.length ? 'Limpar' : 'Marcar todos'}
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {gente.map(p => {
+                        const on = exportPeople.includes(p.id)
+                        const cor = p.role === 'vendedor' ? '#A78BFA' : '#60A5FA'
+                        return (
+                          <button key={p.id} onClick={() => toggle(p.id)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '12px', textAlign: 'left', cursor: 'pointer',
+                              background: on ? 'rgba(201,168,76,0.08)' : '#161616',
+                              border: `1px solid ${on ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                            }}>
+                            <span style={{ width: '18px', height: '18px', borderRadius: '6px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800,
+                              background: on ? '#C9A84C' : 'transparent', color: '#111', border: `1px solid ${on ? '#C9A84C' : '#3A3A3A'}` }}>
+                              {on ? '✓' : ''}
+                            </span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: on ? '#EFEFEF' : '#B0A99F', flex: 1 }}>{p.name}</span>
+                            <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: cor }}>{ROLE_LABELS[p.role]}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Botão gerar */}
+              {(() => { const bloqueado = (exportScope === 'individual' && !exportPersonId) || (exportScope === 'custom' && exportPeople.length === 0); return (
               <button
                 onClick={handleExport}
-                disabled={exportScope === 'individual' && !exportPersonId}
+                disabled={bloqueado}
                 style={{
-                  width: '100%', padding: '15px', borderRadius: '14px', cursor: exportScope === 'individual' && !exportPersonId ? 'not-allowed' : 'pointer',
-                  background: exportScope === 'individual' && !exportPersonId
+                  width: '100%', padding: '15px', borderRadius: '14px', cursor: bloqueado ? 'not-allowed' : 'pointer',
+                  background: bloqueado
                     ? 'rgba(201,168,76,0.03)'
                     : 'linear-gradient(135deg, rgba(123,28,58,0.35), rgba(201,168,76,0.22))',
-                  border: `1px solid ${exportScope === 'individual' && !exportPersonId ? '#252525' : 'rgba(201,168,76,0.35)'}`,
-                  color: exportScope === 'individual' && !exportPersonId ? '#979089' : '#C9A84C',
+                  border: `1px solid ${bloqueado ? '#252525' : 'rgba(201,168,76,0.35)'}`,
+                  color: bloqueado ? '#979089' : '#C9A84C',
                   fontSize: '15px', fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 }}>
@@ -1582,6 +1627,7 @@ export default function RelatoriosPage() {
                 </svg>
                 Gerar relatório
               </button>
+              ) })()}
 
               <p style={{ fontSize: '12px', color: '#8B857D', textAlign: 'center', lineHeight: 1.5 }}>
                 Abre em nova aba · imprima ou salve como PDF
