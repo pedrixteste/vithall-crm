@@ -887,7 +887,7 @@ export default function RelatoriosPage() {
               <button key={p.key}
                 onClick={() => setPeriod(p.key)}
                 style={{
-                  flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+                  flex: 1, minWidth: 0, padding: '10px 2px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
                   background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
                   color:      active ? '#C9A84C' : '#958E86',
                   border:     active ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
@@ -899,7 +899,7 @@ export default function RelatoriosPage() {
           <button
             onClick={() => setPeriod('custom')}
             style={{
-              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+              flex: 1, minWidth: 0, padding: '10px 2px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
               background: period === 'custom' ? 'rgba(201,168,76,0.12)' : 'transparent',
               color:      period === 'custom' ? '#C9A84C' : '#958E86',
               border:     period === 'custom' ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
