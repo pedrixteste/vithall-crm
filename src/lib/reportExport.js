@@ -46,8 +46,11 @@ function calcMetrics(memberClients, logs, periodStart, periodEnd, member = {}, c
     calls,
     answered,
     answerRate: pct(answered, calls),
-    // pré-vendas: conversão visita→matrícula pelas matrículas de marcações (créditos)
-    convVE: member.role === 'pre_vendas' ? pct(member.creditos || 0, pm.visitasMarc) : pm.convVE,
+    // Conversão de quem MARCA: das visitas que a pessoa marcou, quantas viraram
+    // matrícula (comissão). A conversão de quem VENDE (matrículas ÷ visitas
+    // totais) fica na seção de vendedores, em convVendas.
+    convVE:     pct(member.creditos || 0, pm.visitasMarc),
+    convVendas: pm.convVE,
   }
 }
 
@@ -119,8 +122,8 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
   }
 
   // — Conversão visita → matrícula (o número que mais importa)
-  if (totals.convVE != null && totals.convVE >= 30 && totals.visitas >= 3) {
-    add(86, '🎯', `<b>Conversão forte:</b> ${totals.convVE}% das visitas viraram matrícula (${totals.matriculas} de ${totals.visitas}).`)
+  if (totals.convVE != null && totals.convVE >= 30 && totals.marcacoesComVisita >= 3) {
+    add(86, '🎯', `<b>Conversão forte:</b> ${totals.convVE}% das visitas de marcação viraram matrícula (${totals.matriculas} de ${totals.marcacoesComVisita}).`)
   }
 
   // — Marcação que vira visita de verdade
@@ -139,16 +142,14 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
     const pres = members.filter(m => m.role === 'pre_vendas')
     const topPre = [...pres].sort((a, b) => (b.creditos || 0) - (a.creditos || 0))[0]
     if (topPre && topPre.creditos > 0) {
-      add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> participou de mais matrículas: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'matrícula')} em que marcou a visita ou ajudou a fechar.`)
+      add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> teve mais comissões de matrícula: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'matrícula')} em que marcou a visita ou participou.`)
     }
     // — Melhor aproveitamento (exige amostra, senão "1 visita, 1 matrícula" vira 100%)
-    const comAmostra = members.filter(m => m.visitas >= 3 && m.convVE != null)
+    const comAmostra = members.filter(m => m.visitasMarc >= 3 && m.convVE != null)
     if (comAmostra.length) {
       const best = comAmostra.sort((a, b) => b.convVE - a.convVE)[0]
       if (best.convVE >= 40) {
-        add(80, '⭐', best.role === 'pre_vendas'
-          ? `<b>Melhor aproveitamento:</b> ${best.convVE}% das visitas marcadas por ${esc(firstName(best.name))} viraram matrícula (${best.matriculas} de ${best.visitas}).`
-          : `<b>Melhor aproveitamento:</b> ${esc(firstName(best.name))} converteu ${best.convVE}% das visitas (${best.matriculas} de ${best.visitas}).`)
+        add(80, '⭐', `<b>Melhor aproveitamento:</b> ${best.convVE}% das visitas marcadas por ${esc(firstName(best.name))} viraram matrícula (${best.creditos || 0} de ${best.visitasMarc}).`)
       }
     }
     // — Ninguém ficou de fora
@@ -244,7 +245,6 @@ function memberRow(m, i, isTop) {
       <td class="c-teal">${fmt(m.answered || 0)}</td>
       <td>${fmt(m.marcacoes)}</td>
       <td>${fmt(m.visitasMarc)}</td>
-      <td>${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.visitasTotais)}</td>
       <td class="c-green b">${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.matriculas)}</td>
       <td class="c-gold b">${fmt(m.creditos || 0)}</td>
       <td class="c-mute">${m.noShow || '·'}</td>
@@ -330,6 +330,78 @@ function matriculasSection(mats) {
         </tr>`).join('')}
       </tbody>
     </table></div>`
+}
+
+/** Seção dos VENDEDORES — o trabalho de quem atende e fecha: todas as visitas
+ *  que atendeu (inclusive segundas visitas), clientes visitados, matrículas
+ *  vendidas, conversão sobre as visitas totais e valor vendido. */
+function sellersSection(members, matsPeriodo, allClients, inRange) {
+  const sellers = members.filter(m => m.role !== 'pre_vendas')
+  if (!sellers.length) return ''
+  const rows = sellers.map(m => {
+    const meus = allClients.filter(c => c.assigned_to === m.id)
+    const visitados = meus.filter(c => (c.visits || []).some(v => v.visit_date && v.rating !== 'nao_teve' && inRange(new Date(v.visit_date + 'T12:00:00')))).length
+    const vendas = matsPeriodo.filter(c => c.assigned_to === m.id)
+    const valores = vendas.map(c => {
+      const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada').sort((a, b) => (b.visit_date || '').localeCompare(a.visit_date || ''))[0]
+      return parseMoney(mv?.outcome_sale_value)
+    })
+    const semValor = valores.filter(v => v == null).length
+    const soma = valores.reduce((s, v) => s + (v || 0), 0)
+    const valorTxt = vendas.length === 0 ? '—'
+      : soma > 0 ? soma.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) + (semValor ? ` <span class="c-mute">(${semValor} sem valor)</span>` : '')
+      : '<span class="c-mute">sem valor informado</span>'
+    const porMat = vendas.length > 0 ? (m.visitasTotais / vendas.length).toFixed(1).replace('.', ',') : null
+    return { m, visitados, vendas: vendas.length, valorTxt, porMat }
+  }).sort((a, b) => b.vendas - a.vendas || b.m.visitasTotais - a.m.visitasTotais)
+  const tot = {
+    visitas: sellers.reduce((s, m) => s + m.visitasTotais, 0),
+    visitados: rows.reduce((s, r) => s + r.visitados, 0),
+    vendas: rows.reduce((s, r) => s + r.vendas, 0),
+  }
+  return `
+  <div class="section">
+    <div class="section-title">Vendedores — Visitas e Fechamento</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l">Vendedor</th>
+        <th>Visitas totais</th>
+        <th>Clientes visitados</th>
+        <th>Matrículas vendidas</th>
+        <th>Visitas → matrículas</th>
+        <th>Visitas por matrícula</th>
+        <th>Valor vendido</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(({ m, visitados, vendas, valorTxt, porMat }) => `
+        <tr>
+          <td class="t-name"><span>${esc(m.name)}<em>${ROLE_LABELS[m.role] || m.role}</em></span></td>
+          <td class="b" style="color:#7C3AED">${m.visitasTotais}</td>
+          <td>${visitados}</td>
+          <td class="c-green b">${vendas}</td>
+          <td class="b" style="color:${m.convVendas >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVendas)}</td>
+          <td>${porMat != null ? porMat : '—'}</td>
+          <td class="c-gold b">${valorTxt}</td>
+        </tr>`).join('')}
+        ${rows.length > 1 ? `
+        <tr class="total-row">
+          <td class="l">∑ Total</td>
+          <td>${tot.visitas}</td>
+          <td>${tot.visitados}</td>
+          <td class="c-green">${tot.vendas}</td>
+          <td>${fmtPct(pct(tot.vendas, tot.visitas))}</td>
+          <td>${tot.vendas > 0 ? (tot.visitas / tot.vendas).toFixed(1).replace('.', ',') : '—'}</td>
+          <td></td>
+        </tr>` : ''}
+      </tbody>
+    </table></div>
+    <div class="foot-note">
+      <b>Visitas totais</b> = todas as visitas que o vendedor atendeu no período, contando segundas visitas ao mesmo cliente.
+      <b>Clientes visitados</b> = quantos clientes diferentes ele visitou.
+      <b>Visitas → matrículas</b> = de cada 100 visitas atendidas, quantas viraram matrícula.
+      <b>Visitas por matrícula</b> = quantas visitas foram precisas, em média, para fechar uma venda.
+    </div>
+  </div>`
 }
 
 /** Resumo mês a mês (período anual) — 🔥 marca o melhor mês de cada métrica */
@@ -439,12 +511,9 @@ export function generateReportHTML({
   // Só pré-vendas no relatório: "visitas" são as visitas das marcações deles
   // (pré-vendas não tem cliente atribuído — o total por atribuição daria 0)
   const soPre = members.length > 0 && members.every(m => m.role === 'pre_vendas')
-  if (soPre) {
-    totals.visitas = totals.visitasMarc
-    totals.convVE  = pct(totals.matriculas, totals.visitas)
-  } else {
-    totals.convVE  = pct(totals.matriculas, totals.visitas)
-  }
+  if (soPre) totals.visitas = totals.visitasMarc
+  // Conversão do resumo segue o funil: marcações → receberam visita → matrículas
+  totals.convVE = pct(totals.matriculas, totals.marcacoesComVisita)
 
   // Composição: treinamentos e origem das MESMAS matrículas acima
   const totalTrainings = TRAININGS.map(t => ({
@@ -514,7 +583,7 @@ export function generateReportHTML({
     { label: 'Ligações',   val: totals.calls,      color: '#EA580C' },
     { label: 'Atendidas',  val: totals.answered,   color: '#0E7490' },
     { label: 'Marcações',  val: totals.marcacoes,  color: '#2563EB' },
-    { label: 'Visitas',    val: totals.visitas,    color: '#7C3AED' },
+    { label: 'Visitas de marcação', val: totals.marcacoesComVisita, color: '#7C3AED' },
     { label: 'Matrículas', val: totals.matriculas, color: '#16A34A' },
   ].filter((f, i) => i > 1 || f.val > 0) // sem ligações registradas, começa em Marcações
   const funilMax = Math.max(...funil.map(f => f.val), 1)
@@ -655,7 +724,7 @@ export function generateReportHTML({
 
   /* ── Funil ─────────────────────────────────────────────── */
   .fn-row { display: flex; align-items: center; gap: 12px; margin-bottom: 7px; }
-  .fn-label { font-size: 11.5px; color: var(--body); width: 82px; flex-shrink: 0; font-weight: 500; }
+  .fn-label { font-size: 11.5px; color: var(--body); width: 126px; flex-shrink: 0; font-weight: 500; }
   .fn-track { flex: 1; height: 26px; background: #F6F4F1; border-radius: 7px; overflow: hidden; }
   .fn-bar { height: 100%; border-radius: 7px; display: flex; align-items: center; padding: 0 10px; min-width: 42px; }
   .fn-val { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -769,7 +838,7 @@ export function generateReportHTML({
     .card-value { font-size: 25px; letter-spacing: -0.8px; }
     .hl-grid, .tr-grid, .ind-grid, .comp-grid { grid-template-columns: 1fr; }
     .comp-grid { gap: 20px; }
-    .fn-label { width: 66px; font-size: 11px; }
+    .fn-label { width: 96px; font-size: 10.5px; line-height: 1.2; }
     .fn-step { width: 46px; }
     .or-label { width: 96px; }
     table { font-size: 11px; }
@@ -808,9 +877,9 @@ export function generateReportHTML({
     <div class="card-grid">
       ${metricCard('Ligações',   fmt(totals.calls),      null,                                        '#EA580C')}
       ${metricCard('Atendidas',  fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`,  '#0E7490')}
-      ${metricCard('Marcações',  fmt(totals.marcacoes),  totals.convMV != null ? `${totals.marcacoesComVisita} de ${totals.marcacoes} já viraram visita (${totals.convMV}%)` : null, '#2563EB')}
-      ${metricCard('Visitas',    fmt(totals.visitas),    'realizadas no período',                     '#7C3AED')}
-      ${metricCard('Matrículas', fmt(totals.matriculas), soPre ? 'com participação de quem marcou' : `${fmtPct(totals.convVE)} das visitas`, '#16A34A')}
+      ${metricCard('Marcações',  fmt(totals.marcacoes),  totals.convMV != null ? `${fmtPct(totals.convMV)} receberam visita` : null, '#2563EB')}
+      ${metricCard('Visitas de marcação', fmt(totals.marcacoesComVisita), `${totals.visitas} ${plural(totals.visitas, 'visita')} no total`, '#7C3AED')}
+      ${metricCard('Matrículas', fmt(totals.matriculas), soPre ? 'com comissão de quem marcou' : `${fmtPct(totals.convVE)} das visitas de marcação`, '#16A34A')}
     </div>
 
     ${totals.noShow > 0 || totals.canceled > 0 || canceladas.length > 0 ? `
@@ -852,13 +921,12 @@ export function generateReportHTML({
           <th>Ligações</th>
           <th>Atendidas</th>
           <th>Marcações</th>
-          <th>Visitas das marcações</th>
-          <th>Visitas totais</th>
+          <th>Visitas de marcação</th>
           <th>Matrículas</th>
-          <th>Participou em matrículas</th>
+          <th>Comissão de matrícula</th>
           <th>Não apareceu</th>
           <th>Cancelou</th>
-          <th>Conv. V→M</th>
+          <th>Visitas → matrículas</th>
         </tr>
       </thead>
       <tbody>
@@ -868,8 +936,7 @@ export function generateReportHTML({
           <td>${totals.calls}</td>
           <td class="c-teal">${totals.answered}</td>
           <td>${totals.marcacoes}</td>
-          <td>${totals.visitasMarc}</td>
-          <td>${totals.visitas}</td>
+          <td>${totals.marcacoesComVisita}</td>
           <td class="c-green">${totals.matriculas}</td>
           <td class="c-mute">·</td>
           <td>${totals.noShow}</td>
@@ -878,8 +945,15 @@ export function generateReportHTML({
         </tr>
       </tbody>
     </table></div>
-    <div class="foot-note"><b>Participou em matrículas</b> = matrículas em que a pessoa marcou a visita ou ajudou a fechar. A mesma matrícula conta para todo mundo que participou dela, por isso essa coluna não soma no total — o total de matrículas é o da coluna verde.</div>
+    <div class="foot-note">
+      <b>Visitas de marcação</b> = dos clientes que a pessoa marcou no período, quantos receberam visita (cada cliente conta uma vez).<br>
+      <b>Matrículas</b> = vendas fechadas pelo vendedor nos clientes dele.<br>
+      <b>Comissão de matrícula</b> = matrículas em que a pessoa marcou a visita ou foi marcada como participante na estrela. A comissão é de quem marcou, não de quem vendeu: um vendedor pode ter menos comissões que matrículas quando outra pessoa marcou a visita. A mesma matrícula pode dar comissão a mais de uma pessoa, por isso a coluna não soma no total.<br>
+      <b>Visitas → matrículas</b> = de cada 100 visitas que a pessoa marcou, quantas viraram matrícula (comissões ÷ visitas de marcação).
+    </div>
   </div>` : ''}
+
+  ${sellersSection(membersWithMetrics, matsPeriodo, allClients, inRangeT)}
 
   <!-- ── TREINAMENTOS + ORIGENS ── -->
   <div class="section">
@@ -933,13 +1007,13 @@ export function generateReportHTML({
             </div>
             <div style="text-align:right">
               <div class="v">${m.role === 'pre_vendas' ? (m.creditos || 0) : m.matriculas}</div>
-              <div class="vcap">${m.role === 'pre_vendas' ? 'participou em matrículas' : 'matrículas'}</div>
+              <div class="vcap">${m.role === 'pre_vendas' ? 'comissões de matrícula' : 'matrículas vendidas'}</div>
             </div>
           </div>
           <div class="ind-body">
             <div><div class="num" style="color:#2563EB">${m.marcacoes}</div><div class="cap">marcações</div></div>
             <div><div class="num" style="color:#7C3AED">${m.marcacoesComVisita}</div><div class="cap">receberam visita</div></div>
-            <div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">conv.</div></div>
+            <div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">viraram matrícula</div></div>
           </div>
           ${m.noShow > 0 || m.canceled > 0 ? `
           <div class="ind-foot">
