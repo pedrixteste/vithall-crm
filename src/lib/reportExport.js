@@ -879,7 +879,7 @@ export function generateReportHTML({
       ${metricCard('Atendidas',  fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`,  '#0E7490')}
       ${metricCard('Marcações',  fmt(totals.marcacoes),  totals.convMV != null ? `${fmtPct(totals.convMV)} receberam visita` : null, '#2563EB')}
       ${metricCard('Visitas de marcação', fmt(totals.marcacoesComVisita), `${totals.visitas} ${plural(totals.visitas, 'visita')} no total`, '#7C3AED')}
-      ${metricCard('Matrículas', fmt(totals.matriculas), soPre ? 'com comissão de quem marcou' : `${fmtPct(totals.convVE)} das visitas de marcação`, '#16A34A')}
+      ${metricCard('Matrículas', fmt(totals.matriculas), `${fmtPct(pct(totals.matriculas, totals.marcacoes))} das ${totals.marcacoes} marcações`, '#16A34A')}
     </div>
 
     ${totals.noShow > 0 || totals.canceled > 0 || canceladas.length > 0 ? `
