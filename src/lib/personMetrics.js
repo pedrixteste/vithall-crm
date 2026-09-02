@@ -3,15 +3,15 @@
 //
 // Por pessoa:
 //   marcacoes        = clientes que ELA cadastrou no período (quem cadastra é quem marcou)
-//   visitasMarc      = visitas nascidas das marcações dela: a 1ª visita de cada
-//                      cliente que ela marcou (+ remarcações que ela mesma registrou)
+//   visitasMarc      = quantos clientes que ELA marcou no período receberam visita.
+//                      Cada cliente conta UMA vez, tenha tido 1 ou 10 visitas — a
+//                      métrica mede a marcação (o cliente recebeu?), não o volume
 //   visitasTotais    = todas as visitas realizadas dos clientes ATRIBUÍDOS a ela
 //                      (trabalho de vendedor — pré-vendas não tem)
 //   matriculas       = fechadas nos clientes atribuídos a ela (só vendedor/gerente)
 //   noShow/canceled  = das marcações dela no período
 // O que antes dava contagem dupla (Amanda marcou, Gabrielle vendeu → contava 2)
 // agora tem dono único em cada métrica.
-import { visitasDaMarcacao } from './visitMetrics'
 import { matriculaConta } from './matricula'
 
 // "Visita realizada": tem linha em visits e o cliente recebeu (não é "Não teve")
@@ -30,7 +30,7 @@ export function matriculaDia(c, credits) {
 
 const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : null)
 
-export function personMetrics({ person, clients, bookingsByClient, inRange, credits }) {
+export function personMetrics({ person, clients, inRange, credits }) {
   const id    = person.id
   const isPre = person.role === 'pre_vendas'
   const inDay = (ds) => inRange(new Date(ds + 'T12:00:00'))
@@ -39,9 +39,9 @@ export function personMetrics({ person, clients, bookingsByClient, inRange, cred
   const marcacoes = booked.filter(c => inRange(new Date(c.created_at)))
   const marcacoesComVisita = marcacoes.filter(c => (c.visits || []).some(visitaRealizada))
 
-  // Passa TODOS os clientes: a 1ª visita só conta se o cliente é dela
-  // (created_by); as seguintes só se foi ela quem registrou a remarcação
-  const visitasMarc = visitasDaMarcacao(clients, bookingsByClient, id, inRange)
+  // A 1ª visita realizada de cada marcação que recebeu — uma por cliente
+  const visitasMarc = marcacoesComVisita.map(c =>
+    (c.visits || []).filter(visitaRealizada).sort((a, b) => a.visit_date.localeCompare(b.visit_date))[0])
 
   const atendidos     = isPre ? [] : clients.filter(c => c.assigned_to === id)
   const visitasTotais = atendidos.flatMap(c => (c.visits || []).filter(v => visitaRealizada(v) && inDay(v.visit_date)))
@@ -67,6 +67,7 @@ export function personMetrics({ person, clients, bookingsByClient, inRange, cred
     // conversão visita→matrícula: vendedor pelas fechadas; pré-vendas pelos créditos (participação)
     convVE:             isPre ? null : pct(matriculas.length, visitasTotais.length),
     _marcacoesList:     marcacoes,
+    _visitasMarcList:   visitasMarc,
     _matriculasList:    matriculas,
     _matriculasAcumList: matriculasAcum,
   }

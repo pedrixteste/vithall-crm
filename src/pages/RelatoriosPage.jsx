@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 // O gerador do relatório (HTML completo + Destaques) só é usado ao exportar —
 // carregado sob demanda para não pesar quem só abre a tela pra ver os números.
 import { localDateStr } from '../lib/utils'
-import { visitasDaMarcacao } from '../lib/visitMetrics'
 import { matriculaConta, creditoConta } from '../lib/matricula'
 import { personMetrics, visitaRealizada } from '../lib/personMetrics'
 import RelatoriosListas from '../components/RelatoriosListas'
@@ -511,7 +510,7 @@ export default function RelatoriosPage() {
     : filteredClients.filter(c => inRange(new Date(c.created_at)))
   const visitsInPeriod   = pmFoco
     ? (focoRole === 'pre_vendas'
-        ? visitasDaMarcacao(clients, bookingsByClient, focoId, inRange)
+        ? pmFoco._visitasMarcList // 1 visita por cliente marcado que recebeu
         : clients.filter(c => c.assigned_to === focoId).flatMap(c => (c.visits || []).filter(v => visitaRealizada(v) && inRange(new Date(v.visit_date + 'T12:00:00')))))
     : filteredClients.flatMap(c =>
         (c.visits || []).filter(v => visitaRealizada(v) && inRange(new Date(v.visit_date + 'T12:00:00')))

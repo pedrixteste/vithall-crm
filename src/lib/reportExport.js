@@ -938,7 +938,7 @@ export function generateReportHTML({
           </div>
           <div class="ind-body">
             <div><div class="num" style="color:#2563EB">${m.marcacoes}</div><div class="cap">marcações</div></div>
-            <div><div class="num" style="color:#7C3AED">${m.visitas}</div><div class="cap">visitas</div></div>
+            <div><div class="num" style="color:#7C3AED">${m.marcacoesComVisita}</div><div class="cap">receberam visita</div></div>
             <div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">conv.</div></div>
           </div>
           ${m.noShow > 0 || m.canceled > 0 ? `
