@@ -547,7 +547,15 @@ export default function RelatoriosPage() {
 
   // Créditos de matrícula no período (comissão de quem marcou a visita)
   const clienteDoCredito = (id) => clients.find(x => x.id === id) || creditClients.find(x => x.id === id)
-  const creditsInPeriod = credits.filter(cr => inRange(new Date(cr.credit_date + 'T12:00:00')))
+  // O crédito conta no período da MATRÍCULA (data da visita matriculada), não
+  // no dia em que a estrela foi preenchida — senão a mesma matrícula caía num
+  // mês nos cards e em outro na coluna de créditos (caso Jonatan: visita 31/07,
+  // estrela 03/08). Cliente fora da carteira: cai na data do crédito.
+  const creditoNoPeriodo = (cr) => {
+    const c = clienteDoCredito(cr.client_id)
+    return inRange(new Date((c ? matriculaDia(c) : cr.credit_date) + 'T12:00:00'))
+  }
+  const creditsInPeriod = credits.filter(creditoNoPeriodo)
     // matrícula pendente: o crédito só passa a contar quando efetivar
     .filter(cr => creditoConta(clienteDoCredito(cr.client_id)))
   const filteredCredits = profile?.role === 'gerente' && selectedPerson !== 'all'
@@ -795,7 +803,7 @@ export default function RelatoriosPage() {
       const logs = dailyLogs.filter(l => l.user_id === p.id)
       // matrículas de clientes que a pessoa marcou (comissão), no período —
       // com a LISTA de quem fechou, que agora sai no relatório
-      const memberCredits = credits.filter(cr => cr.credited_to === p.id && inRange(new Date(cr.credit_date + 'T12:00:00')))
+      const memberCredits = credits.filter(cr => cr.credited_to === p.id && creditoNoPeriodo(cr))
         // pendente não entra no relatório até efetivar (mesma regra da tela)
         .filter(cr => creditoConta(clienteDoCredito(cr.client_id)))
       return { ...p, memberClients, logs, bookingsByClient, credits, creditos: memberCredits.length, enrolled: enrolledDetail(memberCredits) }
