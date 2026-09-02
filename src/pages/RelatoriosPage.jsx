@@ -578,8 +578,11 @@ export default function RelatoriosPage() {
 
   const callsPerBooking = hasCalls && clientsInPeriod.length > 0
     ? (totalCallsPeriod / clientsInPeriod.length).toFixed(1) : null
-  const bookingShowRate = clientsInPeriod.length > 0 && visitsInPeriod.length > 0
-    ? Math.round((visitsInPeriod.length / clientsInPeriod.length) * 100) : null
+  // Das marcações do período, quantas já viraram visita. (Visitas ÷ marcações
+  // passava de 100%: visita de cliente marcado antes do período e 2ª visita.)
+  const marcacoesComVisita = clientsInPeriod.filter(c => (c.visits || []).length > 0).length
+  const bookingShowRate = clientsInPeriod.length > 0 && marcacoesComVisita > 0
+    ? Math.round((marcacoesComVisita / clientsInPeriod.length) * 100) : null
   const visitConvRate = visitsInPeriod.length > 0
     ? Math.round((matriculasFechadas / visitsInPeriod.length) * 100) : null
 
@@ -1083,7 +1086,7 @@ export default function RelatoriosPage() {
             rateLabel={bookingShowRate !== null ? `${bookingShowRate}% compareceram` : null}
             onInfo={bookingShowRate !== null ? () => setStatInfo({
               title: 'Compareceram',
-              text: `Das marcações feitas no período, quantas viraram visita de verdade (o cliente compareceu): ${visitsInPeriod.length} visitas de ${clientsInPeriod.length} marcações = ${bookingShowRate}%.`,
+              text: `Das marcações feitas no período, quantas já viraram visita de verdade (o cliente compareceu): ${marcacoesComVisita} de ${clientsInPeriod.length} marcações = ${bookingShowRate}%. Visitas realizadas (${visitsInPeriod.length}) podem ser mais que isso: incluem clientes marcados antes do período e segundas visitas.`,
             }) : null} />
           <FunnelStep label="Visitas realizadas" value={visitsInPeriod.length} color="#A78BFA"
             rateLabel={visitConvRate !== null ? `${visitConvRate}% viraram matricula` : null}

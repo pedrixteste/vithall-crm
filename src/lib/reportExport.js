@@ -36,6 +36,10 @@ function calcMetrics(memberClients, logs, periodStart, periodEnd) {
   const inPeriod   = memberClients.filter(c => inR(new Date(c.created_at)))
   const visits     = memberClients.flatMap(c =>
     (c.visits || []).filter(v => inR(new Date(v.visit_date + 'T12:00:00'))))
+  // Visitas do período incluem clientes marcados ANTES dele e segundas visitas —
+  // por isso "visitas ÷ marcações" passava de 100%. A taxa certa é: das
+  // marcações feitas no período, quantas já viraram pelo menos uma visita.
+  const marcacoesComVisita = inPeriod.filter(c => (c.visits || []).length > 0)
   // Mesmas regras da tela: pendente não é matrícula até efetivar, e a
   // matrícula conta pela DATA em que aconteceu (visita matriculada), não
   // pela data de cadastro do cliente
@@ -69,7 +73,8 @@ function calcMetrics(memberClients, logs, periodStart, periodEnd) {
     calls,
     answered,
     answerRate: pct(answered, calls),
-    convMV:     pct(visits.length, inPeriod.length),
+    marcacoesComVisita: marcacoesComVisita.length,
+    convMV:     pct(marcacoesComVisita.length, inPeriod.length),
     convVE:     pct(enrolled.length, visits.length),
     trainings,
     origins,
@@ -154,22 +159,31 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
     add(54, '✅', `<b>Marcações bem aproveitadas:</b> ${totals.convMV}% das ${totals.marcacoes} marcações viraram visita.`)
   }
 
-  // — Quem liderou em matrículas
+  // — Quem liderou em matrículas: só quem FECHA (vendedor/gerente). Pré-vendas
+  //   marca a visita, não fecha — o destaque dela é a participação (créditos).
   if (isGroup) {
-    const top = [...members].sort((a, b) => b.matriculas - a.matriculas)[0]
+    const fecham = members.filter(m => m.role !== 'pre_vendas')
+    const top = [...fecham].sort((a, b) => b.matriculas - a.matriculas)[0]
     if (top && top.matriculas > 0) {
       add(95, '🏆', `<b>${esc(firstName(top.name))}</b> liderou em matrículas: <b>${top.matriculas}</b> ${plural(top.matriculas, 'fechada')} no período.`)
+    }
+    const pres = members.filter(m => m.role === 'pre_vendas')
+    const topPre = [...pres].sort((a, b) => (b.creditos || 0) - (a.creditos || 0))[0]
+    if (topPre && topPre.creditos > 0) {
+      add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> liderou em matrículas de marcações: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'visita marcada por ela virou matrícula', 'visitas marcadas por ela viraram matrícula')}.`)
     }
     // — Melhor aproveitamento (exige amostra, senão "1 visita, 1 matrícula" vira 100%)
     const comAmostra = members.filter(m => m.visitas >= 3 && m.convVE != null)
     if (comAmostra.length) {
       const best = comAmostra.sort((a, b) => b.convVE - a.convVE)[0]
       if (best.convVE >= 40) {
-        add(80, '⭐', `<b>Melhor aproveitamento:</b> ${esc(firstName(best.name))} converteu ${best.convVE}% das visitas (${best.matriculas} de ${best.visitas}).`)
+        add(80, '⭐', best.role === 'pre_vendas'
+          ? `<b>Melhor aproveitamento:</b> ${best.convVE}% das visitas marcadas por ${esc(firstName(best.name))} viraram matrícula (${best.matriculas} de ${best.visitas}).`
+          : `<b>Melhor aproveitamento:</b> ${esc(firstName(best.name))} converteu ${best.convVE}% das visitas (${best.matriculas} de ${best.visitas}).`)
       }
     }
     // — Ninguém ficou de fora
-    if (members.every(m => m.matriculas > 0)) {
+    if (members.every(m => (m.role === 'pre_vendas' ? (m.creditos || 0) : m.matriculas) > 0)) {
       add(78, '🤝', `<b>Time inteiro no placar:</b> ${plural(members.length, 'a', 'todas as')} ${members.length} ${plural(members.length, 'pessoa', 'pessoas')} ${plural(members.length, 'fechou', 'fecharam')} pelo menos uma matrícula.`)
     }
   }
@@ -263,7 +277,7 @@ function memberRow(m, i, isTop) {
       <td class="c-teal">${fmt(m.answered || 0)}</td>
       <td>${fmt(m.marcacoes)}</td>
       <td>${fmt(m.visitas)}</td>
-      <td class="c-green b">${fmt(m.matriculas)}</td>
+      <td class="c-green b">${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.matriculas)}</td>
       <td class="c-gold b">${fmt(m.creditos || 0)}</td>
       <td class="c-mute">${m.noShow || '·'}</td>
       <td class="c-mute">${m.canceled || '·'}</td>
@@ -431,7 +445,8 @@ export function generateReportHTML({
     noShow:     membersWithMetrics.reduce((s, m) => s + m.noShow, 0),
     canceled:   membersWithMetrics.reduce((s, m) => s + m.canceled, 0),
   }
-  totals.convMV     = pct(totals.visitas, totals.marcacoes)
+  totals.marcacoesComVisita = membersWithMetrics.reduce((s, m) => s + (m.marcacoesComVisita || 0), 0)
+  totals.convMV     = pct(totals.marcacoesComVisita, totals.marcacoes)
   totals.convVE     = pct(totals.matriculas, totals.visitas)
   totals.answerRate = pct(totals.answered, totals.calls)
 
@@ -679,7 +694,8 @@ export function generateReportHTML({
   }
   .ind-head .n { font-weight: 700; font-size: 13px; color: var(--ink); }
   .ind-head .r { font-size: 9px; color: var(--mute); text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
-  .ind-head .v { font-size: 21px; font-weight: 800; color: #15803D; font-variant-numeric: tabular-nums; }
+  .ind-head .v { font-size: 21px; font-weight: 800; color: #15803D; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .ind-head .vcap { font-size: 8px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; }
   .ind-body { padding: 12px 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
   .ind-body .num { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .ind-body .cap { font-size: 8.5px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; margin-top: 1px; }
@@ -748,7 +764,7 @@ export function generateReportHTML({
       ${metricCard('Ligações',   fmt(totals.calls),      null,                                        '#EA580C')}
       ${metricCard('Atendidas',  fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`,  '#0E7490')}
       ${metricCard('Marcações',  fmt(totals.marcacoes),  null,                                        '#2563EB')}
-      ${metricCard('Visitas',    fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações`,     '#7C3AED')}
+      ${metricCard('Visitas',    fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações viraram visita`,     '#7C3AED')}
       ${metricCard('Matrículas', fmt(totals.matriculas), `${fmtPct(totals.convVE)} das visitas`,       '#16A34A')}
       ${metricCard('Matr. de marcações', fmt(totals.creditos), 'comissão — de quem marcou',            '#A8823C')}
     </div>
@@ -840,7 +856,10 @@ export function generateReportHTML({
               <div class="n">${esc(m.name)}</div>
               <div class="r">${ROLE_LABELS[m.role] || m.role}</div>
             </div>
-            <div class="v">${m.matriculas}</div>
+            <div style="text-align:right">
+              <div class="v">${m.role === 'pre_vendas' ? (m.creditos || 0) : m.matriculas}</div>
+              <div class="vcap">${m.role === 'pre_vendas' ? 'matr. de marcações' : 'matrículas'}</div>
+            </div>
           </div>
           <div class="ind-body">
             <div><div class="num" style="color:#2563EB">${m.marcacoes}</div><div class="cap">marcações</div></div>
