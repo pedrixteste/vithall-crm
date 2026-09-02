@@ -808,8 +808,8 @@ export function generateReportHTML({
     <div class="card-grid">
       ${metricCard('Ligações',   fmt(totals.calls),      null,                                        '#EA580C')}
       ${metricCard('Atendidas',  fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`,  '#0E7490')}
-      ${metricCard('Marcações',  fmt(totals.marcacoes),  null,                                        '#2563EB')}
-      ${metricCard('Visitas',    fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações`,     '#7C3AED')}
+      ${metricCard('Marcações',  fmt(totals.marcacoes),  totals.convMV != null ? `${totals.marcacoesComVisita} de ${totals.marcacoes} já viraram visita (${totals.convMV}%)` : null, '#2563EB')}
+      ${metricCard('Visitas',    fmt(totals.visitas),    'realizadas no período',                     '#7C3AED')}
       ${metricCard('Matrículas', fmt(totals.matriculas), soPre ? 'com participação de quem marcou' : `${fmtPct(totals.convVE)} das visitas`, '#16A34A')}
     </div>
 
