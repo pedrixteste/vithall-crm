@@ -139,7 +139,7 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
     const pres = members.filter(m => m.role === 'pre_vendas')
     const topPre = [...pres].sort((a, b) => (b.creditos || 0) - (a.creditos || 0))[0]
     if (topPre && topPre.creditos > 0) {
-      add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> liderou em matrículas de marcações: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'visita marcada por ela virou matrícula', 'visitas marcadas por ela viraram matrícula')}.`)
+      add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> participou de mais matrículas: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'matrícula')} em que marcou a visita ou ajudou a fechar.`)
     }
     // — Melhor aproveitamento (exige amostra, senão "1 visita, 1 matrícula" vira 100%)
     const comAmostra = members.filter(m => m.visitas >= 3 && m.convVE != null)
@@ -201,9 +201,7 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
     }
     // — Todas já efetivadas
     if (todas.every(e => e.status !== 'pendente')) {
-      // "fechadas" amarra com a tabela Matrículas Fechadas — a contagem dela é
-      // por crédito de comissão, diferente do card Matrículas (por cadastro)
-      add(66, '🔒', `<b>Todas as ${todas.length} matrículas fechadas no período já estão efetivadas</b> — nenhuma pendente.`)
+      add(66, '🔒', `<b>Todas as ${totals.matriculas} matrículas do período já estão efetivadas</b> — nenhuma pendente.`)
     }
   }
 
@@ -265,11 +263,16 @@ function metricCard(label, value, sub, color) {
     </div>`
 }
 
-/** Seção de treinamentos */
-function trainingsSection(trainings) {
+/** Seção de treinamentos — quando um cliente leva mais de um, o total de
+ *  treinamentos passa o de matrículas, e isso fica dito na hora */
+function trainingsSection(trainings, nMat, nTrein, comVarios) {
   const max = Math.max(...trainings.map(t => t.count), 1)
+  const nota = nTrein > nMat
+    ? `${nTrein} treinamentos em ${nMat} ${plural(nMat, 'matrícula')} — ${comVarios} ${plural(comVarios, 'cliente levou', 'clientes levaram')} mais de um`
+    : nTrein < nMat ? `${nTrein} ${plural(nTrein, 'treinamento')} em ${nMat} ${plural(nMat, 'matrícula')} — ${nMat - nTrein} sem treinamento informado` : null
   return `
-    <h3 class="sub-title">Matrículas por Treinamento</h3>
+    <h3 class="sub-title">Treinamentos vendidos</h3>
+    ${nota ? `<div class="foot-note" style="margin:-8px 0 10px">${nota}</div>` : ''}
     <div class="tr-grid">
       ${trainings.map(t => `
         <div class="tr-item">
@@ -297,40 +300,36 @@ function originsSection(origins) {
     </div>`
 }
 
-/** Lista de matrículas fechadas por pessoa (quem marcou) — o número da tela
- *  vira nomes no papel: cliente, empresa, data, valor e situação. */
-function enrolledSection(members) {
-  const withE = members.filter(m => (m.enrolled || []).length > 0)
-  if (!withE.length) return ''
+/** A lista das matrículas do período — cada uma UMA linha, com quem vendeu e
+ *  quem marcou/participou. É a mesma lista que dá o número do card. */
+function matriculasSection(mats) {
+  if (!mats.length) return '<div class="foot-note">Nenhuma matrícula no período.</div>'
+  const who = (m) => {
+    const parts = []
+    if (m.marcou.length) parts.push(esc(m.marcou.join(', ')))
+    if (m.participou.length) parts.push(`<span class="c-mute">+ ${esc(m.participou.join(', '))} (participou)</span>`)
+    return parts.length ? parts.join(' ') : '<span class="c-mute">—</span>'
+  }
   return `
-  <div class="section">
-    <div class="section-title">Matrículas Fechadas — por quem marcou a visita</div>
-    ${withE.map(m => `
-      <div class="enr-block">
-        <div class="enr-head">
-          ${esc(m.name)} <span>· ${m.enrolled.length} ${plural(m.enrolled.length, 'matrícula')}</span>
-        </div>
-        <div class="tbl-wrap"><table>
-          <thead><tr>
-            <th class="l">Cliente</th><th class="l">Empresa</th>
-            <th>Data</th><th>Valor</th><th>Situação</th>
-          </tr></thead>
-          <tbody>
-            ${m.enrolled.map(e => `
-            <tr>
-              <td class="l b">${esc(e.matriculado || e.nome)}</td>
-              <td class="l c-mute">${esc(e.empresa || '—')}</td>
-              <td>${new Date(e.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-              <td class="c-gold b">${e.valor ? 'R$ ' + esc(String(e.valor).replace(/^\s*R\$\s*/i, '')) : '—'}</td>
-              <td>
-                <span class="pill ${e.status === 'pendente' ? 'pill-warn' : 'pill-ok'}">${e.status === 'pendente' ? 'Pendente' : 'Efetivada'}</span>
-                ${e.status === 'pendente' && e.nota ? `<div class="pill-note">${esc(e.nota)}</div>` : ''}
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table></div>
-      </div>`).join('')}
-  </div>`
+    <div class="tbl-wrap"><table class="mat-table">
+      <thead><tr>
+        <th class="l">Cliente</th><th class="l">Empresa</th>
+        <th>Data</th><th class="l">Treinamentos</th><th>Valor</th>
+        <th class="l">Vendeu</th><th class="l">Marcou a visita</th>
+      </tr></thead>
+      <tbody>
+        ${mats.map(m => `
+        <tr>
+          <td class="l b">${esc(m.nome)}</td>
+          <td class="l c-mute">${esc(m.empresa || '—')}</td>
+          <td>${new Date(m.dia + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+          <td class="l">${m.treinamentos.length ? m.treinamentos.map(t => `<span class="tag" style="--tc:${TRAINING_COLORS[t] || '#666'}">${esc(t)}</span>`).join(' ') : '<span class="c-mute">—</span>'}</td>
+          <td class="c-gold b">${m.valor ? 'R$ ' + esc(String(m.valor).replace(/^\s*R\$\s*/i, '')) : '—'}</td>
+          <td class="l c-green b">${esc(m.vendeu || '—')}</td>
+          <td class="l">${who(m)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`
 }
 
 /** Resumo mês a mês (período anual) — 🔥 marca o melhor mês de cada métrica */
@@ -414,13 +413,6 @@ export function generateReportHTML({
     visitas:    st.visitas,
     visitasMarc: membersWithMetrics.reduce((s, m) => s + (m.visitasMarc || 0), 0),
     matriculas: st.matriculas,
-    // Uma matrícula pode contar para várias pessoas (participantes), mas no
-    // total da equipe ela é UMA — por isso conta clientes distintos.
-    creditos:   (() => {
-      const ids = new Set()
-      membersWithMetrics.forEach(m => (m.enrolled || []).forEach(e => ids.add(e.id)))
-      return ids.size || membersWithMetrics.reduce((s, m) => s + (m.creditos || 0), 0)
-    })(),
     noShow:     st.noShow,
     canceled:   st.canceled,
     convMV:     st.convMV,
@@ -428,14 +420,65 @@ export function generateReportHTML({
   }
   totals.answerRate = pct(totals.answered, totals.calls)
 
-  // Composição: das matrículas do PERÍODO, cada cliente uma vez
-  const matsPeriodo = st._matriculasList
+  // ── As matrículas do período, cada cliente UMA vez ──
+  // É a lista que manda em todo o relatório: card, funil, treinamentos,
+  // origem e a tabela de matrículas saem todos dela — nada de um número
+  // aqui e outro ali. Entram as fechadas nos clientes do grupo e, para o
+  // pré-vendas, também as matrículas em que ele participou (crédito).
+  const creditList = members[0]?.credits || []
+  const byId = new Map()
+  for (const c of st._matriculasList) byId.set(c.id, c)
+  for (const m of members) for (const e of (m.enrolled || [])) {
+    if (byId.has(e.id)) continue
+    const c = allClients.find(x => x.id === e.id)
+    if (c) byId.set(c.id, c)
+  }
+  const matsPeriodo = [...byId.values()].sort((a, b) => matriculaDia(a, creditList).localeCompare(matriculaDia(b, creditList)))
+  totals.matriculas = matsPeriodo.length
+
+  // Só pré-vendas no relatório: "visitas" são as visitas das marcações deles
+  // (pré-vendas não tem cliente atribuído — o total por atribuição daria 0)
+  const soPre = members.length > 0 && members.every(m => m.role === 'pre_vendas')
+  if (soPre) {
+    totals.visitas = totals.visitasMarc
+    totals.convVE  = pct(totals.matriculas, totals.visitas)
+  } else {
+    totals.convVE  = pct(totals.matriculas, totals.visitas)
+  }
+
+  // Composição: treinamentos e origem das MESMAS matrículas acima
   const totalTrainings = TRAININGS.map(t => ({
     label: t, count: matsPeriodo.filter(c => (c.matriculas || []).includes(t)).length,
   }))
   const totalOrigins = ORIGINS.map(o => ({
     label: o.label, count: matsPeriodo.filter(c => c.origin === o.key).length,
   }))
+  // Um cliente pode levar mais de um treinamento — aí "treinamentos" passa de
+  // "matrículas", e o relatório explica em vez de deixar os dois números soltos
+  const nTreinamentos = totalTrainings.reduce((s, t) => s + t.count, 0)
+  const comVarios = matsPeriodo.filter(c => (c.matriculas || []).length > 1).length
+
+  // Detalhe de cada matrícula: quem vendeu (atribuído), quem marcou/participou
+  // (créditos), treinamentos, valor e situação
+  const matriculasDetalhe = matsPeriodo.map(c => {
+    const mv = (c.visits || []).filter(v => v.visit_outcome === 'matriculada')
+      .sort((a, b) => (b.visit_date || '').localeCompare(a.visit_date || ''))[0]
+    const crs = creditList.filter(cr => cr.client_id === c.id)
+    const marcou = crs.filter(cr => !cr.is_participant).map(cr => firstName(peopleNames[cr.credited_to] || ''))
+    const part   = crs.filter(cr => cr.is_participant).map(cr => firstName(peopleNames[cr.credited_to] || ''))
+    return {
+      id: c.id,
+      nome: mv?.outcome_enrolled_name || c.contact_name || c.company_name || '—',
+      empresa: c.company_name || '',
+      dia: matriculaDia(c, creditList),
+      treinamentos: (c.matriculas || []),
+      valor: mv?.outcome_sale_value || null,
+      vendeu: firstName(peopleNames[c.assigned_to] || ''),
+      marcou: marcou.filter(Boolean),
+      participou: part.filter(Boolean),
+      status: c.matricula_status || 'efetivada',
+    }
+  })
 
   const highlights = buildHighlights({
     members: membersWithMetrics, totals, monthly,
@@ -580,7 +623,15 @@ export function generateReportHTML({
   .foot-note { font-size: 10px; color: #B3ABA3; margin-top: 10px; }
 
   /* ── Cards de métrica ──────────────────────────────────── */
-  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+  .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 10px; font-weight: 700;
+    color: var(--tc); border: 1px solid color-mix(in srgb, var(--tc) 40%, #fff);
+    background: color-mix(in srgb, var(--tc) 8%, #fff); white-space: nowrap;
+  }
+  .mat-table td { white-space: nowrap; }
+  .mat-table td:last-child { white-space: normal; min-width: 150px; }
+  @media print { .mat-table td { white-space: normal; } }
   .card {
     position: relative; overflow: hidden;
     background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, #fff) 0%, #fff 62%);
@@ -713,6 +764,7 @@ export function generateReportHTML({
     .header h1 { font-size: 22px; margin-top: 16px; }
     .section { padding: 18px 14px; margin: 12px 8px 0; }
     .card-grid { grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .card:last-child { grid-column: span 2; }
     .card { padding: 12px 12px 11px; }
     .card-value { font-size: 25px; letter-spacing: -0.8px; }
     .hl-grid, .tr-grid, .ind-grid, .comp-grid { grid-template-columns: 1fr; }
@@ -757,9 +809,8 @@ export function generateReportHTML({
       ${metricCard('Ligações',   fmt(totals.calls),      null,                                        '#EA580C')}
       ${metricCard('Atendidas',  fmt(totals.answered),   `${fmtPct(totals.answerRate)} das ligações`,  '#0E7490')}
       ${metricCard('Marcações',  fmt(totals.marcacoes),  null,                                        '#2563EB')}
-      ${metricCard('Visitas',    fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações viraram visita`,     '#7C3AED')}
-      ${metricCard('Matrículas', fmt(totals.matriculas), `${fmtPct(totals.convVE)} das visitas`,       '#16A34A')}
-      ${metricCard('Matr. de marcações', fmt(totals.creditos), 'comissão — de quem marcou',            '#A8823C')}
+      ${metricCard('Visitas',    fmt(totals.visitas),    `${fmtPct(totals.convMV)} das marcações`,     '#7C3AED')}
+      ${metricCard('Matrículas', fmt(totals.matriculas), soPre ? 'com participação de quem marcou' : `${fmtPct(totals.convVE)} das visitas`, '#16A34A')}
     </div>
 
     ${totals.noShow > 0 || totals.canceled > 0 || canceladas.length > 0 ? `
@@ -804,7 +855,7 @@ export function generateReportHTML({
           <th>Visitas das marcações</th>
           <th>Visitas totais</th>
           <th>Matrículas</th>
-          <th>Matr. de marcações</th>
+          <th>Participou em matrículas</th>
           <th>Não apareceu</th>
           <th>Cancelou</th>
           <th>Conv. V→M</th>
@@ -820,25 +871,26 @@ export function generateReportHTML({
           <td>${totals.visitasMarc}</td>
           <td>${totals.visitas}</td>
           <td class="c-green">${totals.matriculas}</td>
-          <td class="c-gold">${totals.creditos}</td>
+          <td class="c-mute">·</td>
           <td>${totals.noShow}</td>
           <td>${totals.canceled}</td>
           <td>${fmtPct(totals.convVE)}</td>
         </tr>
       </tbody>
     </table></div>
+    <div class="foot-note"><b>Participou em matrículas</b> = matrículas em que a pessoa marcou a visita ou ajudou a fechar. A mesma matrícula conta para todo mundo que participou dela, por isso essa coluna não soma no total — o total de matrículas é o da coluna verde.</div>
   </div>` : ''}
 
   <!-- ── TREINAMENTOS + ORIGENS ── -->
-  <div class="section keep">
-    <div class="section-title">Composição das Matrículas do Período</div>
+  <div class="section">
+    <div class="section-title">As ${totals.matriculas} ${plural(totals.matriculas, 'Matrícula')} do Período</div>
+    ${matriculasSection(matriculasDetalhe)}
+    <div class="divider"></div>
     <div class="comp-grid">
-      <div>${trainingsSection(totalTrainings)}</div>
+      <div>${trainingsSection(totalTrainings, totals.matriculas, nTreinamentos, comVarios)}</div>
       <div>${originsSection(totalOrigins)}</div>
     </div>
   </div>
-
-  ${enrolledSection(membersWithMetrics)}
 
   ${canceladas.length ? `
   <div class="section">
@@ -881,7 +933,7 @@ export function generateReportHTML({
             </div>
             <div style="text-align:right">
               <div class="v">${m.role === 'pre_vendas' ? (m.creditos || 0) : m.matriculas}</div>
-              <div class="vcap">${m.role === 'pre_vendas' ? 'matr. de marcações' : 'matrículas'}</div>
+              <div class="vcap">${m.role === 'pre_vendas' ? 'participou em matrículas' : 'matrículas'}</div>
             </div>
           </div>
           <div class="ind-body">
