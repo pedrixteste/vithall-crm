@@ -363,9 +363,9 @@ function notasTable(members) {
     <div class="tbl-wrap"><table>
       <thead><tr>
         <th class="l">Pessoa</th>
-        <th>Visitas de marcação</th>
+        <th>Vis. de marc.</th>
         ${NOTAS.map(([, l, c, peso]) => `<th style="color:${c}">${l}<br><span class="th-sub">nota ${peso}</span></th>`).join('')}
-        <th>Média das notas</th>
+        <th>Média</th>
       </tr></thead>
       <tbody>
         ${com.map(m => `
@@ -430,7 +430,8 @@ function destinosSection(members, peopleNames) {
 
     ${semVisita.length ? `
     <div class="divider"></div>
-    <h3 class="sub-title">Marcações que não receberam visita (${semVisita.length})</h3>
+    <h3 class="sub-title">Marcações sem visita, a resolver (${semVisita.length})</h3>
+    <div class="foot-note" style="margin:-8px 0 10px">Quem não apareceu e quem cancelou já está contado na tabela acima e não repete aqui — esta lista é o que ainda pode virar visita.</div>
     <div class="tbl-wrap"><table class="mat-table">
       <thead><tr>
         <th class="l">Cliente</th><th class="l">Empresa</th><th class="l">Marcou</th>
@@ -485,11 +486,11 @@ function sellersSection(members, matsPeriodo, allClients, inRange) {
     <div class="tbl-wrap"><table>
       <thead><tr>
         <th class="l">Vendedor</th>
-        <th>Visitas totais</th>
+        <th>Vis. totais</th>
         <th>Clientes visitados</th>
-        <th>Matrículas vendidas</th>
-        <th>Visitas → matrículas</th>
-        <th>Visitas por matrícula</th>
+        <th>Matr. vendidas</th>
+        <th>Vis. → matr.</th>
+        <th>Vis. por matr.</th>
         <th>Valor vendido</th>
       </tr></thead>
       <tbody>
@@ -739,35 +740,6 @@ export function generateReportHTML({
 
   .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
 
-  /* Fundo e cor precisam sair na impressão, senão vira tudo branco */
-  @media print {
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { background: #fff; }
-    .no-print { display: none !important; }
-    .page-break { break-before: page; }
-    .keep { break-inside: avoid; }
-    .section { box-shadow: none !important; border: 1px solid var(--line); }
-    /* No papel não existe rolagem: a tabela abre inteira na largura do A4,
-       com os títulos quebrando linha em vez de cortar coluna */
-    .tbl-wrap { overflow: visible !important; }
-    thead th { white-space: normal; font-size: 9px; letter-spacing: .04em; }
-    thead th:first-child { min-width: 80px; }
-    .t-name { white-space: normal; }
-    /* Respiros menores no papel: a tabela de 11 colunas cabe inteira no A4
-       sem mexer no tamanho dos números (conferido a 741px = A4 com margens) */
-    .section { margin: 14px 8px 0; padding: 20px 14px; }
-    thead th, tbody td { padding: 8px 3px; }
-    /* Nenhuma tabela pode passar da largura da folha: com table-layout fixed
-       as colunas se ajustam à página e o texto quebra em vez de ser cortado
-       (antes "Visitas → matrículas" sumia na borda direita) */
-    table { table-layout: fixed; width: 100%; }
-    thead th, tbody td { word-break: break-word; overflow-wrap: anywhere; }
-    thead th:first-child { width: 14%; }
-    .tag { white-space: normal; }
-    .mat-table td, .mat-table td:last-child { white-space: normal; min-width: 0; }
-  }
-  @page { margin: 12mm 7mm; size: A4; }
-
   .wrap { max-width: 900px; margin: 0 auto; padding-bottom: 40px; }
 
   /* ── Cabeçalho ─────────────────────────────────────────── */
@@ -829,7 +801,6 @@ export function generateReportHTML({
   }
   .mat-table td { white-space: nowrap; }
   .mat-table td:last-child { white-space: normal; min-width: 150px; }
-  @media print { .mat-table td { white-space: normal; } }
   .card {
     position: relative; overflow: hidden;
     background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, #fff) 0%, #fff 62%);
@@ -977,6 +948,41 @@ export function generateReportHTML({
     thead th:first-child { min-width: 110px; }
     .print-btn { bottom: 16px; right: 16px; padding: 12px 20px; font-size: 12.5px; }
   }
+
+  /* ── Papel (A4) ────────────────────────────────────────────
+     ⚠️ ESTE BLOCO TEM DE SER O ÚLTIMO DO <style>. Ele estava no começo e
+     as regras base (mesma especificidade, declaradas depois) venciam: o
+     "white-space: nowrap" dos títulos voltava e as colunas vazavam a
+     folha, uma em cima da outra. */
+  @page { margin: 12mm 7mm; size: A4; }
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .page-break { break-before: page; }
+    .keep { break-inside: avoid; }
+    /* Pedaço nenhum é partido no meio, mas a seção pode continuar na folha
+       seguinte — seção inteira "indivisível" deixava folha em branco */
+    .card, .hl, .fn-row, .tr-item, .or-row, .enr-block, .ind, tr { break-inside: avoid; }
+    thead { display: table-header-group; } /* título das colunas repete na folha nova */
+    .section { box-shadow: none !important; border: 1px solid var(--line); margin: 12px 8px 0; padding: 18px 14px; }
+    /* Cabeçalho compacto: alto demais, ele sozinho ocupava a 1ª folha */
+    .header { padding: 20px 22px 16px; }
+    .header h1 { font-size: 22px; margin-top: 12px; }
+    .header-meta { line-height: 1.5; }
+    /* No papel não existe rolagem: nenhuma tabela pode passar da folha.
+       table-layout fixed encaixa as colunas na largura da página e o texto
+       quebra linha em vez de ser cortado. */
+    .tbl-wrap { overflow: visible !important; }
+    table { table-layout: fixed; width: 100%; font-size: 10.5px; }
+    thead th { white-space: normal !important; font-size: 8.5px; letter-spacing: .03em; padding: 7px 3px; }
+    thead th:first-child { min-width: 0 !important; width: 15%; }
+    tbody td { padding: 7px 3px; }
+    thead th, tbody td { word-break: break-word; overflow-wrap: anywhere; }
+    .t-name, .t-name em, .tag, .mat-table td, .mat-table td:last-child {
+      white-space: normal !important; min-width: 0 !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1003,7 +1009,7 @@ export function generateReportHTML({
   </div>
 
   <!-- ── MÉTRICAS GERAIS ── -->
-  <div class="section keep">
+  <div class="section">
     <div class="section-title">Resumo do Período</div>
     <div class="card-grid">
       ${metricCard('Ligações',   fmt(totals.calls),      null,                                        '#EA580C')}
@@ -1049,15 +1055,15 @@ export function generateReportHTML({
       <thead>
         <tr>
           <th class="l">Pessoa</th>
-          <th>Ligações</th>
-          <th>Atendidas</th>
-          <th>Marcações</th>
-          <th>Visitas de marcação</th>
+          <th>Lig.</th>
+          <th>Atend.</th>
+          <th>Marc.</th>
+          <th>Vis. de marc.</th>
           <th>Matrículas</th>
-          <th>Comissão de matrícula</th>
+          <th>Comissão</th>
           <th>Não apareceu</th>
           <th>Cancelou</th>
-          <th>Visitas → matrículas</th>
+          <th>Vis. → matr.</th>
         </tr>
       </thead>
       <tbody>
@@ -1077,6 +1083,7 @@ export function generateReportHTML({
       </tbody>
     </table></div>
     <div class="foot-note">
+      <b>Lig.</b> = ligações · <b>Atend.</b> = atendidas · <b>Marc.</b> = marcações · <b>Vis. de marc.</b> = visitas de marcação · <b>Vis. → matr.</b> = visitas que viraram matrícula.<br>
       <b>Visitas de marcação</b> = dos clientes que a pessoa marcou no período, quantos receberam visita (cada cliente conta uma vez).<br>
       <b>Matrículas</b> = vendas fechadas pelo vendedor nos clientes dele.<br>
       <b>Comissão de matrícula</b> = coluna do pré-vendas: matrículas em que ele marcou a visita ou foi marcado como participante na estrela. Quem vende aparece na coluna <b>Matrículas</b>, com todas as vendas dele. A mesma matrícula pode dar comissão a mais de uma pessoa, por isso a coluna não soma no total.<br>

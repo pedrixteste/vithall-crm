@@ -52,10 +52,14 @@ export const DESTINOS = [
   ['naoApareceu', 'Não apareceu'],
   ['cancelou',    'Cancelou'],
   ['naoTeve',     'Não teve visita'],
-  ['aguardando',  'Visita marcada (futura)'],
-  ['semRegistro', 'Visita passou sem registro'],
+  ['aguardando',  'Visita futura'],
+  ['semRegistro', 'Passou sem registro'],
   ['semMarcacao', 'Sem visita marcada'],
 ]
+// Caixas que entram na lista nominal do relatório: "não apareceu" e "cancelou"
+// já estão fechadas (a conta acima mostra quantas) — a lista serve pro que
+// ainda pode ser resolvido.
+export const DESTINOS_LISTAR = ['naoTeve', 'aguardando', 'semRegistro', 'semMarcacao']
 // Notas da estrela (visits.rating) — mesma lista do ClienteDetalhe, com o
 // peso de cada nota para a média (1 · 4 · 7 · 10)
 export const NOTAS = [
@@ -103,7 +107,7 @@ export function personMetrics({ person, clients, inRange, credits }) {
   for (const c of marcacoes) {
     const d = destinoMarcacao(c)
     destinos[d]++
-    if (d !== 'recebeu') marcacoesSemVisita.push({ client: c, destino: d })
+    if (DESTINOS_LISTAR.includes(d)) marcacoesSemVisita.push({ client: c, destino: d })
   }
   // Mesma régua do destino, pro relatório não mostrar dois números diferentes
   const noShow   = marcacoes.filter(c => destinoMarcacao(c) === 'naoApareceu')
