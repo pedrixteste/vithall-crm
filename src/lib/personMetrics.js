@@ -32,13 +32,21 @@ const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : null)
 
 // Destino de UMA marcação — toda marcação cai em exatamente uma caixa, pra
 // conta fechar (marcações = soma de todos os destinos):
-//   recebeu      → teve pelo menos uma visita realizada
+//   recebeu      → teve pelo menos uma visita realizada (ou já matriculou)
 //   naoApareceu  → estágio "Não apareceu"
-//   cancelou     → estágio "Cancelou visita"
+//   cancelou     → estágio "Cancelou visita" OU quem marcou registrou o
+//                  cancelamento na confirmação (visit_confirmation
+//                  'nao_confirmada', que o app mostra como "Cancelou visita")
 //   naoTeve      → só tem visita marcada como "Não teve" (o cliente não recebeu)
 //   aguardando   → visita marcada para uma data que ainda não chegou
 //   semRegistro  → visita marcada, data já passou e ninguém registrou o que houve
 //   semMarcacao  → não chegou a ter visita marcada (pediu p/ ligar, não marcou)
+//
+// ⚠️ O cancelamento vive em DOIS lugares (estágio e confirmação da visita) —
+// olhar só o estágio jogava um cancelamento registrado na confirmação para
+// "sem registro" (caso Roberta, 28/08/26). Campo novo que registre desfecho
+// tem que entrar aqui; a lista nominal do relatório mostra a confirmação de
+// cada linha justamente para um erro desses aparecer.
 export const DESTINOS = [
   ['recebeu',     'Receberam visita'],
   ['naoApareceu', 'Não apareceu'],
@@ -48,20 +56,20 @@ export const DESTINOS = [
   ['semRegistro', 'Visita passou sem registro'],
   ['semMarcacao', 'Sem visita marcada'],
 ]
-// Notas da estrela (visits.rating) — mesma lista do ClienteDetalhe
+// Notas da estrela (visits.rating) — mesma lista do ClienteDetalhe, com o
+// peso de cada nota para a média (1 · 4 · 7 · 10)
 export const NOTAS = [
-  ['pessima',  'Péssima',  '#B91C1C'],
-  ['razoavel', 'Razoável', '#C2410C'],
-  ['boa',      'Boa',      '#1D4ED8'],
-  ['otima',    'Ótima',    '#15803D'],
-  ['semNota',  'Sem nota', '#8A827B'],
+  ['pessima',  'Péssima',  '#B91C1C', 1],
+  ['razoavel', 'Razoável', '#C2410C', 4],
+  ['boa',      'Boa',      '#1D4ED8', 7],
+  ['otima',    'Ótima',    '#15803D', 10],
 ]
 export function destinoMarcacao(c, agora = new Date()) {
   const vs = c.visits || []
   // Matriculado é o melhor destino possível — mesmo sem a visita registrada
   if (vs.some(visitaRealizada) || c.matricula_stage === 'matriculado') return 'recebeu'
   if (c.matricula_stage === 'nao_apareceu') return 'naoApareceu'
-  if (c.matricula_stage === 'cancelado') return 'cancelou'
+  if (c.matricula_stage === 'cancelado' || c.visit_confirmation === 'nao_confirmada') return 'cancelou'
   if (vs.some(v => v.rating === 'nao_teve')) return 'naoTeve'
   const marcada = c.visit_scheduled_at ? new Date(c.visit_scheduled_at) : null
   if (marcada && marcada >= agora) return 'aguardando'
@@ -89,9 +97,6 @@ export function personMetrics({ person, clients, inRange, credits }) {
   const matriculas    = atendidos.filter(c => matriculaConta(c) && inDay(matriculaDia(c, credits)))
   const matriculasAcum = atendidos.filter(matriculaConta)
 
-  const noShow   = marcacoes.filter(c => c.matricula_stage === 'nao_apareceu')
-  const canceled = marcacoes.filter(c => c.matricula_stage === 'cancelado')
-
   // Cada marcação em uma caixa só — a soma das caixas é o total de marcações
   const destinos = Object.fromEntries(DESTINOS.map(([k]) => [k, 0]))
   const marcacoesSemVisita = []
@@ -100,16 +105,27 @@ export function personMetrics({ person, clients, inRange, credits }) {
     destinos[d]++
     if (d !== 'recebeu') marcacoesSemVisita.push({ client: c, destino: d })
   }
+  // Mesma régua do destino, pro relatório não mostrar dois números diferentes
+  const noShow   = marcacoes.filter(c => destinoMarcacao(c) === 'naoApareceu')
+  const canceled = marcacoes.filter(c => destinoMarcacao(c) === 'cancelou')
 
   // Nota que o vendedor deu (na estrela) à 1ª visita de cada marcação que
-  // recebeu — mede a qualidade da marcação na visão de quem visitou
-  const notas = Object.fromEntries(NOTAS.map(([k]) => [k, 0]))
+  // recebeu — mede a qualidade da marcação na visão de quem visitou.
+  // A média usa os pesos de NOTAS (péssima 1 · razoável 4 · boa 7 · ótima 10)
+  // e só entra quem tem nota: visita sem estrela preenchida não puxa a média.
+  const notas = Object.fromEntries([...NOTAS.map(([k]) => [k, 0]), ['semNota', 0]])
   for (const v of visitasMarc) notas[NOTAS.some(([k]) => k === v?.rating) ? v.rating : 'semNota']++
+  const comNota   = NOTAS.reduce((s, [k]) => s + notas[k], 0)
+  const notaMedia = comNota > 0
+    ? NOTAS.reduce((s, [k, , , peso]) => s + notas[k] * peso, 0) / comNota
+    : null
 
   const visitasRef = isPre ? visitasMarc.length : visitasTotais.length
   return {
     destinos,
     notas,
+    notaMedia,
+    comNota,
     _marcacoesSemVisita: marcacoesSemVisita,
     marcacoes:          marcacoes.length,
     marcacoesComVisita: marcacoesComVisita.length,
@@ -151,8 +167,8 @@ export function scopeTotals({ people, clients, inRange, credits }) {
     visitas:            visitas.length,
     matriculas:         matriculas.length,
     matriculasAcum:     matriculasAcum.length,
-    noShow:             marcacoes.filter(c => c.matricula_stage === 'nao_apareceu').length,
-    canceled:           marcacoes.filter(c => c.matricula_stage === 'cancelado').length,
+    noShow:             marcacoes.filter(c => destinoMarcacao(c) === 'naoApareceu').length,
+    canceled:           marcacoes.filter(c => destinoMarcacao(c) === 'cancelou').length,
     convMV:             pct(marcacoesComVisita.length, marcacoes.length),
     convVE:             pct(matriculas.length, visitas.length),
     _matriculasList:    matriculas,

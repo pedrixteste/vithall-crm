@@ -145,7 +145,7 @@ function buildHighlights({ members, totals, monthly, trainings, origins, periodS
       add(94, '🎯', `<b>${esc(firstName(topPre.name))}</b> teve mais comissões de matrícula: <b>${topPre.creditos}</b> ${plural(topPre.creditos, 'matrícula')} em que marcou a visita ou participou.`)
     }
     // — Melhor aproveitamento (exige amostra, senão "1 visita, 1 matrícula" vira 100%)
-    const comAmostra = members.filter(m => m.visitasMarc >= 3 && m.convVE != null)
+    const comAmostra = members.filter(m => m.role === 'pre_vendas' && m.visitasMarc >= 3 && m.convVE != null)
     if (comAmostra.length) {
       const best = comAmostra.sort((a, b) => b.convVE - a.convVE)[0]
       if (best.convVE >= 40) {
@@ -246,10 +246,10 @@ function memberRow(m, i, isTop) {
       <td>${fmt(m.marcacoes)}</td>
       <td>${fmt(m.visitasMarc)}</td>
       <td class="c-green b">${m.role === 'pre_vendas' ? '<span class="c-mute">·</span>' : fmt(m.matriculas)}</td>
-      <td class="c-gold b">${fmt(m.creditos || 0)}</td>
+      <td class="c-gold b">${m.role === 'pre_vendas' ? fmt(m.creditos || 0) : '<span class="c-mute">·</span>'}</td>
       <td class="c-mute">${m.noShow || '·'}</td>
       <td class="c-mute">${m.canceled || '·'}</td>
-      <td class="b" style="color:${convColor}">${fmtPct(m.convVE)}</td>
+      <td class="b" style="color:${convColor}">${m.role === 'pre_vendas' ? fmtPct(m.convVE) : '<span class="c-mute">·</span>'}</td>
     </tr>`
 }
 
@@ -333,6 +333,8 @@ function matriculasSection(mats) {
 }
 
 const DESTINO_LABEL = Object.fromEntries(DESTINOS)
+// O que quem marcou registrou na confirmação da visita (fonte: visitConfirmation)
+const CONF_LABEL = { confirmada: '✓ Confirmada', nao_confirmada: '✕ Cancelou visita', tentativa: '☎ Tentou confirmar' }
 const DESTINO_ICON = { recebeu: '✅', naoApareceu: '🚫', cancelou: '📵', naoTeve: '⛔', aguardando: '📅', semRegistro: '❔', semMarcacao: '📞' }
 
 /** "20 marcações: 11 receberam visita · 6 não apareceram · 3 ..." — a conta
@@ -348,8 +350,13 @@ function destinoResumo(m) {
 function notasTable(members) {
   const com = members.filter(m => m.visitasMarc > 0)
   if (!com.length) return ''
-  const tot = Object.fromEntries(NOTAS.map(([k]) => [k, com.reduce((s, m) => s + (m.notas?.[k] || 0), 0)]))
+  const tot = Object.fromEntries([...NOTAS.map(([k]) => [k, com.reduce((s, m) => s + (m.notas?.[k] || 0), 0)]), ['semNota', com.reduce((s, m) => s + (m.notas?.semNota || 0), 0)]])
   const totVis = com.reduce((s, m) => s + m.visitasMarc, 0)
+  const totComNota = NOTAS.reduce((s, [k]) => s + tot[k], 0)
+  const media = (v) => v == null ? '—' : v.toFixed(1).replace('.', ',')
+  const corMedia = (v) => v == null ? '#A39B93' : v >= 8 ? '#15803D' : v >= 6 ? '#1D4ED8' : v >= 4 ? '#C2410C' : '#B91C1C'
+  const mediaGeral = totComNota > 0
+    ? NOTAS.reduce((s, [k, , , peso]) => s + tot[k] * peso, 0) / totComNota : null
   return `
     <div class="divider"></div>
     <h3 class="sub-title">Nota das visitas — dada pelo vendedor na estrela</h3>
@@ -357,7 +364,8 @@ function notasTable(members) {
       <thead><tr>
         <th class="l">Pessoa</th>
         <th>Visitas de marcação</th>
-        ${NOTAS.map(([, l, c]) => `<th style="color:${c}">${l}</th>`).join('')}
+        ${NOTAS.map(([, l, c, peso]) => `<th style="color:${c}">${l}<br><span class="th-sub">nota ${peso}</span></th>`).join('')}
+        <th>Média das notas</th>
       </tr></thead>
       <tbody>
         ${com.map(m => `
@@ -365,16 +373,18 @@ function notasTable(members) {
           <td class="t-name"><span>${esc(m.name)}<em>${ROLE_LABELS[m.role] || m.role}</em></span></td>
           <td class="b">${m.visitasMarc}</td>
           ${NOTAS.map(([k, , c]) => `<td class="${m.notas?.[k] ? 'b' : ''}" style="color:${m.notas?.[k] ? c : '#C8C2BB'}">${m.notas?.[k] || '·'}</td>`).join('')}
+          <td class="b" style="color:${corMedia(m.notaMedia)}">${media(m.notaMedia)}</td>
         </tr>`).join('')}
         ${com.length > 1 ? `
         <tr class="total-row">
           <td class="l">∑ Total</td>
           <td>${totVis}</td>
           ${NOTAS.map(([k]) => `<td>${tot[k] || '·'}</td>`).join('')}
+          <td>${media(mediaGeral)}</td>
         </tr>` : ''}
       </tbody>
     </table></div>
-    <div class="foot-note">Nota da primeira visita de cada marcação, dada por quem visitou. <b>Sem nota</b> = a visita aconteceu mas a estrela ainda não foi preenchida com a nota.</div>`
+    <div class="foot-note">Nota da primeira visita de cada marcação, dada por quem visitou. A <b>média</b> pesa cada nota (péssima 1 · razoável 4 · boa 7 · ótima 10) e vai de 1 a 10${tot.semNota ? ` — ${tot.semNota} ${plural(tot.semNota, 'visita', 'visitas')} ${plural(tot.semNota, 'ainda está', 'ainda estão')} sem nota na estrela e ${plural(tot.semNota, 'não entra', 'não entram')} na média` : ''}.</div>`
 }
 
 /** Destino de TODAS as marcações do período, por pessoa, e a lista nominal
@@ -424,7 +434,7 @@ function destinosSection(members, peopleNames) {
     <div class="tbl-wrap"><table class="mat-table">
       <thead><tr>
         <th class="l">Cliente</th><th class="l">Empresa</th><th class="l">Marcou</th>
-        <th>Marcada em</th><th>Visita para</th><th class="l">Situação</th>
+        <th>Marcada em</th><th>Visita para</th><th class="l">Situação</th><th class="l">Confirmação</th>
       </tr></thead>
       <tbody>
         ${semVisita.map(({ client: c, destino, quem }) => `
@@ -435,6 +445,7 @@ function destinosSection(members, peopleNames) {
           <td>${fmtDia(c.created_at)}</td>
           <td>${fmtDia(c.visit_scheduled_at)}</td>
           <td class="l">${DESTINO_ICON[destino]} ${DESTINO_LABEL[destino]}</td>
+          <td class="l c-mute">${CONF_LABEL[c.visit_confirmation] || 'sem resposta'}${c.visit_confirmation_note ? `<div class="pill-note">${esc(c.visit_confirmation_note)}</div>` : ''}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>` : ''}
@@ -746,6 +757,14 @@ export function generateReportHTML({
        sem mexer no tamanho dos números (conferido a 741px = A4 com margens) */
     .section { margin: 14px 8px 0; padding: 20px 14px; }
     thead th, tbody td { padding: 8px 3px; }
+    /* Nenhuma tabela pode passar da largura da folha: com table-layout fixed
+       as colunas se ajustam à página e o texto quebra em vez de ser cortado
+       (antes "Visitas → matrículas" sumia na borda direita) */
+    table { table-layout: fixed; width: 100%; }
+    thead th, tbody td { word-break: break-word; overflow-wrap: anywhere; }
+    thead th:first-child { width: 14%; }
+    .tag { white-space: normal; }
+    .mat-table td, .mat-table td:last-child { white-space: normal; min-width: 0; }
   }
   @page { margin: 12mm 7mm; size: A4; }
 
@@ -876,6 +895,7 @@ export function generateReportHTML({
     white-space: nowrap;
   }
   thead th.l, td.l { text-align: left; }
+  .th-sub { font-size: 8px; font-weight: 600; color: #B8B0A8; letter-spacing: 0; }
   thead th:first-child { min-width: 132px; }
   tbody td {
     padding: 9px 7px; text-align: center; color: var(--body);
@@ -1052,15 +1072,15 @@ export function generateReportHTML({
           <td class="c-mute">·</td>
           <td>${totals.noShow}</td>
           <td>${totals.canceled}</td>
-          <td>${fmtPct(totals.convVE)}</td>
+          <td class="c-mute">·</td>
         </tr>
       </tbody>
     </table></div>
     <div class="foot-note">
       <b>Visitas de marcação</b> = dos clientes que a pessoa marcou no período, quantos receberam visita (cada cliente conta uma vez).<br>
       <b>Matrículas</b> = vendas fechadas pelo vendedor nos clientes dele.<br>
-      <b>Comissão de matrícula</b> = matrículas em que a pessoa marcou a visita ou foi marcada como participante na estrela. A comissão é de quem marcou, não de quem vendeu: um vendedor pode ter menos comissões que matrículas quando outra pessoa marcou a visita. A mesma matrícula pode dar comissão a mais de uma pessoa, por isso a coluna não soma no total.<br>
-      <b>Visitas → matrículas</b> = de cada 100 visitas que a pessoa marcou, quantas viraram matrícula (comissões ÷ visitas de marcação).
+      <b>Comissão de matrícula</b> = coluna do pré-vendas: matrículas em que ele marcou a visita ou foi marcado como participante na estrela. Quem vende aparece na coluna <b>Matrículas</b>, com todas as vendas dele. A mesma matrícula pode dar comissão a mais de uma pessoa, por isso a coluna não soma no total.<br>
+      <b>Visitas → matrículas</b> = de cada 100 visitas que o pré-vendas marcou, quantas viraram matrícula. A conversão de quem vende está na seção Vendedores, calculada sobre as visitas que ele atendeu.
     </div>
   </div>` : ''}
 
@@ -1126,7 +1146,9 @@ export function generateReportHTML({
           <div class="ind-body">
             <div><div class="num" style="color:#2563EB">${m.marcacoes}</div><div class="cap">marcações</div></div>
             <div><div class="num" style="color:#7C3AED">${m.marcacoesComVisita}</div><div class="cap">receberam visita</div></div>
-            <div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">viraram matrícula</div></div>
+            ${m.role === 'pre_vendas'
+              ? `<div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">viraram matrícula</div></div>`
+              : `<div><div class="num" style="color:${m.convVendas >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVendas)}</div><div class="cap">das visitas viraram matrícula</div></div>`}
           </div>
           ${m.marcacoes > 0 ? `
           <div class="ind-foot">${destinoResumo(m)}</div>` : ''}
