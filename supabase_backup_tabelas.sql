@@ -62,9 +62,26 @@ begin
 end;
 $function$;
 
--- O cron noturno passa a chamar o backup completo (era só sheet_full_sync).
+-- ── Agendamento: UMA TAREFA POR TABELA, de 2 em 2 minutos ────────────────
+-- Não é frescura: o Apps Script tem trava (LockService) e atende um pedido
+-- por vez, então mandar as 9 chamadas juntas fazia as últimas esperarem e
+-- morrerem na trava. Pausar dentro de uma função só (pg_sleep) não serve:
+-- a API do Supabase corta a consulta no limite de tempo dela.
+-- `sheet_backup_tudo()` continua existindo para rodar tudo na mão.
 -- 06:00 UTC = 03:00 no horário de Brasília.
-select cron.unschedule('sheet-backup-noturno')
- where exists (select 1 from cron.job where jobname = 'sheet-backup-noturno');
+select cron.schedule('sheet-backup-noturno', '0 6 * * *',  $$select public.sheet_full_sync()$$);
+select cron.schedule('bk-visitas',           '2 6 * * *',  $$select public.sheet_backup_tabela('visits','Visitas','created_at')$$);
+select cron.schedule('bk-historico',         '4 6 * * *',  $$select public.sheet_backup_tabela('client_history','Historico','created_at')$$);
+select cron.schedule('bk-ligardepois',       '6 6 * * *',  $$select public.sheet_backup_tabela('callbacks','LigarDepois','created_at')$$);
+select cron.schedule('bk-tarefas',           '8 6 * * *',  $$select public.sheet_backup_tabela('tasks','Tarefas','created_at')$$);
+select cron.schedule('bk-comissoes',         '10 6 * * *', $$select public.sheet_backup_tabela('matricula_credits','Comissoes','credit_date')$$);
+select cron.schedule('bk-ligacoes',          '12 6 * * *', $$select public.sheet_backup_tabela('daily_logs','Ligacoes','log_date')$$);
+select cron.schedule('bk-agenda',            '14 6 * * *', $$select public.sheet_backup_tabela('agenda_slots','Agenda','created_at')$$);
+select cron.schedule('bk-equipe',            '16 6 * * *', $$select public.sheet_backup_tabela('profiles','Equipe','name')$$);
 
-select cron.schedule('sheet-backup-noturno', '0 6 * * *', $$select public.sheet_backup_tudo()$$);
+-- Conferir depois de uma noite:
+--   select jobname, status, start_time from cron.job j join cron.job_run_details r using (jobid)
+--    where jobname like 'bk-%' or jobname = 'sheet-backup-noturno' order by start_time desc limit 20;
+-- A resposta do Google pode voltar como timeout mesmo tendo gravado (a
+-- planilha termina o serviço depois que o banco desiste de esperar) — quem
+-- diz a verdade é a aba na planilha.
