@@ -1,4 +1,4 @@
-import { personMetrics, scopeTotals, matriculaDia } from './personMetrics'
+import { personMetrics, scopeTotals, matriculaDia, DESTINOS, NOTAS } from './personMetrics'
 
 // Gerador de relatório HTML para impressão/PDF
 // Abre em nova aba — File > Print > Salvar como PDF
@@ -332,6 +332,115 @@ function matriculasSection(mats) {
     </table></div>`
 }
 
+const DESTINO_LABEL = Object.fromEntries(DESTINOS)
+const DESTINO_ICON = { recebeu: '✅', naoApareceu: '🚫', cancelou: '📵', naoTeve: '⛔', aguardando: '📅', semRegistro: '❔', semMarcacao: '📞' }
+
+/** "20 marcações: 11 receberam visita · 6 não apareceram · 3 ..." — a conta
+ *  fecha sempre: toda marcação está em exatamente uma caixa */
+function destinoResumo(m) {
+  const partes = DESTINOS.filter(([k]) => (m.destinos?.[k] || 0) > 0)
+    .map(([k, l]) => `<span>${DESTINO_ICON[k]} ${m.destinos[k]} ${l.toLowerCase()}</span>`)
+  return `<span><b>${m.marcacoes} ${plural(m.marcacoes, 'marcação', 'marcações')}:</b></span>${partes.join('')}`
+}
+
+/** Nota que o vendedor deu, na estrela, à visita de cada marcação — por
+ *  pessoa que marcou. Só marcações que receberam visita entram. */
+function notasTable(members) {
+  const com = members.filter(m => m.visitasMarc > 0)
+  if (!com.length) return ''
+  const tot = Object.fromEntries(NOTAS.map(([k]) => [k, com.reduce((s, m) => s + (m.notas?.[k] || 0), 0)]))
+  const totVis = com.reduce((s, m) => s + m.visitasMarc, 0)
+  return `
+    <div class="divider"></div>
+    <h3 class="sub-title">Nota das visitas — dada pelo vendedor na estrela</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l">Pessoa</th>
+        <th>Visitas de marcação</th>
+        ${NOTAS.map(([, l, c]) => `<th style="color:${c}">${l}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${com.map(m => `
+        <tr>
+          <td class="t-name"><span>${esc(m.name)}<em>${ROLE_LABELS[m.role] || m.role}</em></span></td>
+          <td class="b">${m.visitasMarc}</td>
+          ${NOTAS.map(([k, , c]) => `<td class="${m.notas?.[k] ? 'b' : ''}" style="color:${m.notas?.[k] ? c : '#C8C2BB'}">${m.notas?.[k] || '·'}</td>`).join('')}
+        </tr>`).join('')}
+        ${com.length > 1 ? `
+        <tr class="total-row">
+          <td class="l">∑ Total</td>
+          <td>${totVis}</td>
+          ${NOTAS.map(([k]) => `<td>${tot[k] || '·'}</td>`).join('')}
+        </tr>` : ''}
+      </tbody>
+    </table></div>
+    <div class="foot-note">Nota da primeira visita de cada marcação, dada por quem visitou. <b>Sem nota</b> = a visita aconteceu mas a estrela ainda não foi preenchida com a nota.</div>`
+}
+
+/** Destino de TODAS as marcações do período, por pessoa, e a lista nominal
+ *  das que não receberam visita — nenhuma marcação fica sem explicação. */
+function destinosSection(members, peopleNames) {
+  const com = members.filter(m => m.marcacoes > 0)
+  if (!com.length) return ''
+  const cols = DESTINOS.filter(([k]) => com.some(m => (m.destinos?.[k] || 0) > 0))
+  const tot = Object.fromEntries(cols.map(([k]) => [k, com.reduce((s, m) => s + (m.destinos?.[k] || 0), 0)]))
+  const totMarc = com.reduce((s, m) => s + m.marcacoes, 0)
+  const semVisita = com.flatMap(m => (m._marcacoesSemVisita || []).map(x => ({ ...x, quem: m.name })))
+    .sort((a, b) => (a.client.created_at || '').localeCompare(b.client.created_at || ''))
+  const fmtDia = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—'
+  return `
+  <div class="section">
+    <div class="section-title">Destino das Marcações do Período</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th class="l">Pessoa</th>
+        <th>Marcações</th>
+        ${cols.map(([k, l]) => `<th>${DESTINO_ICON[k]} ${l}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${com.map(m => `
+        <tr>
+          <td class="t-name"><span>${esc(m.name)}<em>${ROLE_LABELS[m.role] || m.role}</em></span></td>
+          <td class="b">${m.marcacoes}</td>
+          ${cols.map(([k]) => `<td class="${k === 'recebeu' ? 'b' : ''}" style="color:${k === 'recebeu' ? '#7C3AED' : m.destinos[k] ? 'var(--body)' : '#C8C2BB'}">${m.destinos[k] || '·'}</td>`).join('')}
+        </tr>`).join('')}
+        ${com.length > 1 ? `
+        <tr class="total-row">
+          <td class="l">∑ Total</td>
+          <td>${totMarc}</td>
+          ${cols.map(([k]) => `<td>${tot[k] || '·'}</td>`).join('')}
+        </tr>` : ''}
+      </tbody>
+    </table></div>
+    <div class="foot-note">Cada marcação está em uma única coluna, por isso a soma das colunas é o total de marcações.
+      <b>Não teve visita</b> = a visita foi marcada como "não teve" na estrela. <b>Visita marcada (futura)</b> = a data ainda não chegou.
+      <b>Visita passou sem registro</b> = a data passou e ninguém preencheu a estrela. <b>Sem visita marcada</b> = cliente pediu para ligar depois ou ainda não marcou.</div>
+
+    ${notasTable(com)}
+
+    ${semVisita.length ? `
+    <div class="divider"></div>
+    <h3 class="sub-title">Marcações que não receberam visita (${semVisita.length})</h3>
+    <div class="tbl-wrap"><table class="mat-table">
+      <thead><tr>
+        <th class="l">Cliente</th><th class="l">Empresa</th><th class="l">Marcou</th>
+        <th>Marcada em</th><th>Visita para</th><th class="l">Situação</th>
+      </tr></thead>
+      <tbody>
+        ${semVisita.map(({ client: c, destino, quem }) => `
+        <tr>
+          <td class="l b">${esc(c.contact_name || c.company_name || '—')}</td>
+          <td class="l c-mute">${esc(c.company_name || '—')}</td>
+          <td class="l">${esc(firstName(quem))}</td>
+          <td>${fmtDia(c.created_at)}</td>
+          <td>${fmtDia(c.visit_scheduled_at)}</td>
+          <td class="l">${DESTINO_ICON[destino]} ${DESTINO_LABEL[destino]}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>` : ''}
+  </div>`
+}
+
 /** Seção dos VENDEDORES — o trabalho de quem atende e fecha: todas as visitas
  *  que atendeu (inclusive segundas visitas), clientes visitados, matrículas
  *  vendidas, conversão sobre as visitas totais e valor vendido. */
@@ -449,6 +558,7 @@ export function generateReportHTML({
   exportedBy,
   monthly,      // resumo mês a mês (período anual) ou null
   peopleNames = {}, // id → nome (quem cancelou uma matrícula)
+  fontScale = 1,    // 1 = normal · 1.2 = grande · 1.4 = extra grande (letras e números)
 }) {
   const now = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -588,7 +698,7 @@ export function generateReportHTML({
   ].filter((f, i) => i > 1 || f.val > 0) // sem ligações registradas, começa em Marcações
   const funilMax = Math.max(...funil.map(f => f.val), 1)
 
-  return `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -812,7 +922,8 @@ export function generateReportHTML({
   .ind-body { padding: 12px 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
   .ind-body .num { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .ind-body .cap { font-size: 8.5px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; margin-top: 1px; }
-  .ind-foot { padding: 7px 15px; background: #FDFAF3; border-top: 1px solid #F2EAD8; font-size: 10.5px; color: var(--mute); display: flex; gap: 12px; }
+  .ind-foot { padding: 7px 15px; background: #FDFAF3; border-top: 1px solid #F2EAD8; font-size: 10.5px; color: var(--mute); display: flex; gap: 10px; flex-wrap: wrap; }
+  .ind-foot b { color: var(--body); }
 
   /* ── Rodapé + botão ────────────────────────────────────── */
   .footer { text-align: center; padding: 22px 16px 0; font-size: 9.5px; color: #B8B0A8; letter-spacing: .03em; }
@@ -953,6 +1064,8 @@ export function generateReportHTML({
     </div>
   </div>` : ''}
 
+  ${destinosSection(membersWithMetrics, peopleNames)}
+
   ${sellersSection(membersWithMetrics, matsPeriodo, allClients, inRangeT)}
 
   <!-- ── TREINAMENTOS + ORIGENS ── -->
@@ -1015,11 +1128,8 @@ export function generateReportHTML({
             <div><div class="num" style="color:#7C3AED">${m.marcacoesComVisita}</div><div class="cap">receberam visita</div></div>
             <div><div class="num" style="color:${m.convVE >= 40 ? '#15803D' : '#B45309'}">${fmtPct(m.convVE)}</div><div class="cap">viraram matrícula</div></div>
           </div>
-          ${m.noShow > 0 || m.canceled > 0 ? `
-          <div class="ind-foot">
-            ${m.noShow   > 0 ? `<span>🚫 ${m.noShow} não apareceu</span>` : ''}
-            ${m.canceled > 0 ? `<span>📵 ${m.canceled} cancelou</span>` : ''}
-          </div>` : ''}
+          ${m.marcacoes > 0 ? `
+          <div class="ind-foot">${destinoResumo(m)}</div>` : ''}
         </div>`).join('')}
     </div>
   </div>` : ''}
@@ -1036,4 +1146,20 @@ export function generateReportHTML({
 
 </body>
 </html>`
+  return aplicaEscala(html, fontScale)
+}
+
+/** Tamanho da letra "Grande" / "Extra grande": todo font-size e toda largura
+ *  fixa do <style> passam a ser multiplicados pela escala — só letras, números
+ *  e as caixas que os seguram crescem; nada de zoom na página inteira. No
+ *  papel a folha vira A4 paisagem, senão as tabelas largas não cabem. */
+function aplicaEscala(html, fs) {
+  if (!fs || fs === 1) return html
+  const k = Number(fs)
+  const scale = (css) => css
+    .replace(/font-size:\s*([\d.]+)px/g, (_, n) => `font-size: ${(parseFloat(n) * k).toFixed(1)}px`)
+    .replace(/(?<![-\w])(min-|max-)?(width|height):\s*([\d.]+)px/g, (_, p, w, n) => `${p || ''}${w}: ${Math.round(parseFloat(n) * k)}px`)
+    .replace(/@page\s*\{[^}]*\}/, '@page { margin: 10mm 8mm; size: A4 landscape; }')
+    .replace(/@media screen and \(max-width: \d+px\)/, `@media screen and (max-width: ${Math.round(640 * k)}px)`)
+  return html.replace(/<style>([\s\S]*?)<\/style>/, (_, css) => `<style>${scale(css)}</style>`)
 }

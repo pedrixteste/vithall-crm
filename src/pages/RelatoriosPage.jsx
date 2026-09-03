@@ -352,6 +352,7 @@ export default function RelatoriosPage() {
   const [exportScope, setExportScope]         = useState('all')
   const [exportPersonId, setExportPersonId]   = useState(null)
   const [exportPeople, setExportPeople]       = useState([]) // escopo "personalizado": ids escolhidos
+  const [exportFont, setExportFont]           = useState(1)  // tamanho da letra no PDF: 1 | 1.2 | 1.4
   const [visibleSeries, setVisibleSeries]     = useState({ calls: true, atendidas: false, marcacoes: true, visitas: true, matriculas: false })
   const [credits, setCredits]                 = useState([]) // matricula_credits (comissões)
   const [creditClients, setCreditClients]     = useState([]) // clientes de créditos fora da carteira (participações)
@@ -850,6 +851,7 @@ export default function RelatoriosPage() {
       // nomes p/ "cancelada por Fulano" no relatório
       peopleNames: Object.fromEntries(profiles.map(p => [p.id, p.name])),
       monthly,
+      fontScale: exportFont,
     })
 
     // Blob URL em vez de document.write: no celular, o "about:blank" ignora a
@@ -1626,6 +1628,36 @@ export default function RelatoriosPage() {
                   </div>
                 )
               })()}
+
+              {/* Tamanho da letra — pra quem tem dificuldade de enxergar.
+                  Só letras e números crescem; o relatório vira paisagem no
+                  papel pra caber, mesmo que dê mais folhas. */}
+              <div>
+                <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#979089', marginBottom: '10px' }}>
+                  Tamanho da letra
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                  {[[1, 'Normal', '13px'], [1.2, 'Grande', '15px'], [1.4, 'Extra grande', '17px']].map(([v, label, fs]) => {
+                    const on = exportFont === v
+                    return (
+                      <button key={v} onClick={() => setExportFont(v)}
+                        style={{
+                          padding: '10px 6px', borderRadius: '12px', cursor: 'pointer', fontSize: fs, fontWeight: 700,
+                          background: on ? 'rgba(201,168,76,0.12)' : '#161616',
+                          border: `1px solid ${on ? 'rgba(201,168,76,0.35)' : '#252525'}`,
+                          color: on ? '#C9A84C' : '#958E86', whiteSpace: 'nowrap', minWidth: 0,
+                        }}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {exportFont > 1 && (
+                  <p style={{ fontSize: '11px', color: '#8B857D', marginTop: '8px', lineHeight: 1.5 }}>
+                    Na impressão a folha fica deitada (A4 paisagem) para as tabelas caberem — pode dar mais páginas.
+                  </p>
+                )}
+              </div>
 
               {/* Botão gerar */}
               {(() => { const bloqueado = (exportScope === 'individual' && !exportPersonId) || (exportScope === 'custom' && exportPeople.length === 0); return (

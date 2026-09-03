@@ -30,6 +30,45 @@ export function matriculaDia(c, credits) {
 
 const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : null)
 
+// Destino de UMA marcação — toda marcação cai em exatamente uma caixa, pra
+// conta fechar (marcações = soma de todos os destinos):
+//   recebeu      → teve pelo menos uma visita realizada
+//   naoApareceu  → estágio "Não apareceu"
+//   cancelou     → estágio "Cancelou visita"
+//   naoTeve      → só tem visita marcada como "Não teve" (o cliente não recebeu)
+//   aguardando   → visita marcada para uma data que ainda não chegou
+//   semRegistro  → visita marcada, data já passou e ninguém registrou o que houve
+//   semMarcacao  → não chegou a ter visita marcada (pediu p/ ligar, não marcou)
+export const DESTINOS = [
+  ['recebeu',     'Receberam visita'],
+  ['naoApareceu', 'Não apareceu'],
+  ['cancelou',    'Cancelou'],
+  ['naoTeve',     'Não teve visita'],
+  ['aguardando',  'Visita marcada (futura)'],
+  ['semRegistro', 'Visita passou sem registro'],
+  ['semMarcacao', 'Sem visita marcada'],
+]
+// Notas da estrela (visits.rating) — mesma lista do ClienteDetalhe
+export const NOTAS = [
+  ['pessima',  'Péssima',  '#B91C1C'],
+  ['razoavel', 'Razoável', '#C2410C'],
+  ['boa',      'Boa',      '#1D4ED8'],
+  ['otima',    'Ótima',    '#15803D'],
+  ['semNota',  'Sem nota', '#8A827B'],
+]
+export function destinoMarcacao(c, agora = new Date()) {
+  const vs = c.visits || []
+  // Matriculado é o melhor destino possível — mesmo sem a visita registrada
+  if (vs.some(visitaRealizada) || c.matricula_stage === 'matriculado') return 'recebeu'
+  if (c.matricula_stage === 'nao_apareceu') return 'naoApareceu'
+  if (c.matricula_stage === 'cancelado') return 'cancelou'
+  if (vs.some(v => v.rating === 'nao_teve')) return 'naoTeve'
+  const marcada = c.visit_scheduled_at ? new Date(c.visit_scheduled_at) : null
+  if (marcada && marcada >= agora) return 'aguardando'
+  if (marcada || ['marcado', 'nao_visitado', 'recebeu_visita', 'matriculado'].includes(c.matricula_stage)) return 'semRegistro'
+  return 'semMarcacao'
+}
+
 export function personMetrics({ person, clients, inRange, credits }) {
   const id    = person.id
   const isPre = person.role === 'pre_vendas'
@@ -37,9 +76,11 @@ export function personMetrics({ person, clients, inRange, credits }) {
 
   const booked    = clients.filter(c => c.created_by === id)
   const marcacoes = booked.filter(c => inRange(new Date(c.created_at)))
-  const marcacoesComVisita = marcacoes.filter(c => (c.visits || []).some(visitaRealizada))
+  // Recebeu = mesma regra do destino (visita realizada OU já matriculado)
+  const marcacoesComVisita = marcacoes.filter(c => destinoMarcacao(c) === 'recebeu')
 
   // A 1ª visita realizada de cada marcação que recebeu — uma por cliente
+  // (matriculado sem visita registrada não tem objeto de visita)
   const visitasMarc = marcacoesComVisita.map(c =>
     (c.visits || []).filter(visitaRealizada).sort((a, b) => a.visit_date.localeCompare(b.visit_date))[0])
 
@@ -51,11 +92,28 @@ export function personMetrics({ person, clients, inRange, credits }) {
   const noShow   = marcacoes.filter(c => c.matricula_stage === 'nao_apareceu')
   const canceled = marcacoes.filter(c => c.matricula_stage === 'cancelado')
 
+  // Cada marcação em uma caixa só — a soma das caixas é o total de marcações
+  const destinos = Object.fromEntries(DESTINOS.map(([k]) => [k, 0]))
+  const marcacoesSemVisita = []
+  for (const c of marcacoes) {
+    const d = destinoMarcacao(c)
+    destinos[d]++
+    if (d !== 'recebeu') marcacoesSemVisita.push({ client: c, destino: d })
+  }
+
+  // Nota que o vendedor deu (na estrela) à 1ª visita de cada marcação que
+  // recebeu — mede a qualidade da marcação na visão de quem visitou
+  const notas = Object.fromEntries(NOTAS.map(([k]) => [k, 0]))
+  for (const v of visitasMarc) notas[NOTAS.some(([k]) => k === v?.rating) ? v.rating : 'semNota']++
+
   const visitasRef = isPre ? visitasMarc.length : visitasTotais.length
   return {
+    destinos,
+    notas,
+    _marcacoesSemVisita: marcacoesSemVisita,
     marcacoes:          marcacoes.length,
     marcacoesComVisita: marcacoesComVisita.length,
-    visitasMarc:        visitasMarc.length,
+    visitasMarc:        marcacoesComVisita.length,
     visitasTotais:      visitasTotais.length,
     // "visitas" = a referência da pessoa: pré-vendas → das marcações; vendedor → totais
     visitas:            visitasRef,
@@ -67,7 +125,7 @@ export function personMetrics({ person, clients, inRange, credits }) {
     // conversão visita→matrícula: vendedor pelas fechadas; pré-vendas pelos créditos (participação)
     convVE:             isPre ? null : pct(matriculas.length, visitasTotais.length),
     _marcacoesList:     marcacoes,
-    _visitasMarcList:   visitasMarc,
+    _visitasMarcList:   visitasMarc.filter(Boolean),
     _matriculasList:    matriculas,
     _matriculasAcumList: matriculasAcum,
   }
@@ -82,7 +140,7 @@ export function scopeTotals({ people, clients, inRange, credits }) {
   const inDay = (ds) => inRange(new Date(ds + 'T12:00:00'))
   const doGrupo   = clients.filter(c => ids.has(c.created_by) || ids.has(c.assigned_to))
   const marcacoes = clients.filter(c => ids.has(c.created_by) && inRange(new Date(c.created_at)))
-  const marcacoesComVisita = marcacoes.filter(c => (c.visits || []).some(visitaRealizada))
+  const marcacoesComVisita = marcacoes.filter(c => destinoMarcacao(c) === 'recebeu')
   const visitas   = clients.filter(c => ids.has(c.assigned_to))
     .flatMap(c => (c.visits || []).filter(v => visitaRealizada(v) && inDay(v.visit_date)))
   const matriculas = doGrupo.filter(c => matriculaConta(c) && inDay(matriculaDia(c, credits)))
