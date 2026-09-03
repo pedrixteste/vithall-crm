@@ -40,6 +40,14 @@ function callbackDueToday(cfg: any, hoje: Date) {
   if (cfg.type === 'daily') return true
   if (cfg.type === 'weekly') return (cfg.days || []).includes(DOW[hoje.getUTCDay()])
   if (cfg.type === 'specific_date') return reminderDates(cfg).includes(dateStr(hoje))
+  // Repescagem também aceita "todo mês no dia X". Mês curto (dia 31 em
+  // fevereiro) cai no último dia — o lembrete não pode simplesmente não vir.
+  if (cfg.type === 'monthly') {
+    const dia = Number(cfg.day)
+    if (!dia) return false
+    const ultimo = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, 0)).getUTCDate()
+    return hoje.getUTCDate() === Math.min(dia, ultimo)
+  }
   return false
 }
 
@@ -132,6 +140,13 @@ async function registrarNoSino(userId: string, title: string, body: string, rota
 
 async function push(p: any, heading: string, content: string, rota: string, kind: string) {
   await registrarNoSino(p.id, heading, content, rota, kind)
+  // O id do aparelho vem do PERFIL. Ficou solto numa refatoração (o parâmetro
+  // deixou de ser o playerId e passou a ser o perfil inteiro), e desde então
+  // TODA chamada aqui estourava ReferenceError: o sino e o Telegram, que
+  // rodam antes, seguiam funcionando, e a varredura morria no meio — por isso
+  // o push_log não era gravado e os avisos repetiam.
+  const playerId = p.onesignal_player_id
+  if (!playerId) return { skipped: 'perfil sem aparelho no OneSignal' }
   const url = APP + rota
   const r = await fetch('https://onesignal.com/api/v1/notifications', {
     method: 'POST',
@@ -169,7 +184,7 @@ serve(async (req) => {
     const [profRes, cbRes, cliRes, logRes, taskRes] = await Promise.all([
       sb.from('profiles').select('id, name, role, onesignal_player_id').not('onesignal_player_id', 'is', null),
       sb.from('callbacks').select('id, created_by, contact_name, company_name, phone, reminder_config, done').eq('done', false),
-      sb.from('clients').select('id, contact_name, company_name, created_by, assigned_to, matricula_stage, call_back_at, visit_scheduled_at, visit_confirmation'),
+      sb.from('clients').select('id, contact_name, company_name, created_by, assigned_to, matricula_stage, call_back_at, visit_scheduled_at, visit_confirmation, repescagem_by, repescagem_reason, repescagem_config'),
       sb.from('push_log').select('user_id, kind, ref, sent_at'),
       sb.from('tasks').select('id, seller_id, title, due_date, due_time, reminder_config, completed').eq('completed', false).not('due_time', 'is', null),
     ])
@@ -218,6 +233,25 @@ serve(async (req) => {
       if (quando <= agora || quando > limite) continue
       const dono = c.created_by || c.assigned_to
       await avisarLigacao(dono, c.contact_name, c.company_name || '', quando, `cli:${c.id}:${hoje}`)
+    }
+
+    // ── A1) Repescagem chegando — o aviso vai para quem MARCOU a repescagem
+    // (é dela: mais ninguém pode marcar nesse cliente enquanto existir).
+    for (const c of (cliRes.data || [])) {
+      const cfg = c.repescagem_config
+      if (!c.repescagem_by || !cfg?.time || !callbackDueToday(cfg, agora)) continue
+      const [h, m] = String(cfg.time).split(':').map(Number)
+      const quando = new Date(agora); quando.setUTCHours(h, m, 0, 0)
+      if (quando <= agora || quando > limite) continue
+      const p = byId[c.repescagem_by]
+      const ref = `rep:${c.id}:${hoje}`
+      if (!p || jaMandou(c.repescagem_by, 'repescagem', ref)) continue
+      const heading = '🎣 Repescagem'
+      const nome = c.contact_name || c.company_name || 'Cliente'
+      const content = `${nome}${c.repescagem_reason ? ` — ${c.repescagem_reason}` : ''}`
+      const res = dryRun ? null : await push(p, heading, content, '/agenda', 'lembrete')
+      enviados.push({ user: p.name, tipo: 'repescagem', heading, content, res })
+      await registrar(c.repescagem_by, 'repescagem', ref)
     }
 
     // ── A2) Tarefa chegando — tasks soltas do Dashboard com dia+hora marcados

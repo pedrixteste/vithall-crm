@@ -14,6 +14,9 @@ import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
+import RepescagemForm, { RepescagemBlock } from './RepescagemForm'
+import { Sheet } from './ui/Sheet'
+import { Button } from './ui/Button'
 
 const TRAININGS          = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
 const DIAS_LIVRES_LABEL  = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' }
@@ -411,6 +414,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [clientCredits, setClientCredits] = useState([])   // quem já recebe a matrícula deste cliente
   const [phoneCount, setPhoneCount]       = useState(1)    // registros com o mesmo telefone
   const [showHistorico, setShowHistorico] = useState(false) // pop-up do histórico do contato
+  const [showRepescagem, setShowRepescagem]       = useState(false) // pop-up da repescagem
+  const [removingRepescagem, setRemovingRepescagem] = useState(false) // confirmação do desmarcar
+  const [removendoRep, setRemovendoRep]           = useState(false)
   const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
@@ -978,6 +984,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     setRemovingReminder(false)
     if (error) { alert('Não foi possível remover — verifique sua internet e tente de novo.'); return }
     setCurrentClient(c => ({ ...c, reminder_config: null }))
+  }
+
+  // Desmarca a repescagem: apaga motivo, lembretes e o dono — só quem marcou
+  // chega até aqui (o botão nem aparece para os outros), e a condição no
+  // update garante isso no banco também.
+  async function removeRepescagem() {
+    setRemovendoRep(true)
+    const vazio = { repescagem_by: null, repescagem_reason: null, repescagem_config: null, repescagem_at: null }
+    const { error } = await supabase.from('clients').update(vazio)
+      .eq('id', currentClient.id).eq('repescagem_by', user.id)
+    setRemovendoRep(false)
+    if (error) { alert('Não foi possível desmarcar — verifique sua internet e tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, ...vazio }))
+    setRemovingRepescagem(false)
   }
 
   async function toggleTreinamentoInteresse(training) {
@@ -1872,6 +1892,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             onBlur={e => { e.target.style.borderColor = '#252525'; saveNotes() }}
           />
         </div>
+
+        {/* Repescagem — "religar pra esse cliente no futuro".
+            Exclusiva: enquanto alguém tiver a repescagem deste cliente, o
+            bloco fica apagado para os outros (mostrando de quem é e para
+            quando). Só o dono edita e desmarca. */}
+        <RepescagemBlock
+          client={currentClient}
+          meuId={user.id}
+          nomeDono={teamProfiles.find(p => p.id === currentClient.repescagem_by)?.name?.split(' ')[0]}
+          onMarcar={() => setShowRepescagem(true)}
+          onEditar={() => setShowRepescagem(true)}
+          onDesmarcar={() => setRemovingRepescagem(true)}
+        />
 
         {/* Visita agendada */}
         {currentClient.visit_scheduled_at && (
@@ -3359,6 +3392,39 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           onOpenClient={(record, opts) => switchToClient(record, opts)}
           onClose={() => setShowHistorico(false)}
         />
+      )}
+      {showRepescagem && (
+        <RepescagemForm client={currentClient} onClose={() => setShowRepescagem(false)}
+          onSaved={(patch) => { setCurrentClient(c => ({ ...c, ...patch })); setShowRepescagem(false) }} />
+      )}
+
+      {/* Desmarcar repescagem — confirma antes, porque apaga os lembretes e
+          libera o cliente para outra pessoa marcar */}
+      {removingRepescagem && (
+        <Sheet open onClose={() => setRemovingRepescagem(false)} title="Desmarcar repescagem">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '4px' }}>
+            <p className="text-sm" style={{ color: '#B0A99F', lineHeight: 1.6 }}>
+              Os lembretes de repescagem de <b style={{ color: '#EFEFEF' }}>{currentClient.contact_name || currentClient.company_name}</b> vão
+              ser apagados e você não recebe mais notificação deles. O cliente fica livre
+              para outra pessoa marcar repescagem.
+            </p>
+            {currentClient.repescagem_reason && (
+              <p className="text-[13px] rounded-xl" style={{ padding: '10px 12px', background: '#141414', border: '1px solid #252525', color: '#A59F97', lineHeight: 1.5 }}>
+                "{currentClient.repescagem_reason}"
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setRemovingRepescagem(false)}>
+                Cancelar
+              </Button>
+              <button type="button" onClick={removeRepescagem} disabled={removendoRep}
+                className="flex-1 text-sm font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                style={{ padding: '12px', background: 'rgba(232,85,85,0.12)', border: '1px solid rgba(232,85,85,0.4)', color: '#E85555', cursor: 'pointer' }}>
+                {removendoRep ? 'Apagando...' : 'Apagar lembretes'}
+              </button>
+            </div>
+          </div>
+        </Sheet>
       )}
     </div>
   )

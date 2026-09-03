@@ -13,7 +13,9 @@ export default function SpecificDates({ dates, setDates, color = '#C9A84C' }) {
   const remove = (d) => setDates(dates.filter(x => x !== d))
   const fmt = (s) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 
-  const rgb = color === '#C9A84C' ? '201,168,76' : '232,131,74'
+  // rgb da própria cor recebida — antes só existiam duas cores no mapa e
+  // qualquer terceira caía no laranja por acidente
+  const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16)).join(',')
 
   return (
     <div>

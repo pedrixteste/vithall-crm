@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { localDateStr, reminderDates, taskIsRecurring, taskDueToday, taskDoneToday } from './utils'
+import { localDateStr, reminderDates, proximaOcorrencia, taskIsRecurring, taskDueToday, taskDoneToday } from './utils'
 
 // Faixa de um dia (local) + label amigável. offset 0 = hoje, 1 = amanhã, etc.
 export function getDayRange(offset = 0) {
@@ -167,43 +167,10 @@ export async function fetchPendingRatings(userId) {
   return pending
 }
 
-// Próxima data em que um lembrete (reminder_config) vai disparar + dias até lá.
-// daily → hoje (0); weekly → próximo dia da semana marcado; specific_date → a data.
-const WEEKDAY_MAP = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 }
-function nextReminderInfo(cfg) {
-  if (!cfg) return null
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const daysBetween = (d) => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000)
-
-  if (cfg.type === 'specific_date') {
-    // Várias datas possíveis — pega a PRÓXIMA que ainda não passou
-    const upcoming = reminderDates(cfg)
-      .map(s => ({ d: new Date(s + 'T12:00:00'), s }))
-      .map(x => ({ ...x, days: daysBetween(x.d) }))
-      .filter(x => x.days >= 0)
-      .sort((a, b) => a.days - b.days)
-    if (!upcoming.length) return null
-    return { date: upcoming[0].d.toISOString(), daysUntil: upcoming[0].days }
-  }
-  if (cfg.type === 'daily') {
-    return { date: today.toISOString(), daysUntil: 0 }
-  }
-  if (cfg.type === 'weekly') {
-    const targets = (cfg.days || []).map((d) => WEEKDAY_MAP[d]).filter((n) => n !== undefined)
-    if (!targets.length) return null
-    for (let i = 0; i <= 6; i++) {
-      if (targets.includes((now.getDay() + i) % 7)) {
-        const d = new Date(today); d.setDate(d.getDate() + i)
-        return { date: d.toISOString(), daysUntil: i }
-      }
-    }
-  }
-  return null
-}
-
 // Clientes que o usuário marcou p/ ser lembrado (reminder_config) e cujo próximo
 // lembrete está chegando (0..withinDays). Aparece na aba "Hoje".
+// A conta de "quando cai" mora em proximaOcorrencia (utils) — a mesma usada
+// pela repescagem, pra nunca haver duas regras de data.
 export async function fetchUpcomingReminders(userId, withinDays = 3) {
   if (!userId) return []
   const { data } = await supabase
@@ -213,9 +180,43 @@ export async function fetchUpcomingReminders(userId, withinDays = 3) {
     .not('reminder_config', 'is', null)
   const out = []
   for (const c of data || []) {
-    const info = nextReminderInfo(c.reminder_config)
+    const info = proximaOcorrencia(c.reminder_config)
     if (info && info.daysUntil >= 0 && info.daysUntil <= withinDays) {
       out.push({ ...c, reminderDate: info.date, daysUntil: info.daysUntil, reminderType: c.reminder_config.type })
+    }
+  }
+  out.sort((a, b) => a.daysUntil - b.daysUntil)
+  return out
+}
+
+// Repescagens que são MINHAS e estão chegando (0..withinDays). Só quem marcou
+// recebe o lembrete — a repescagem é exclusiva de uma pessoa por cliente.
+// Como withinDays já vale 1 (ou 3 na sexta), o card aparece na aba Hoje um dia
+// ANTES da data marcada, que é o pedido.
+export async function fetchUpcomingRepescagens(userId, withinDays = 3) {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('clients')
+    .select('id, contact_name, company_name, city, phone, phone_type, phones, phone2, matricula_stage, repescagem_by, repescagem_reason, repescagem_config, repescagem_at')
+    .eq('repescagem_by', userId)
+    .not('repescagem_config', 'is', null)
+  const out = []
+  for (const c of data || []) {
+    const cfg = c.repescagem_config
+    const info = proximaOcorrencia(cfg)
+    if (info) {
+      if (info.daysUntil >= 0 && info.daysUntil <= withinDays) {
+        out.push({ ...c, repDate: info.date, daysUntil: info.daysUntil, atrasada: false })
+      }
+      continue
+    }
+    // Datas específicas que JÁ PASSARAM e ninguém desmarcou: continua na aba
+    // Hoje como atrasada. Sumir calada deixaria o cliente travado para sempre
+    // (mais ninguém pode marcar repescagem enquanto essa existir).
+    const ds = reminderDates(cfg)
+    if (cfg?.type === 'specific_date' && ds.length) {
+      const ultima = [...ds].sort().slice(-1)[0]
+      out.push({ ...c, repDate: new Date(ultima + 'T12:00:00').toISOString(), daysUntil: 0, atrasada: true })
     }
   }
   out.sort((a, b) => a.daysUntil - b.daysUntil)
@@ -315,14 +316,16 @@ export async function fetchAllOpenTasks(userId) {
 // Quantas coisas estão esperando a pessoa HOJE — o mesmo conjunto que a aba
 // "Hoje" lista, então o card do Dashboard e a aba nunca divergem:
 // visitas a confirmar (hoje até o próximo dia útil — confirmar a de amanhã já
-// é tarefa de hoje), lembretes chegando, "ligar depois" (callbacks e clientes
-// em pediu_ligar com retorno hoje), "a fazer" e as visitas do dia.
+// é tarefa de hoje), lembretes chegando, repescagens chegando, "ligar depois"
+// (callbacks e clientes em pediu_ligar com retorno hoje), "a fazer" e as
+// visitas do dia.
 // Feedbacks de visita ficam de fora: são aviso, não pendência.
 export async function fetchPendingCount(role, userId) {
   if (!userId) return 0
   const lists = await Promise.all([
     fetchVisitsToConfirm(userId),
     fetchUpcomingReminders(userId, daysAheadWindow()),
+    fetchUpcomingRepescagens(userId, daysAheadWindow()),
     fetchTodayCallbacks(userId),
     fetchOpenTasks(userId),
     fetchCallbacksForDay(role, userId, 0),

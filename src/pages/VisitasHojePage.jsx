@@ -10,10 +10,11 @@ import VisitConfirmationList from '../components/VisitConfirmationList'
 import {
   fetchVisitsToConfirm, fetchVisitsForDay, fetchCallbacksForDay,
   fetchAnsweredVisitsForDay, fetchUpcomingReminders, fetchTodayFeedbacks,
-  fetchOpenTasks, fetchTodayCallbacks, getDayRange, daysAheadWindow,
+  fetchOpenTasks, fetchTodayCallbacks, fetchUpcomingRepescagens,
+  getDayRange, daysAheadWindow,
 } from '../lib/visitConfirmation'
 import { updateClientStage } from '../lib/clientStage'
-import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel, reminderDates } from '../lib/utils'
+import { localDateStr, allPhones, urgencyColor, taskIsRecurring, taskRecurrenceLabel, reminderDates, repescagemResumo, REPESCAGEM_COLOR } from '../lib/utils'
 import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 import { useRatingsGate } from '../contexts/RatingsGateContext'
 
@@ -180,6 +181,7 @@ export default function VisitasHojePage() {
   const { pending: pendingRatings, loading: gateLoading, refresh: refreshGate } = useRatingsGate()
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
+  const [repescagens, setRepescagens]       = useState([]) // repescagens minhas chegando
   const [feedbacks, setFeedbacks]           = useState([]) // estrelas preenchidas hoje (visitas que marquei)
   const [tasks, setTasks]                   = useState([]) // "A fazer": tarefas/follow-ups em aberto
   const [callbacks, setCallbacks]           = useState([]) // "pediu p/ ligar depois" que caem hoje
@@ -215,7 +217,7 @@ export default function VisitasHojePage() {
   async function carregarDados() {
     const role = profile?.role
 
-    const [confirm, tv, tc, mv, mc, rem, tsk, cbs] = await Promise.all([
+    const [confirm, tv, tc, mv, mc, rem, tsk, cbs, reps] = await Promise.all([
       fetchVisitsToConfirm(user.id),
       fetchVisitsForDay(role, user.id, 0),
       fetchCallbacksForDay(role, user.id, 0),
@@ -224,8 +226,11 @@ export default function VisitasHojePage() {
       fetchUpcomingReminders(user.id, daysAheadWindow()), // sexta alcança segunda
       fetchOpenTasks(user.id),
       fetchTodayCallbacks(user.id),
+      // mesma janela dos lembretes: a repescagem aparece um dia antes da data
+      fetchUpcomingRepescagens(user.id, daysAheadWindow()),
     ])
     setReminders(rem)
+    setRepescagens(reps)
     setTasks(tsk)
     setCallbacks(cbs)
     // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
@@ -405,7 +410,7 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && repescagens.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0
 
   // ── Filtro por categoria (chips) — só categorias com item aparecem ──
   const cats = [
@@ -413,6 +418,7 @@ export default function VisitasHojePage() {
     { key: 'visitas',      label: 'Visitas',      color: '#A78BFA', count: isVisitor ? todayVisits.length : answeredToday.length },
     { key: 'ligacoes',     label: 'Ligações',     color: '#E8834A', count: todayCalls.length },
     { key: 'lembretes',    label: 'Lembretes',    color: '#22D3EE', count: reminders.length },
+    { key: 'repescagem',   label: 'Repescagem',   color: REPESCAGEM_COLOR, count: repescagens.length },
     { key: 'ligar_depois', label: 'Ligar depois', color: '#E8834A', count: callbacks.length },
     { key: 'afazer',       label: 'A fazer',      color: '#E8834A', count: tasks.length },
     { key: 'feedbacks',    label: 'Feedbacks',    color: '#F472B6', count: feedbacks.length },
@@ -625,6 +631,43 @@ export default function VisitasHojePage() {
               sub={c.phone ? <PhoneDial c={c} /> : null}
               onClick={() => setSelected(c)}
             />
+          ))}
+        </div>
+      )}
+
+      {/* Repescagem — "religar pra esse cliente" que eu mesmo marquei na ficha.
+          Verde-limão, cor que nada mais usa aqui: dá pra separar do lembrete
+          normal só batendo o olho. Aparece a partir de um dia antes da data. */}
+      {!loading && repescagens.length > 0 && show('repescagem') && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color={REPESCAGEM_COLOR}>
+            <span className="inline-flex items-center gap-1.5"><Repeat size={12} /> Repescagem</span>
+          </SectionLabel>
+          {repescagens.map(c => (
+            <button key={c.id} onClick={() => setSelected(c)}
+              className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
+              style={{ background: '#161616', border: '1px solid #252525', borderLeft: `3px solid ${REPESCAGEM_COLOR}`, padding: '14px 16px' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold" style={{ color: c.atrasada ? '#E85555' : REPESCAGEM_COLOR }}>
+                  {c.atrasada ? '⚠ atrasada' : reminderLabel(c.daysUntil, c.repDate)}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+                  style={{ background: `${REPESCAGEM_COLOR}1a`, color: REPESCAGEM_COLOR }}>Repescagem</span>
+              </div>
+              <p className="text-sm font-semibold truncate" style={{ color: '#EFEFEF' }}>{c.contact_name}</p>
+              {c.company_name && <p className="text-xs truncate" style={{ color: '#958E86' }}>{c.company_name}</p>}
+              {allPhones(c).length > 0 && (
+                <p className="text-[12px] mt-1 flex items-center gap-1" style={{ color: REPESCAGEM_COLOR }}><PhoneDial c={c} /></p>
+              )}
+              {c.repescagem_reason && (
+                <p className="text-[12px] mt-1.5" style={{ color: '#B0A99F', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  "{c.repescagem_reason}"
+                </p>
+              )}
+              <p className="text-[11px] mt-1.5" style={{ color: '#8B857D' }}>
+                🔔 {repescagemResumo(c.repescagem_config)}
+              </p>
+            </button>
           ))}
         </div>
       )}
