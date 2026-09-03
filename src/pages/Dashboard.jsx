@@ -234,9 +234,10 @@ export default function Dashboard() {
     // mostrava matrícula/visita de outra pessoa como se fosse dele. A visão
     // de equipe fica nos Relatórios (mesma regra do "gerente não age em
     // visita de outro vendedor" na aba Hoje).
+    // dono_id = quem trabalha o contato hoje (carteira_de, ou quem cadastrou)
     const applyRole = (q) => {
-      if (profile?.role === 'pre_vendas') return q.eq('created_by', user.id)
-      return q.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      if (profile?.role === 'pre_vendas') return q.eq('dono_id', user.id)
+      return q.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id}`)
     }
 
     // busca IDs dos clientes do usuário para filtrar visitas e tarefas

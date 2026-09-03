@@ -24,10 +24,11 @@ export default function PipelinePage() {
 
   async function fetchClients() {
     let query = supabase.from('clients').select('*').order('company_name')
+    // dono_id = quem trabalha o contato hoje (carteira_de, ou quem cadastrou)
     if (profile?.role === 'pre_vendas') {
-      query = query.eq('created_by', user.id)
+      query = query.eq('dono_id', user.id)
     } else if (profile?.role === 'vendedor') {
-      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      query = query.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id}`)
     }
     const { data } = await query
     setClients(data || [])

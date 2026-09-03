@@ -87,7 +87,7 @@ export async function fetchCallbacksForDay(role, userId, offset = 0) {
     .lte('call_back_at', end)
     .order('call_back_at', { ascending: true })
   if (role === 'vendedor')        q = q.eq('assigned_to', userId)
-  else if (role === 'pre_vendas') q = q.eq('created_by', userId)
+  else if (role === 'pre_vendas') q = q.eq('dono_id', userId) // dono da carteira
   // gerente: vê todas
   const { data } = await q
   return data || []
@@ -209,7 +209,7 @@ export async function fetchUpcomingReminders(userId, withinDays = 3) {
   const { data } = await supabase
     .from('clients')
     .select('id, contact_name, company_name, city, phone, reminder_config')
-    .eq('created_by', userId)
+    .eq('dono_id', userId) // dono da carteira: o lembrete vai pra quem trabalha o contato
     .not('reminder_config', 'is', null)
   const out = []
   for (const c of data || []) {
@@ -223,9 +223,10 @@ export async function fetchUpcomingReminders(userId, withinDays = 3) {
 }
 
 // Filtro "quem marcou a visita atual": visit_scheduled_by; registros antigos
-// (coluna nula) caem no fallback created_by — quem cadastrou foi quem marcou.
+// (coluna nula) caem no fallback do dono da carteira (dono_id) — quem
+// cadastrou foi quem marcou, a não ser que a carteira tenha sido passada.
 const scheduledByMe = (userId) =>
-  `visit_scheduled_by.eq.${userId},and(visit_scheduled_by.is.null,created_by.eq.${userId})`
+  `visit_scheduled_by.eq.${userId},and(visit_scheduled_by.is.null,dono_id.eq.${userId})`
 
 // Visitas de um dia que o usuário MARCOU e JÁ respondeu
 // (visit_confirmation preenchido). Usado para o pré-vendas ver, na aba Hoje,

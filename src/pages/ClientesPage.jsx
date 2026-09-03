@@ -110,10 +110,13 @@ export default function ClientesPage() {
 
   async function fetchClients() {
     let query = supabase.from('clients').select('*, visits(id, rating, visit_outcome)').order('created_at', { ascending: false })
+    // dono_id (banco: carteira_de → created_by) = quem TRABALHA o contato hoje.
+    // Usar created_by aqui prendia o contato a quem cadastrou, e transferir a
+    // carteira de alguém que sai da equipe roubaria o crédito das marcações.
     if (profile?.role === 'pre_vendas') {
-      query = query.eq('created_by', user.id)
+      query = query.eq('dono_id', user.id)
     } else if (profile?.role === 'vendedor') {
-      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      query = query.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id}`)
     }
     // gerente: sem filtro, ve tudo
     const { data } = await query

@@ -364,10 +364,13 @@ export default function RelatoriosPage() {
 
   async function fetchData() {
     let query = supabase.from('clients').select('*, visits(*)')
+    // Carrega o que a pessoa TRABALHA hoje (dono_id) e também o que ela
+    // MARCOU no passado (created_by): se a carteira dela foi passada para
+    // outra pessoa, os números que ela produziu continuam no relatório dela.
     if (profile?.role === 'pre_vendas') {
-      query = query.eq('created_by', user.id)
+      query = query.or(`dono_id.eq.${user.id},created_by.eq.${user.id}`)
     } else if (profile?.role === 'vendedor') {
-      query = query.or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      query = query.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id},created_by.eq.${user.id}`)
     }
     const { data: clientsData } = await query
     setClients(clientsData || [])
