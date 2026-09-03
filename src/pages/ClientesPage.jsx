@@ -11,7 +11,7 @@ import { Card } from '../components/ui/Card'
 import { STAGE_BADGES, stageBadgeKey } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
-import { phoneDigits, allPhones, allPhoneDigits } from '../lib/utils'
+import { phoneDigits, allPhones, allPhoneDigits, REPESCAGEM_COLOR } from '../lib/utils'
 import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
 
 const OUTCOME_OPTIONS = [
@@ -73,7 +73,10 @@ export default function ClientesPage() {
   const [filterSource, setFilterSource]     = useState('')   // '' | 'mine' | 'pre_vendas'
   const [filterOutcome, setFilterOutcome]   = useState(() => searchParams.get('outcome') || '')
   const [filterMatStatus, setFilterMatStatus] = useState('') // '' | 'efetivada' | 'pendente'
+  // Repescagem: '' (desligado) | 'mine' | 'all' (gerente) | <id da pessoa>
+  const [filterRepescagem, setFilterRepescagem] = useState('')
   const [preVendasIds, setPreVendasIds]     = useState(new Set())
+  const [preVendasList, setPreVendasList]   = useState([]) // gerente: de quem ver a repescagem
   const [phoneCounts, setPhoneCounts]       = useState({}) // telefone → nº de registros (todos os usuários)
 
   // Abre painel de filtros automaticamente se vier com filtro pela URL
@@ -82,11 +85,13 @@ export default function ClientesPage() {
   }, [])
 
   useEffect(() => {
-    async function fetchPreVendasIds() {
-      const { data } = await supabase.from('profiles').select('id').eq('role', 'pre_vendas')
+    async function fetchPreVendas() {
+      // Nome vem junto: o gerente escolhe de QUEM ver a repescagem
+      const { data } = await supabase.from('profiles').select('id, name').eq('role', 'pre_vendas')
       setPreVendasIds(new Set((data || []).map(p => p.id)))
+      setPreVendasList((data || []).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR')))
     }
-    if (profile?.role === 'gerente' || profile?.role === 'vendedor') fetchPreVendasIds()
+    if (profile?.role === 'gerente' || profile?.role === 'vendedor') fetchPreVendas()
   }, [profile])
 
   useEffect(() => { fetchClients() }, [profile])
@@ -150,10 +155,12 @@ export default function ClientesPage() {
     setFilterSource('')
     setFilterOutcome('')
     setFilterMatStatus('')
+    setFilterRepescagem('')
   }
 
   const activeFilters = [
     filterStage, filterPeriod, filterCity, filterRating, filterSource, filterOutcome, filterMatStatus,
+    filterRepescagem,
     filterHasDone.length > 0 ? 'hasDone' : '',
     filterNotDone.length > 0 ? 'notDone' : '',
   ].filter(Boolean).length
@@ -228,7 +235,14 @@ export default function ClientesPage() {
     const matchesMatStatus = !filterMatStatus ||
       (c.matricula_stage === 'matriculado' && (c.matricula_status || 'efetivada') === filterMatStatus)
 
-    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesOutcome && matchesSource && matchesMatStatus
+    // Repescagem: 'mine' = as que EU marquei; 'all' e o id de uma pessoa são
+    // do gerente (ver de quem quiser). Quem não é gerente só tem 'mine'.
+    const matchesRepescagem = !filterRepescagem || (
+      filterRepescagem === 'mine' ? c.repescagem_by === user.id
+        : filterRepescagem === 'all' ? !!c.repescagem_by
+        : c.repescagem_by === filterRepescagem)
+
+    return matchesSearch && matchesStage && matchesDate && matchesCity && matchesHasDone && matchesNotDone && matchesRating && matchesOutcome && matchesSource && matchesMatStatus && matchesRepescagem
   })
 
   if (selected) return (
@@ -317,6 +331,52 @@ export default function ClientesPage() {
         {/* Painel de filtros */}
         {showFilters && (
           <div className="rounded-2xl" style={{ background: '#161616', border: '1px solid #252525', padding: '16px' }}>
+
+            {/* Repescagem — só os clientes marcados para religar.
+                Gerente escolhe de quem ver; os outros só veem as próprias
+                (a repescagem é de uma pessoa por vez, então "minhas" é o
+                único recorte que faz sentido para quem não é gerente). */}
+            {(() => {
+              const ehGerente = profile?.role === 'gerente'
+              const ligado    = !!filterRepescagem
+              const COR       = REPESCAGEM_COLOR
+              const chip = (key, label) => {
+                const active = filterRepescagem === key
+                return (
+                  <button key={key} type="button"
+                    onClick={() => setFilterRepescagem(f => f === key ? '' : key)}
+                    className="text-xs font-semibold rounded-full transition-all active:scale-95"
+                    style={{
+                      padding: '5px 12px',
+                      background: active ? `${COR}18` : 'transparent',
+                      border: `1px solid ${active ? `${COR}60` : '#2A2A2A'}`,
+                      color: active ? COR : '#958E86',
+                    }}>
+                    {active ? '✓ ' : ''}{label}
+                  </button>
+                )
+              }
+              return (
+                <>
+                  <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
+                    Repescagem
+                  </p>
+                  <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: ligado && ehGerente ? '8px' : '16px' }}>
+                    {chip('mine', '🎣 Minhas repescagens')}
+                    {ehGerente && chip('all', 'De todo mundo')}
+                  </div>
+                  {/* Gerente: de quem ver. Aparece ao ligar o filtro. */}
+                  {ehGerente && ligado && preVendasList.length > 0 && (
+                    <>
+                      <p className="text-[11px] mb-2" style={{ color: '#8B857D' }}>Ver a repescagem de:</p>
+                      <div className="flex flex-wrap" style={{ gap: '6px', marginBottom: '16px' }}>
+                        {preVendasList.map(p => chip(p.id, p.name?.split(' ')[0] || '—'))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )
+            })()}
 
             {/* Etapa do funil */}
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9D968E' }}>
@@ -614,6 +674,17 @@ export default function ClientesPage() {
                       </div>
                     ) : STAGE_BADGES[stageBadgeKey(client)]}
                   </div>
+                  {/* Com o filtro de repescagem ligado, o card diz de quem ela
+                      é e o motivo — senão a lista filtrada não explicaria nada,
+                      principalmente na visão "de todo mundo" do gerente. */}
+                  {filterRepescagem && client.repescagem_by && (
+                    <p className="text-[12px] truncate mt-1.5" style={{ color: REPESCAGEM_COLOR }}>
+                      🎣 {client.repescagem_by === user.id
+                        ? 'sua'
+                        : (preVendasList.find(p => p.id === client.repescagem_by)?.name?.split(' ')[0] || 'de outra pessoa')}
+                      {client.repescagem_reason ? ` — ${client.repescagem_reason}` : ''}
+                    </p>
+                  )}
                 </div>
                 <ChevronRight size={15} style={{ color: '#958E86', flexShrink: 0 }} />
               </div>
