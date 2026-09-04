@@ -87,3 +87,13 @@ alter table public.matricula_credits
 
 comment on column public.matricula_credits.role is
   'marcou | remarcou | participante. Linhas antigas ficam NULL: o app trata NULL como "marcou" quando não é participante.';
+
+-- 5. De quem é o número PRINCIPAL ────────────────────────────────────
+-- Os números adicionais guardam isso no campo `d` de cada item de `phones`.
+-- O principal mora em colunas soltas (phone/phone_type) e não tinha onde
+-- guardar — resultado: o "de quem é" digitado ao trocar de número era jogado
+-- fora na hora de salvar, porque o número novo vira o principal.
+alter table public.clients add column if not exists phone_desc text;
+
+comment on column public.clients.phone_desc is
+  'De quem é o número principal (da esposa, do sócio). Os adicionais guardam no campo d de phones.';

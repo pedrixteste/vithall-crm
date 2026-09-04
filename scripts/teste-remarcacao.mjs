@@ -245,6 +245,12 @@ eq('número que já existe só vira principal, não duplica', repet.phone, '(51)
 eq('e não fica repetido na lista', repet.phones.filter(p => p.n.includes('90000-0002') || p.n === '51900000002').length, 0)
 eq('total continua 2', 1 + repet.phones.length, 2)
 
+eq('o "de quem e" do numero novo e guardado', trocarTelefone(cliFone, { numero: '51955554444', dono: 'da esposa' }).phone_desc, 'da esposa')
+eq('sem descricao fica nulo', trocarTelefone(cliFone, { numero: '51955554444' }).phone_desc, null)
+eq('descricao respeita o limite de 24', trocarTelefone(cliFone, { numero: '51955554444', dono: 'x'.repeat(40) }).phone_desc.length, 24)
+eq('o principal antigo desce com a descricao dele',
+  trocarTelefone({ phone: '51900000001', phone_desc: 'do trabalho', phones: [] }, { numero: '51955554444' }).phones[0].d, 'do trabalho')
+
 console.log(`
 ${fail === 0 ? '✅' : '❌'}  ${ok} passaram · ${fail} falharam
 `)

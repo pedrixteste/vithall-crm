@@ -22,7 +22,7 @@ export const MAX_PHONES = 4
 export function allPhones(c) {
   if (!c) return []
   const out = []
-  if (c.phone) out.push({ n: c.phone, t: c.phone_type || 'pessoal', d: null })
+  if (c.phone) out.push({ n: c.phone, t: c.phone_type || 'pessoal', d: c.phone_desc || null })
   for (const p of Array.isArray(c.phones) ? c.phones : []) {
     if (p?.n) out.push({ n: p.n, t: p.t || 'pessoal', d: p.d || null })
   }

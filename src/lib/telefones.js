@@ -51,11 +51,16 @@ export function trocarTelefone(client, { numero, tipo = 'pessoal', dono = '' }, 
   }
 
   // O novo assume o principal; todo o resto (inclusive o principal antigo)
-  // desce para a lista, na ordem em que estava
+  // desce para a lista, na ordem em que estava. A descrição ANDA JUNTO com o
+  // número: a do principal mora em `phone_desc` (coluna solta), a dos outros
+  // no campo `d` de cada item — sem isso o "de quem é" que a pessoa acabou de
+  // digitar era jogado fora na hora de salvar.
   const resto = atuais.filter(p => phoneDigits(p.n) !== chave)
+  const desc = (dono || '').trim().slice(0, MAX_DONO)
   return {
     phone:       novo,
     phone_type:  tipo,
+    phone_desc:  desc || (jaExiste ? jaExiste.d : null) || null,
     phone2:      null,
     phones:      resto.map(p => ({ n: p.n, t: p.t || 'pessoal', ...(p.d ? { d: p.d } : {}) })),
     ...(jaExiste ? { repetido: true } : {}),

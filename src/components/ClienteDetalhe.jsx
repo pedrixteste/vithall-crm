@@ -1681,6 +1681,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                       {principal.n}
                     </a>
                     {typeTag(principal.t)}
+                    {principal.d && (
+                      <span className="text-[12px]" style={{ color: '#8B857D' }}>· {principal.d}</span>
+                    )}
                     {phoneCount > 1 && (
                       <button onClick={() => setShowHistorico(true)}
                         title="Contato já registrado antes — ver histórico"
