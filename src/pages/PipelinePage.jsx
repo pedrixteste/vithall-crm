@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { filtroMeusClientes } from '../lib/visitRules'
 import { Badge } from '../components/ui/Badge'
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import { ChevronRight } from 'lucide-react'
@@ -32,12 +33,9 @@ export default function PipelinePage() {
 
   async function fetchClients() {
     let query = supabase.from('clients').select('*').order('company_name')
-    // dono_id = quem trabalha o contato hoje (carteira_de, ou quem cadastrou)
-    if (profile?.role === 'pre_vendas') {
-      query = query.eq('dono_id', user.id)
-    } else if (profile?.role === 'vendedor') {
-      query = query.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id}`)
-    }
+    // A mesma regra da aba Clientes (carteira + cadastrados + encaminhados)
+    const filtro = filtroMeusClientes(profile?.role, user.id)
+    if (filtro) query = query.or(filtro)
     const { data } = await query
     setClients(data || [])
     setLoading(false)

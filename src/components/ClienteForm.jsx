@@ -166,29 +166,23 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   // já salvos cujo número COMEÇA igual; tocar puxa os dados p/ o form
   const [phoneSuggestions, setPhoneSuggestions] = useState([])
   const [suggestDismissed, setSuggestDismissed] = useState(false)
-  const phoneListRef = useRef(null) // cache da lista (1 fetch por abertura do form)
 
+  // A busca roda no banco (RPC contato_sugestoes), não mais varrendo a lista
+  // inteira aqui: com RLS por dono o app só enxerga os próprios clientes, e o
+  // aviso de contato repetido tem que continuar valendo para a base toda.
+  // Mínimo de 8 dígitos — quem digita o número quase inteiro já o tem na mão.
   async function updatePhoneSuggestions(value) {
     if (initialData?.id) return // só no cadastro novo
     const digits = phoneDigits(value)
-    if (digits.length < 5) { setPhoneSuggestions([]); return }
-    if (!phoneListRef.current) {
-      const { data } = await supabase.from('clients').select('id, contact_name, company_name, phone, phone_type, phone2, phones')
-      phoneListRef.current = data || []
-    }
-    const matches = []
-    for (const r of phoneListRef.current) {
-      const cand = allPhones(r).map(x => x.n).find(p => phoneDigits(p).length >= 8 && phoneDigits(p).startsWith(digits))
-      if (cand) matches.push({ ...r, matchPhone: cand })
-      if (matches.length >= 5) break
-    }
-    setPhoneSuggestions(matches)
+    if (digits.length < 8) { setPhoneSuggestions([]); return }
+    const { data } = await supabase.rpc('contato_sugestoes', { p_prefixo: digits })
+    setPhoneSuggestions(data || [])
   }
 
-  // Puxa TODOS os dados do contato escolhido (menos estágio/vendedor/visita,
-  // que pertencem ao ciclo novo) — a pessoa só ajusta o que mudou
-  async function applySuggestion(s) {
-    const { data: c } = await supabase.from('clients').select('*').eq('id', s.id).single()
+  // Preenche com TODOS os dados do contato escolhido (menos estágio/vendedor/
+  // visita, que pertencem ao ciclo novo) — a pessoa só ajusta o que mudou.
+  // A sugestão já vem com a linha completa, não precisa buscar de novo.
+  async function applySuggestion(c) {
     if (!c) return
     setForm(f => ({
       ...f,
@@ -457,12 +451,10 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       if (!initialData?.id && res.data?.id) {
         const keys = allPhoneDigits({ ...form, phones })
         if (keys.length) {
-          const { data: outros } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
-          const repeated = (outros || []).some(r => {
-            if (r.id === res.data.id) return false
-            return allPhoneDigits(r).some(k => keys.includes(k))
-          })
-          if (repeated) dup = { clientId: res.data.id }
+          // Contagem no banco (a RLS por dono esconde os registros dos outros,
+          // e o aviso vale para a base toda). O recém-salvo entra na conta.
+          const { data: total } = await supabase.rpc('contato_contagem', { p_keys: keys })
+          if ((total || 0) > 1) dup = { clientId: res.data.id }
         }
       }
 

@@ -7,7 +7,7 @@ import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus,
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits, bookersDaMatricula } from '../lib/clientStage'
 import { matriculaStatus, reembolsoTexto } from '../lib/matricula'
-import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
+import { bookingStamp, logVisitScheduled, encaminharCliente } from '../lib/visitBooking'
 import { enderecosAtivos, enderecosExcluidos, enderecoTexto, excluirEndereco, tornarAtual } from '../lib/enderecos'
 import { CONFIRMATION_INFO, NO_SHOW_RATING, POST_VISITA } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
@@ -575,13 +575,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   async function fetchPhoneCount() {
     const keys = allPhoneDigits(currentClient)
     if (!keys.length) { setPhoneCount(1); return }
-    const { data } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
-    const ids = new Set()
-    for (const r of data || []) {
-      const rk = allPhoneDigits(r)
-      if (rk.some(k => keys.includes(k))) ids.add(r.id)
-    }
-    setPhoneCount(ids.size || 1)
+    // Conta no banco: a RLS por dono esconde os registros das outras pessoas,
+    // e o 📞ˣ precisa continuar contando a base inteira.
+    const { data } = await supabase.rpc('contato_contagem', { p_keys: keys })
+    setPhoneCount(data || 1)
   }
 
   // Troca o registro exibido (item do histórico do contato), sem sair da ficha
@@ -817,6 +814,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       notes:     (note?.trim() ? ('Marcação futura: ' + note.trim()) : 'Marcação futura — tentar marcar a visita de novo.')
                  + (encaminhada ? ` (Encaminhada por ${profile?.name || 'um colega'}.)` : ''),
     })
+    // Quem foi lembrado passa a ENXERGAR o cliente (aba Clientes + trava do
+    // banco) — senão recebe a tarefa e a ficha não abre. Fica para sempre.
+    if (encaminhada) {
+      const { lista } = await encaminharCliente(currentClient, assignee, user.id)
+      if (lista) setCurrentClient(c => ({ ...c, encaminhado_para: lista }))
+    }
   }
 
   async function deleteVisit(id) {
@@ -1491,6 +1494,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                      : 'Gerado automaticamente após visita marcada para remarcar.')
                    + (encaminhada ? ` Encaminhada por ${profile?.name || 'um colega'}.` : ''),
       })
+      // Quem vai remarcar passa a ENXERGAR o cliente — para sempre (é um
+      // cliente de que a pessoa participou). Sem isto a ficha não abria.
+      if (encaminhada) {
+        const { lista } = await encaminharCliente(currentClient, assignee, user.id)
+        if (lista) setCurrentClient(c => ({ ...c, encaminhado_para: lista }))
+      }
     }
 
     // Cancela lembretes pendentes agora que a avaliacao foi preenchida (fire and forget)

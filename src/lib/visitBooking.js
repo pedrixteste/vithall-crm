@@ -1,8 +1,21 @@
 import { supabase } from './supabase'
 // As regras puras (sem banco) moram em visitRules.js para poderem ser testadas
 // no Node. Reexportadas aqui: quem já importava daqui não precisa mudar nada.
-import { bookingStamp } from './visitRules'
-export { bookingStamp, bookingLabel, podeRemarcar, REMARCAVEL } from './visitRules'
+import { bookingStamp, comEncaminhado } from './visitRules'
+export { bookingStamp, bookingLabel, podeRemarcar, REMARCAVEL, comEncaminhado, filtroMeusClientes } from './visitRules'
+
+// Grava que o cliente foi encaminhado para `pessoaId` (estrela / marcação
+// futura). Quem foi chamado passa a enxergar o cliente — sem isto recebia a
+// tarefa e a ficha não abria. Encaminhar para si mesmo não grava nada.
+// Devolve { lista } com a lista nova (para atualizar a tela) ou { lista: null }.
+export async function encaminharCliente(client, pessoaId, userId) {
+  if (!pessoaId || pessoaId === userId) return { lista: null }
+  const lista = comEncaminhado(client, pessoaId)
+  if (!lista) return { lista: null }
+  const { error } = await supabase.from('clients')
+    .update({ encaminhado_para: lista }).eq('id', client.id)
+  return { error, lista: error ? null : lista }
+}
 
 // Rastro completo na ficha: um evento por marcação/remarcação, guardando a data
 // que saiu e a que entrou. As colunas só sabem a primeira e a atual — é isto

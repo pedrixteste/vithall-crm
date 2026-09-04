@@ -30,19 +30,20 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
   useEffect(() => {
     let active = true
     ;(async () => {
-      // Junta registros do MESMO contato: compara por dígitos (ignora
-      // formatação) nos dois telefones (principal e secundário) de cada registro
+      // Junta registros do MESMO contato: a busca roda no banco (RPC
+      // contato_historico), que compara por dígitos em todos os telefones e
+      // atravessa a RLS de propósito — senão a linha do tempo mostraria só os
+      // registros da própria pessoa. Registro de outra pessoa vem SEM ficha:
+      // só data, visitas e o nome de quem registrou (`visivel: false`).
       const keys = (phones || [phone]).map(phoneDigits).filter(k => k.length >= 8)
-      const { data: all } = await supabase.from('clients').select('*, visits(*)')
+      const { data } = await supabase.rpc('contato_historico', { p_keys: keys })
       if (!active) return
-      const data = (all || []).filter(c => {
-        const ck = [phoneDigits(c.phone), phoneDigits(c.phone2)].filter(k => k.length >= 8)
-        return ck.some(k => keys.includes(k))
-      })
-      const g = (data || []).map(c => ({
-        record: c,
-        marcacaoDate: c.visit_scheduled_at || c.created_at,
-        visits: [...(c.visits || [])].sort((a, b) => (a.visit_date || '').localeCompare(b.visit_date || '')),
+      const g = (data || []).map(r => ({
+        record: r.registro,
+        dono: r.dono,
+        visivel: r.visivel,
+        marcacaoDate: r.registro.visit_scheduled_at || r.registro.created_at,
+        visits: r.visitas || [],
       })).sort((a, b) => new Date(b.marcacaoDate) - new Date(a.marcacaoDate))
       setGroups(g)
     })()
@@ -87,14 +88,17 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
             </div>
           ) : groups.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: '#958E86' }}>Nenhum registro encontrado.</p>
-          ) : groups.map(({ record, marcacaoDate, visits }) => {
+          ) : groups.map(({ record, marcacaoDate, visits, dono, visivel }) => {
             const isCurrent = record.id === currentClientId
+            // Registro de outra pessoa: a linha do tempo mostra que existe,
+            // quando foi e como terminou — mas não abre a ficha dela.
+            const abrir = visivel ? (opts) => onOpenClient(record, opts) : null
             return (
               <div key={record.id} style={{ borderLeft: `2px solid ${MARCA_COLOR}40`, paddingLeft: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {/* Marcação */}
-                <button onClick={() => onOpenClient(record, { openStar: false })}
+                <button onClick={() => abrir?.({ openStar: false })} disabled={!visivel}
                   className="w-full text-left rounded-xl transition-all active:scale-[0.98]"
-                  style={{ background: `${MARCA_COLOR}12`, border: `1px solid ${MARCA_COLOR}40`, padding: '12px 14px' }}>
+                  style={{ background: `${MARCA_COLOR}12`, border: `1px solid ${MARCA_COLOR}40`, padding: '12px 14px', opacity: visivel ? 1 : 0.72, cursor: visivel ? 'pointer' : 'default' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Calendar size={13} style={{ color: MARCA_COLOR, flexShrink: 0 }} />
@@ -102,16 +106,18 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                       <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(marcacaoDate)}</span>
                       {isCurrent && <span className="text-[11px]" style={{ color: '#958E86' }}>· atual</span>}
                     </div>
-                    <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />
+                    {visivel
+                      ? <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />
+                      : <span className="text-[11px] flex-shrink-0" style={{ color: '#958E86' }}>{dono ? `de ${dono}` : 'de outra pessoa'}</span>}
                   </div>
                   {visits.length === 0 && <p className="text-[12px] mt-1" style={{ color: '#E8834A' }}>Sem visita registrada</p>}
                 </button>
 
                 {/* Visitas dessa marcação */}
                 {visits.map(v => (
-                  <button key={v.id} onClick={() => onOpenClient(record, { openStar: true, visitId: v.id })}
+                  <button key={v.id} onClick={() => abrir?.({ openStar: true, visitId: v.id })} disabled={!visivel}
                     className="w-full text-left rounded-xl transition-all active:scale-[0.98]"
-                    style={{ marginLeft: '16px', background: `${VISITA_COLOR}12`, border: `1px solid ${VISITA_COLOR}40`, padding: '10px 14px' }}>
+                    style={{ marginLeft: '16px', background: `${VISITA_COLOR}12`, border: `1px solid ${VISITA_COLOR}40`, padding: '10px 14px', opacity: visivel ? 1 : 0.72, cursor: visivel ? 'pointer' : 'default' }}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Star size={12} style={{ color: VISITA_COLOR, flexShrink: 0 }} />
@@ -119,7 +125,7 @@ export default function ContatoHistorico({ phone, phones, currentClientId, onOpe
                         <span className="text-xs font-semibold tabular-nums" style={{ color: '#EFEFEF' }}>{fmt(v.visit_date)}</span>
                         {v.visit_outcome && <span className="text-[11px] truncate" style={{ color: '#958E86' }}>· {OUTCOMES[v.visit_outcome] || v.visit_outcome}</span>}
                       </div>
-                      <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />
+                      {visivel && <ChevronRight size={14} style={{ color: '#9D968E', flexShrink: 0 }} />}
                     </div>
                   </button>
                 ))}

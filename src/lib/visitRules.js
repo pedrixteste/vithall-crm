@@ -72,3 +72,30 @@ export function bookersDaMatricula(client) {
   if (atual && atual !== origem) out.push({ id: atual, role: 'remarcou' })
   return out
 }
+
+// ── Encaminhamento ──────────────────────────────────────────────────
+// A estrela ("quem vai remarcar?") e a marcação futura ("quem lembrar?")
+// mandam uma tarefa para outra pessoa. Essa pessoa passa a ENXERGAR o cliente
+// — na aba Clientes e na trava do banco — e é para sempre: a lista só cresce
+// (decisão do usuário, 04/09/26: "é um cliente que ela participou").
+// Devolve a lista nova, ou null quando não há nada a gravar.
+export function comEncaminhado(client, pessoaId) {
+  if (!pessoaId) return null
+  const atual = Array.isArray(client?.encaminhado_para) ? client.encaminhado_para : []
+  if (atual.includes(pessoaId)) return null
+  return [...atual, pessoaId]
+}
+
+// Quais clientes aparecem na aba Clientes e no Funil para cada papel — o
+// texto do `.or()` do PostgREST. Gerente (ou papel desconhecido): null = tudo.
+//   dono_id           carteira de hoje
+//   created_by        quem cadastrou — continua vendo depois de passar a carteira
+//   encaminhado_para  foi chamado para remarcar / tentar marcar de novo
+//   assigned_to       (vendedor) o que está atribuído a ele
+export function filtroMeusClientes(role, userId) {
+  if (!userId) return null
+  if (role !== 'pre_vendas' && role !== 'vendedor') return null
+  const meus = [`dono_id.eq.${userId}`, `created_by.eq.${userId}`, `encaminhado_para.cs.{${userId}}`]
+  if (role === 'vendedor') meus.unshift(`assigned_to.eq.${userId}`)
+  return meus.join(',')
+}

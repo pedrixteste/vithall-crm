@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { filtroMeusClientes } from '../lib/visitRules'
 import { Plus, Search, ChevronRight, X, SlidersHorizontal, Phone } from 'lucide-react'
 import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
@@ -116,31 +117,21 @@ export default function ClientesPage() {
 
   async function fetchClients() {
     let query = supabase.from('clients').select('*, visits(id, rating, visit_outcome)').order('created_at', { ascending: false })
-    // dono_id (banco: carteira_de → created_by) = quem TRABALHA o contato hoje.
-    // Usar created_by aqui prendia o contato a quem cadastrou, e transferir a
-    // carteira de alguém que sai da equipe roubaria o crédito das marcações.
-    if (profile?.role === 'pre_vendas') {
-      query = query.eq('dono_id', user.id)
-    } else if (profile?.role === 'vendedor') {
-      query = query.or(`assigned_to.eq.${user.id},dono_id.eq.${user.id}`)
-    }
-    // gerente: sem filtro, ve tudo
+    // Carteira de hoje (dono_id) + o que a pessoa cadastrou + o que foi
+    // encaminhado para ela (+ atribuído, no vendedor). A lista vive em
+    // filtroMeusClientes (visitRules) — o Funil usa a mesma. Gerente: tudo.
+    const filtro = filtroMeusClientes(profile?.role, user.id)
+    if (filtro) query = query.or(filtro)
     const { data } = await query
     setClients(data || [])
     setLoading(false)
 
-    // Registros do mesmo contato (base toda): compara por DÍGITOS e considera
-    // os dois telefones (principal e secundário) — contagem por id do cliente
-    const { data: phones } = await supabase.from('clients').select('id, phone, phone_type, phone2, phones')
-    const keysOf = (r) => allPhoneDigits(r)
-    const idx = {}
-    for (const r of phones || []) for (const k of keysOf(r)) (idx[k] ||= new Set()).add(r.id)
+    // Registros do mesmo contato na BASE TODA (badge 📞ˣ). A conta é feita no
+    // banco: com RLS por dono o app só enxerga os próprios clientes, mas o
+    // aviso de contato repetido tem que continuar valendo para todos.
+    const { data: contagens } = await supabase.rpc('contato_contagens')
     const counts = {}
-    for (const r of phones || []) {
-      const ids = new Set()
-      for (const k of keysOf(r)) idx[k].forEach(id => ids.add(id))
-      counts[r.id] = ids.size
-    }
+    for (const r of contagens || []) counts[r.client_id] = r.total
     setPhoneCounts(counts)
   }
 
