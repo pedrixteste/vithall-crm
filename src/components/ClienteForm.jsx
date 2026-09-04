@@ -613,7 +613,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Input
           label="Nome *"
           value={form.contact_name}
-          onChange={e => set('contact_name', titleCase(e.target.value))}
+          onChange={e => set('contact_name', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('contact_name', titleCase(e.target.value)) }}
           placeholder="Nome do cliente"
           required
         />
@@ -668,13 +669,15 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           <Input
             label="Empresa *"
             value={form.company_name}
-            onChange={e => set('company_name', titleCase(e.target.value))}
+            onChange={e => set('company_name', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('company_name', titleCase(e.target.value)) }}
             placeholder="Nome da empresa"
           />
           <Input
             label="Cargo *"
             value={form.contact_role}
-            onChange={e => set('contact_role', titleCase(e.target.value))}
+            onChange={e => set('contact_role', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('contact_role', titleCase(e.target.value)) }}
             placeholder="Ex: Dono, Gerente"
           />
         </div>
@@ -682,7 +685,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
         <Input
           label="Cidade *"
           value={form.city}
-          onChange={e => set('city', titleCase(e.target.value))}
+          onChange={e => set('city', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('city', titleCase(e.target.value)) }}
           placeholder="Ex: Sao Paulo, SP"
         />
 
@@ -692,7 +696,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
             <Input
               label="Rua *"
               value={form.address_street}
-              onChange={e => set('address_street', titleCase(e.target.value))}
+              onChange={e => set('address_street', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('address_street', titleCase(e.target.value)) }}
               placeholder="Ex: Av. Paulista"
             />
             <Input
@@ -705,7 +710,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           <Input
             label="Bairro *"
             value={form.address_neighborhood}
-            onChange={e => set('address_neighborhood', titleCase(e.target.value))}
+            onChange={e => set('address_neighborhood', e.target.value)}
+          onBlur={e => { e.target.style.borderColor = '#252525'; set('address_neighborhood', titleCase(e.target.value)) }}
             placeholder="Ex: Centro"
           />
           <Input

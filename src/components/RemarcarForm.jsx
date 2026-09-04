@@ -18,7 +18,11 @@ import {
 
 export const REMARCAR_COR = '#22D3EE'
 
-const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase())
+// Primeira letra de cada palavra em maiúscula — aplicado só ao SAIR do campo.
+// Aplicar a cada tecla quebra o acento morto do teclado (~ ^ ´): o app
+// reescrevia o texto no meio da composição e a letra seguinte vinha maiúscula
+// ("São" virava "SAo"). No blur o navegador já terminou de compor.
+const titleCase = (s) => (s || '').replace(/\b\w/g, c => c.toUpperCase())
 
 // ── Bloco da ficha, logo abaixo do estágio ──────────────────────────
 // Menor que o da repescagem: uma linha de botão. Cinza e sem clique enquanto
@@ -246,7 +250,8 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
               <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.2fr', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>Rua *</label>
-                  <input value={end.rua} onChange={e => setE('rua', titleCase(e.target.value))}
+                  <input value={end.rua} onChange={e => setE('rua', e.target.value)}
+                    onBlur={e => setE('rua', titleCase(e.target.value))}
                     placeholder="Ex: Av. Paulista" style={inputStyle} />
                 </div>
                 <div>
@@ -257,12 +262,14 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
               </div>
               <div>
                 <label style={labelStyle}>Bairro *</label>
-                <input value={end.bairro} onChange={e => setE('bairro', titleCase(e.target.value))}
+                <input value={end.bairro} onChange={e => setE('bairro', e.target.value)}
+                  onBlur={e => setE('bairro', titleCase(e.target.value))}
                   placeholder="Ex: Centro" style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Cidade *</label>
-                <input value={end.cidade} onChange={e => setE('cidade', titleCase(e.target.value))}
+                <input value={end.cidade} onChange={e => setE('cidade', e.target.value)}
+                  onBlur={e => setE('cidade', titleCase(e.target.value))}
                   placeholder="Ex: Sao Paulo, SP" style={inputStyle} />
               </div>
               <div>
