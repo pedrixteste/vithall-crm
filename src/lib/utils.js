@@ -15,15 +15,16 @@ export const phoneDigits = (p) => (p || '').replace(/\D/g, '')
 // muda o app inteiro sem migração.
 export const MAX_PHONES = 4
 
-// Todos os telefones de um cliente/callback como [{ n, t }], já na ordem em
+// Todos os telefones de um cliente/callback como [{ n, t, d }], já na ordem em
 // que devem aparecer: o principal primeiro, depois os adicionais de `phones`.
+// `d` = de quem é o número ("da esposa", "do sócio") — só os adicionais têm.
 // Cobre o `phone2` antigo caso algum registro não tenha sido migrado.
 export function allPhones(c) {
   if (!c) return []
   const out = []
-  if (c.phone) out.push({ n: c.phone, t: c.phone_type || 'pessoal' })
+  if (c.phone) out.push({ n: c.phone, t: c.phone_type || 'pessoal', d: null })
   for (const p of Array.isArray(c.phones) ? c.phones : []) {
-    if (p?.n) out.push({ n: p.n, t: p.t || 'pessoal' })
+    if (p?.n) out.push({ n: p.n, t: p.t || 'pessoal', d: p.d || null })
   }
   if (c.phone2 && !out.some(x => phoneDigits(x.n) === phoneDigits(c.phone2))) {
     out.push({ n: c.phone2, t: c.phone_type === 'empresa' ? 'pessoal' : 'empresa' })

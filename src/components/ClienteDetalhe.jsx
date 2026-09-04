@@ -150,6 +150,9 @@ function describeEvent(type, data) {
     const rot = { marcada: 'Repescagem marcada', editada: 'Repescagem alterada', desmarcada: 'Repescagem desmarcada' }
     return `${rot[data?.acao] || 'Repescagem'}${data?.motivo ? ` — "${data.motivo}"` : ''}`
   }
+  if (type === 'telefone') {
+    return `Número novo: ${data?.numero}${data?.anterior ? ` (antes: ${data.anterior})` : ''}`
+  }
   if (type === 'matricula_added')   return `Matriculado em ${data?.training}`
   if (type === 'matricula_removed') return `Matricula removida: ${data?.training}`
   if (type === 'matricula_cancelada') {
@@ -175,6 +178,7 @@ function getEventColor(type, data) {
   }
   if (type === 'endereco')          return data?.acao === 'excluido' ? '#E85555' : '#C9A84C'
   if (type === 'repescagem')        return '#A3E635'
+  if (type === 'telefone')          return '#C9A84C'
   if (type === 'matricula_added')   return '#4ADE80'
   if (type === 'matricula_removed') return '#E85555'
   if (type === 'matricula_cancelada') return '#E8748A'
@@ -195,6 +199,7 @@ function getEventIcon(type, data) {
   if (type === 'matricula_reativada') return '♻️'
   if (type === 'endereco')          return data?.acao === 'excluido' ? '🗑' : '📍'
   if (type === 'repescagem')        return '🎣'
+  if (type === 'telefone')          return '📞'
   if (type === 'stage_change') {
     if (data?.to === 'nao_apareceu')   return '🚫'
     if (data?.to === 'cancelado')      return '📵'
@@ -448,6 +453,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [removingRepescagem, setRemovingRepescagem] = useState(false) // confirmação do desmarcar
   const [removendoRep, setRemovendoRep]           = useState(false)
   const [showRemarcar, setShowRemarcar]           = useState(false) // pop-up de remarcar visita
+  const [showMaisFones, setShowMaisFones]         = useState(false) // grupo "mais números"
   const [endParaExcluir, setEndParaExcluir]       = useState(null)  // endereço na fila de exclusão
   const [excluindoEnd, setExcluindoEnd]           = useState(false)
   const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
@@ -1662,24 +1668,53 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   {t === 'empresa' ? 'Empresa' : 'Pessoal'}
                 </span>
               )
-              return allPhones(currentClient).map((p, i) => (
-                <div key={i} className="flex items-center gap-2.5">
-                  <a href={`tel:${p.n}`} className="flex items-center gap-2.5 text-sm" style={{ color: '#958E86' }}>
-                    <Phone size={14} style={{ color: i === 0 ? '#C9A84C' : '#958E86' }} />
-                    {p.n}
-                  </a>
-                  {typeTag(p.t)}
-                  {i === 0 && phoneCount > 1 && (
-                    <button onClick={() => setShowHistorico(true)}
-                      title="Contato já registrado antes — ver histórico"
-                      className="flex items-center rounded-lg transition-all active:scale-95"
-                      style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
-                      <Phone size={12} />
-                      <sup style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
-                    </button>
+              // Só o PRINCIPAL fica à vista. Os outros entram num grupo que
+              // abre ao toque — com quatro números e a descrição de cada um, a
+              // ficha virava uma parede de telefone antes de mostrar o resto.
+              const [principal, ...outros] = allPhones(currentClient)
+              if (!principal) return null
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <a href={`tel:${principal.n}`} className="flex items-center gap-2.5 text-sm" style={{ color: '#958E86' }}>
+                      <Phone size={14} style={{ color: '#C9A84C' }} />
+                      {principal.n}
+                    </a>
+                    {typeTag(principal.t)}
+                    {phoneCount > 1 && (
+                      <button onClick={() => setShowHistorico(true)}
+                        title="Contato já registrado antes — ver histórico"
+                        className="flex items-center rounded-lg transition-all active:scale-95"
+                        style={{ padding: '3px 8px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60A5FA', gap: '1px', cursor: 'pointer' }}>
+                        <Phone size={12} />
+                        <sup style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1 }}>{phoneCount - 1}</sup>
+                      </button>
+                    )}
+                  </div>
+
+                  {outros.length > 0 && (
+                    <>
+                      <button onClick={() => setShowMaisFones(v => !v)}
+                        className="text-[12px] font-semibold rounded-lg transition-all active:scale-95"
+                        style={{ alignSelf: 'flex-start', marginLeft: '24px', padding: '3px 10px', background: '#181818', border: '1px solid #2A2A2A', color: '#A59F97', cursor: 'pointer' }}>
+                        {showMaisFones ? '▴ esconder' : `▾ mais ${outros.length} ${outros.length === 1 ? 'número' : 'números'}`}
+                      </button>
+                      {showMaisFones && outros.map((p, i) => (
+                        <div key={i} className="flex items-center gap-2.5 flex-wrap" style={{ marginLeft: '24px' }}>
+                          <a href={`tel:${p.n}`} className="flex items-center gap-2 text-[13px]" style={{ color: '#958E86' }}>
+                            <Phone size={12} style={{ color: '#958E86' }} />
+                            {p.n}
+                          </a>
+                          {typeTag(p.t)}
+                          {p.d && (
+                            <span className="text-[12px]" style={{ color: '#8B857D' }}>· {p.d}</span>
+                          )}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
-              ))
+              )
             })()}
             {/* Endereços — até 3. O primeiro é o ATUAL: é ele que vai para o
                 mapa, para a ficha do Google Agenda e para as listas. Os outros

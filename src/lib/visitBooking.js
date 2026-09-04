@@ -49,7 +49,8 @@ export async function primeiroMarcador(client) {
  *            (visit_first_booked_by), que divide a comissão com quem remarcou
  */
 export async function remarcarVisita({
-  client, userId, userName, motivo, vendedorId, novaDataIso, enderecoPayload = null,
+  client, userId, userName, motivo, vendedorId, novaDataIso,
+  enderecoPayload = null, telefonePayload = null,
 }) {
   const oldIso    = client.visit_scheduled_at ? new Date(client.visit_scheduled_at).toISOString() : null
   const oldStage  = client.matricula_stage
@@ -72,12 +73,14 @@ export async function remarcarVisita({
     remarcacao_motivo:       (motivo || '').trim() || null,
     ...bookingStamp(client, { isReschedule: true }),
     ...(enderecoPayload || {}),
+    ...(telefonePayload || {}),
   }
 
   const { error } = await supabase.from('clients').update(payload).eq('id', client.id)
   if (error) return { error }
 
   const trocouEndereco = !!enderecoPayload
+  const trocouTelefone = !!telefonePayload
   await logVisitScheduled({
     clientId: client.id, userId, userName, from: oldIso, to: novaDataIso,
     extra: {
@@ -85,6 +88,7 @@ export async function remarcarVisita({
       motivo: payload.remarcacao_motivo,
       vendedor: payload.assigned_to,
       endereco_mudou: trocouEndereco,
+      telefone_mudou: trocouTelefone,
       vez: payload.visit_reschedule_count,
     },
   })
@@ -108,6 +112,15 @@ export async function remarcarVisita({
         bairro: payload.address_neighborhood, cidade: payload.city,
         referencia: payload.address_reference,
       } },
+    })
+  }
+  if (trocouTelefone) {
+    await supabase.from('client_history').insert({
+      client_id:  client.id,
+      user_id:    userId,
+      user_name:  userName || null,
+      event_type: 'telefone',
+      event_data: { acao: 'novo', numero: payload.phone, anterior: client.phone || null },
     })
   }
 

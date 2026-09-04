@@ -1,6 +1,7 @@
 import { Input } from './ui/Input'
 import { Plus, X } from 'lucide-react'
 import { MAX_PHONES } from '../lib/utils'
+import { MAX_DONO } from '../lib/telefones'
 
 const TIPOS = [['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']]
 
@@ -38,7 +39,7 @@ export default function PhoneList({ value = [], onChange, primaryFilled = true }
 
   const set = (i, patch) => onChange(extras.map((p, idx) => idx === i ? { ...p, ...patch } : p))
   const remover = (i) => onChange(extras.filter((_, idx) => idx !== i))
-  const adicionar = () => onChange([...extras, { n: '', t: 'pessoal' }])
+  const adicionar = () => onChange([...extras, { n: '', t: 'pessoal', d: '' }])
 
   if (!primaryFilled) return null
 
@@ -61,6 +62,13 @@ export default function PhoneList({ value = [], onChange, primaryFilled = true }
             value={p.n || ''}
             onChange={e => set(i, { n: e.target.value })}
             placeholder="(00) 00000-0000"
+          />
+          {/* De quem é — curto de propósito: aparece numa linha só na ficha */}
+          <Input
+            value={p.d || ''}
+            onChange={e => set(i, { d: e.target.value.slice(0, MAX_DONO) })}
+            placeholder="De quem é? Ex: da esposa, do sócio"
+            maxLength={MAX_DONO}
           />
           <TipoToggle value={p.t || 'pessoal'} onChange={t => set(i, { t })} />
         </div>

@@ -12,6 +12,7 @@ import {
 import { podeRemarcar, bookersDaMatricula } from '../src/lib/visitRules.js'
 import { destinoMarcacao } from '../src/lib/personMetrics.js'
 import { proximaOcorrencia } from '../src/lib/utils.js'
+import { trocarTelefone, telefoneTexto } from '../src/lib/telefones.js'
 
 let ok = 0, fail = 0
 const eq = (nome, a, b) => {
@@ -217,5 +218,34 @@ eq('datas específicas: a próxima que não passou',
   proximaOcorrencia({ type: 'specific_date', dates: ['2026-09-01', '2026-09-10', '2026-12-01'] }, ref).daysUntil, 6)
 eq('todas as datas passadas → null', proximaOcorrencia({ type: 'specific_date', dates: ['2026-01-01'] }, ref), null)
 
-console.log(`\n${fail === 0 ? '✅' : '❌'}  ${ok} passaram · ${fail} falharam\n`)
+// ═══════════════ TELEFONES (trocou de número) ═══════════════
+grupo('Telefones')
+const cliFone = {
+  phone: '51900000001', phone_type: 'pessoal',
+  phones: [{ n: '51900000002', t: 'empresa', d: 'do sócio' }],
+}
+const t1f = trocarTelefone(cliFone, { numero: '51988887777', tipo: 'pessoal', dono: 'novo dele' })
+eq('número novo vira o principal', t1f.phone, '51988887777')
+eq('o antigo desce para a lista', t1f.phones[0].n, '51900000001')
+eq('e os que já eram adicionais continuam', t1f.phones[1].n, '51900000002')
+eq('a descrição de quem já tinha é preservada', t1f.phones[1].d, 'do sócio')
+eq('phone2 antigo é zerado (senão duplica)', t1f.phone2, null)
+
+const cheio = { phone: '1', phone_type: 'pessoal', phones: [
+  { n: '22222222', t: 'pessoal' }, { n: '33333333', t: 'pessoal' }, { n: '44444444', t: 'pessoal' }] }
+eq('no limite de 4, barra sem escolher quem sai', !!trocarTelefone(cheio, { numero: '55555555' }).erro, true)
+const subst = trocarTelefone(cheio, { numero: '55555555' }, '33333333')
+eq('escolhendo quem sai, entra', subst.phone, '55555555')
+eq('e o escolhido sumiu', subst.phones.some(p => p.n === '33333333'), false)
+eq('continua com 4 no total', 1 + subst.phones.length, 4)
+eq('número curto é recusado', !!trocarTelefone(cliFone, { numero: '123' }).erro, true)
+eq('número vazio é recusado', !!trocarTelefone(cliFone, { numero: '  ' }).erro, true)
+const repet = trocarTelefone(cliFone, { numero: '(51) 90000-0002' })
+eq('número que já existe só vira principal, não duplica', repet.phone, '(51) 90000-0002')
+eq('e não fica repetido na lista', repet.phones.filter(p => p.n.includes('90000-0002') || p.n === '51900000002').length, 0)
+eq('total continua 2', 1 + repet.phones.length, 2)
+
+console.log(`
+${fail === 0 ? '✅' : '❌'}  ${ok} passaram · ${fail} falharam
+`)
 process.exit(fail === 0 ? 0 : 1)

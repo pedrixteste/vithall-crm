@@ -8,6 +8,8 @@ import {
   MAX_ENDERECOS, enderecosAtivos, enderecoAtual, enderecoTexto,
   adicionarEndereco, mesmoEndereco,
 } from '../lib/enderecos'
+import { MAX_DONO, trocarTelefone, telefonesNoLimite, telefoneTexto } from '../lib/telefones'
+import { allPhones, MAX_PHONES } from '../lib/utils'
 
 // "Remarcar": a visita caiu (cliente cancelou, não apareceu, ou a data passou
 // sem ninguém registrar nada) e vai ser marcada de novo. Pede motivo, quem vai
@@ -75,6 +77,11 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
     cidade: client.city || '', referencia: '',
   })
   const [substituir, setSubstituir] = useState('') // id do endereço que sai (no limite)
+  // Telefone: mesma ideia do endereço — o número novo vira o principal e o
+  // antigo desce para o grupo "mais números" da ficha
+  const [mudouFone, setMudouFone] = useState(null)  // null | true | false
+  const [fone, setFone]           = useState({ numero: '', tipo: 'pessoal', dono: '' })
+  const [foneSai, setFoneSai]     = useState('')    // número que sai (no limite)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
 
@@ -82,6 +89,9 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
   const atual     = enderecoAtual(client)
   const noLimite  = ativos.length >= MAX_ENDERECOS
   const setE      = (k, v) => setEnd(p => ({ ...p, [k]: v }))
+  const fones     = allPhones(client)
+  const foneCheio = telefonesNoLimite(client)
+  const setF      = (k, v) => setFone(p => ({ ...p, [k]: v }))
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -114,13 +124,27 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
       enderecoPayload = payload
     }
 
+    if (mudouFone === null) { setError('Responda se o cliente trocou de número.'); return }
+    let telefonePayload = null
+    if (mudouFone === true) {
+      if (!fone.numero.trim()) { setError('Informe o número novo.'); return }
+      if (foneCheio && !foneSai) {
+        setError(`Este cliente já tem ${MAX_PHONES} números. Escolha abaixo qual sai.`)
+        return
+      }
+      const res = trocarTelefone(client, fone, foneSai || null)
+      if (res.erro) { setError(res.erro); return }
+      const { repetido: _r, ...payload } = res
+      telefonePayload = payload
+    }
+
     const novaDataIso = new Date(data).toISOString()
     if (isNaN(new Date(novaDataIso))) { setError('Data inválida.'); return }
 
     setSaving(true); setError('')
     const res = await remarcarVisita({
       client, userId: user.id, userName: profile?.name,
-      motivo, vendedorId: vendedor, novaDataIso, enderecoPayload,
+      motivo, vendedorId: vendedor, novaDataIso, enderecoPayload, telefonePayload,
     })
     setSaving(false)
     if (res.error) { setError('Não salvou — verifique a internet e tente de novo.'); return }
@@ -279,6 +303,103 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
               </div>
               <p className="text-[12px]" style={{ color: '#8B857D', lineHeight: 1.45 }}>
                 O endereço novo passa a ser o do cliente; o anterior fica guardado na ficha.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Telefone — mesma lógica do endereço: o novo vira o principal e o
+            antigo desce para o grupo "mais números" da ficha */}
+        <div style={{ borderTop: '1px solid #1C1C1C', paddingTop: '16px' }}>
+          <label style={labelStyle}>Trocou de número? *</label>
+          {fones[0] && (
+            <p className="text-[12px]" style={{ color: '#8B857D', lineHeight: 1.45, marginBottom: '10px' }}>
+              Hoje na ficha: {fones[0].n}
+              {fones.length > 1 ? ` (+${fones.length - 1})` : ''}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {[{ v: true, label: 'Sim' }, { v: false, label: 'Não' }].map(o => {
+              const active = mudouFone === o.v
+              return (
+                <button key={String(o.v)} type="button"
+                  onClick={() => { setMudouFone(o.v); setError('') }}
+                  style={{
+                    flex: 1, padding: '11px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                    background: active ? `${REMARCAR_COR}26` : '#111',
+                    color: active ? REMARCAR_COR : '#958E86',
+                    border: `1px solid ${active ? `${REMARCAR_COR}73` : '#252525'}`,
+                  }}>
+                  {o.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {mudouFone === true && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+              {foneCheio && (
+                <div className="rounded-xl" style={{ padding: '12px 14px', background: 'rgba(232,131,74,0.08)', border: '1px solid rgba(232,131,74,0.3)' }}>
+                  <p className="text-[12px] font-semibold" style={{ color: '#E8834A', lineHeight: 1.5 }}>
+                    ⚠️ Este cliente já tem {MAX_PHONES} números — o limite.
+                  </p>
+                  <p className="text-[12px] mt-1" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+                    Escolha qual sai para entrar o novo.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                    {fones.map(p => {
+                      const sel = foneSai === p.n
+                      return (
+                        <button key={p.n} type="button" onClick={() => { setFoneSai(sel ? '' : p.n); setError('') }}
+                          style={{
+                            textAlign: 'left', padding: '9px 12px', borderRadius: '10px', fontSize: '12px', cursor: 'pointer',
+                            background: sel ? 'rgba(232,85,85,0.12)' : '#111',
+                            border: `1px solid ${sel ? 'rgba(232,85,85,0.45)' : '#252525'}`,
+                            color: sel ? '#E85555' : '#B0A99F', lineHeight: 1.45,
+                          }}>
+                          {sel ? '🗑 sai: ' : ''}{telefoneTexto(p)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={labelStyle}>Número novo *</label>
+                <input value={fone.numero} onChange={e => { setF('numero', e.target.value); setError('') }}
+                  placeholder="(00) 00000-0000" inputMode="tel" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>De quem é? (opcional)</label>
+                <input value={fone.dono} maxLength={MAX_DONO}
+                  onChange={e => setF('dono', e.target.value.slice(0, MAX_DONO))}
+                  placeholder="Ex: da esposa, do sócio, da recepção" style={inputStyle} />
+                <p className="text-[11px] mt-1" style={{ color: '#6B6560' }}>
+                  {fone.dono.length}/{MAX_DONO} — aparece no grupo "mais números" da ficha
+                </p>
+              </div>
+              <div>
+                <label style={labelStyle}>Tipo</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[['pessoal', '👤 Pessoal'], ['empresa', '🏢 Empresa']].map(([k, lb]) => {
+                    const on = fone.tipo === k
+                    return (
+                      <button key={k} type="button" onClick={() => setF('tipo', k)}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          background: on ? 'rgba(201,168,76,0.12)' : '#111',
+                          color: on ? '#C9A84C' : '#958E86',
+                          border: `1px solid ${on ? 'rgba(201,168,76,0.4)' : '#252525'}`,
+                        }}>
+                        {on ? '✓ ' : ''}{lb}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <p className="text-[12px]" style={{ color: '#8B857D', lineHeight: 1.45 }}>
+                O número novo vira o principal; o antigo fica guardado em "mais números".
               </p>
             </div>
           )}
