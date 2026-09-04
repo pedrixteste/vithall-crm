@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap, CheckCircle2, XCircle, PhoneCall, CalendarClock } from 'lucide-react'
 import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
-import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits } from '../lib/clientStage'
+import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits, bookersDaMatricula } from '../lib/clientStage'
 import { matriculaStatus, reembolsoTexto } from '../lib/matricula'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
+import { enderecosAtivos, enderecosExcluidos, enderecoTexto, excluirEndereco, tornarAtual } from '../lib/enderecos'
 import { CONFIRMATION_INFO, NO_SHOW_RATING, POST_VISITA } from '../lib/visitConfirmation'
 import { localDateStr, phoneDigits, allPhones, allPhoneDigits, reminderDates } from '../lib/utils'
 import { useRefreshOnFocus } from '../lib/useRefreshOnFocus'
@@ -15,6 +16,7 @@ import ClienteForm from './ClienteForm'
 import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
 import RepescagemForm, { RepescagemBlock } from './RepescagemForm'
+import RemarcarForm, { RemarcarBlock } from './RemarcarForm'
 import { Sheet } from './ui/Sheet'
 import { Button } from './ui/Button'
 
@@ -27,12 +29,21 @@ const STAGES = {
   pediu_ligar:    { label: 'Pediu para ligar', color: '#E8834A', bg: 'rgba(232,131,74,0.12)'  },
   marcacao_futura:{ label: 'Marcação futura',  color: '#818CF8', bg: 'rgba(129,140,248,0.12)' },
   marcado:        { label: 'Marcado',          color: '#22D3EE', bg: 'rgba(34,211,238,0.12)'  },
+  // "Remarcado" NÃO entra no seletor manual (STAGES_MANUAIS abaixo): só existe
+  // quando uma visita é remarcada de verdade. Mesma cor de "Marcado" porque é
+  // a mesma coisa (visita de pé) — o 🔁 é que diferencia, igual ao ⏳ da
+  // matrícula pendente. Depois de remarcado, pode ser trocado normalmente.
+  remarcado:      { label: '🔁 Remarcado',     color: '#22D3EE', bg: 'rgba(34,211,238,0.12)'  },
   nao_visitado:   { label: 'Nao foi visitado', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)'  },
   nao_apareceu:   { label: 'Nao apareceu',     color: '#E85555', bg: 'rgba(232,85,85,0.12)'   },
   cancelado:      { label: 'Cancelou visita',  color: '#F97316', bg: 'rgba(249,115,22,0.12)'  },
   recebeu_visita: { label: 'Recebeu visita',   color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
   matriculado:    { label: 'Matriculado!!',    color: '#4ADE80', bg: 'rgba(74,222,128,0.12)'  },
 }
+
+// Estágios que aparecem no seletor. "Remarcado" fica de fora de propósito:
+// ninguém marca na mão, só o botão Remarcar produz esse estágio.
+const STAGES_MANUAIS = Object.entries(STAGES).filter(([k]) => k !== 'remarcado')
 
 const ORIGIN_LABELS = {
   'frias contatinhos': { label: 'Frias contatinhos', color: '#60A5FA' },
@@ -121,9 +132,23 @@ function describeEvent(type, data) {
   if (type === 'visit')             return 'Visita registrada'
   if (type === 'visit_scheduled') {
     // A data que saiu só existe aqui — na coluna ela foi substituída
-    return data?.from
-      ? `Visita remarcada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}`
-      : `Visita marcada para ${fmtVisitDT(data?.to)}`
+    if (!data?.from) return `Visita marcada para ${fmtVisitDT(data?.to)}`
+    const base = `Visita remarcada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}`
+    // Pelo botão Remarcar vem também o motivo e se o endereço mudou
+    const extra = [
+      data.motivo ? `"${data.motivo}"` : null,
+      data.endereco_mudou ? 'endereço novo' : null,
+    ].filter(Boolean).join(' · ')
+    return extra ? `${base} — ${extra}` : base
+  }
+  if (type === 'endereco') {
+    const e = data?.endereco || {}
+    const txt = [e.rua, e.numero, e.bairro, e.cidade].filter(Boolean).join(', ')
+    return data?.acao === 'excluido' ? `Endereço excluído: ${txt}` : `Endereço novo: ${txt}`
+  }
+  if (type === 'repescagem') {
+    const rot = { marcada: 'Repescagem marcada', editada: 'Repescagem alterada', desmarcada: 'Repescagem desmarcada' }
+    return `${rot[data?.acao] || 'Repescagem'}${data?.motivo ? ` — "${data.motivo}"` : ''}`
   }
   if (type === 'matricula_added')   return `Matriculado em ${data?.training}`
   if (type === 'matricula_removed') return `Matricula removida: ${data?.training}`
@@ -143,11 +168,13 @@ function getEventColor(type, data) {
     const map = {
       matriculado: '#4ADE80', nao_apareceu: '#E85555', cancelado: '#F97316',
       recebeu_visita: '#A78BFA', nao_visitado: '#60A5FA',
-      marcado: '#22D3EE', pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
+      marcado: '#22D3EE', remarcado: '#22D3EE', pediu_ligar: '#E8834A', nao_marcou: '#6B6560',
       marcacao_futura: '#818CF8',
     }
     return map[data?.to] || '#6B6560'
   }
+  if (type === 'endereco')          return data?.acao === 'excluido' ? '#E85555' : '#C9A84C'
+  if (type === 'repescagem')        return '#A3E635'
   if (type === 'matricula_added')   return '#4ADE80'
   if (type === 'matricula_removed') return '#E85555'
   if (type === 'matricula_cancelada') return '#E8748A'
@@ -166,12 +193,15 @@ function getEventIcon(type, data) {
   if (type === 'matricula_removed') return '❌'
   if (type === 'matricula_cancelada') return '❌'
   if (type === 'matricula_reativada') return '♻️'
+  if (type === 'endereco')          return data?.acao === 'excluido' ? '🗑' : '📍'
+  if (type === 'repescagem')        return '🎣'
   if (type === 'stage_change') {
     if (data?.to === 'nao_apareceu')   return '🚫'
     if (data?.to === 'cancelado')      return '📵'
     if (data?.to === 'matriculado')    return '🎉'
     if (data?.to === 'recebeu_visita') return '🤝'
     if (data?.to === 'marcado')        return '📋'
+    if (data?.to === 'remarcado')      return '🔁'
     if (data?.to === 'nao_visitado')   return '📅'
     if (data?.to === 'pediu_ligar')    return '📞'
     if (data?.to === 'marcacao_futura') return '🔮'
@@ -417,6 +447,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [showRepescagem, setShowRepescagem]       = useState(false) // pop-up da repescagem
   const [removingRepescagem, setRemovingRepescagem] = useState(false) // confirmação do desmarcar
   const [removendoRep, setRemovendoRep]           = useState(false)
+  const [showRemarcar, setShowRemarcar]           = useState(false) // pop-up de remarcar visita
+  const [endParaExcluir, setEndParaExcluir]       = useState(null)  // endereço na fila de exclusão
+  const [excluindoEnd, setExcluindoEnd]           = useState(false)
   const [pendingStar, setPendingStar]     = useState(null)  // {visitId} p/ abrir a estrela após trocar de registro
   const [notesValue, setNotesValue]       = useState(client.notes || '')
   const [savingNotes, setSavingNotes]     = useState(false)
@@ -812,7 +845,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     // O estágio acompanha a resposta: confirmou → "Marcado"; cancelou →
     // "Cancelou visita" (que já cuida do histórico e de tirar do Google
     // Agenda). "Tentou confirmar" não tem estágio equivalente — fica como está.
-    if (status === 'confirmada' && currentClient.matricula_stage !== 'marcado') {
+    // "Remarcado" também é visita de pé — confirmar não pode apagar o 🔁
+    if (status === 'confirmada' && !['marcado', 'remarcado'].includes(currentClient.matricula_stage)) {
       await updateStage('marcado')
     } else if (status === 'nao_confirmada' && currentClient.matricula_stage !== 'cancelado') {
       await updateStage('cancelado')
@@ -878,6 +912,80 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     }
     onUpdated?.()
     setPendingMarcado('agenda') // último passo: lembrar de ocupar o horário
+  }
+
+  // ── Remarcação salva ────────────────────────────────────────────
+  // O formulário já gravou tudo (cliente + histórico). Aqui é só o rescaldo:
+  // tela em dia, aviso ao vendedor e a mesma cadeia de pop-ups da marcação
+  // (Google Agenda → agenda de horários), senão sobra evento velho no
+  // calendário e horário ocupado na agenda.
+  async function onRemarcado({ payload, oldEventId }) {
+    const vendedorNovo = payload.assigned_to
+    setCurrentClient(c => ({ ...c, ...payload }))
+    setShowRemarcar(false)
+    const vend = teamProfiles.find(p => p.id === vendedorNovo)
+    if (vend?.name) setAssignedName(vend.name)
+    fetchHistory()
+    onUpdated?.()
+
+    // Evento antigo no Google Agenda: a data mudou, então ele não vale mais
+    if (oldEventId) {
+      try {
+        const token = await getValidToken(user.id)
+        if (token) {
+          await deleteCalendarEvent(token, oldEventId)
+          await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
+          setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+        }
+      } catch { /* o pop-up abaixo deixa o usuário resolver na mão */ }
+    }
+
+    // Avisa o vendedor da visita nova (não a si mesmo) — igual à marcação
+    if (vendedorNovo && vendedorNovo !== user.id) {
+      supabase.functions.invoke('notify-visit', {
+        body: {
+          assignedToId:  vendedorNovo,
+          clientName:    currentClient.contact_name,
+          companyName:   currentClient.company_name,
+          visitDateTime: payload.visit_scheduled_at,
+          city:          payload.city || currentClient.city,
+          notes:         payload.remarcacao_motivo || currentClient.notes,
+        },
+      })
+    }
+
+    setPendingMarcado('agenda') // lembra de acertar o horário na aba Agenda
+  }
+
+  // Exclui um endereço da ficha (marca como excluído — não some do backup)
+  async function confirmarExclusaoEndereco() {
+    if (!endParaExcluir) return
+    setExcluindoEnd(true)
+    const res = excluirEndereco(currentClient, endParaExcluir.id, user.id)
+    if (res.erro) { setExcluindoEnd(false); alert(res.erro); return }
+    const { erro: _e, ...payload } = res
+    const { error } = await supabase.from('clients').update(payload).eq('id', currentClient.id)
+    setExcluindoEnd(false)
+    if (error) { alert('Não foi possível excluir — verifique sua internet e tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, ...payload }))
+    await logEvent('endereco', { acao: 'excluido', endereco: {
+      rua: endParaExcluir.rua, numero: endParaExcluir.numero,
+      bairro: endParaExcluir.bairro, cidade: endParaExcluir.cidade,
+    } })
+    setEndParaExcluir(null)
+    fetchHistory()
+    onUpdated?.()
+  }
+
+  // Troca qual endereço é o atual (o que vai pro mapa e pra agenda)
+  async function marcarEnderecoAtual(id) {
+    const res = tornarAtual(currentClient, id)
+    if (res.erro) { alert(res.erro); return }
+    const { erro: _e, ...payload } = res
+    const { error } = await supabase.from('clients').update(payload).eq('id', currentClient.id)
+    if (error) { alert('Não foi possível trocar o endereço — tente de novo.'); return }
+    setCurrentClient(c => ({ ...c, ...payload }))
+    onUpdated?.()
   }
 
   async function updateStage(newStage) {
@@ -996,8 +1104,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       .eq('id', currentClient.id).eq('repescagem_by', user.id)
     setRemovendoRep(false)
     if (error) { alert('Não foi possível desmarcar — verifique sua internet e tente de novo.'); return }
+    // Rastro: sem isto a repescagem some sem deixar história e o relatório
+    // nunca saberia que ela existiu
+    await logEvent('repescagem', { acao: 'desmarcada', motivo: currentClient.repescagem_reason || null })
     setCurrentClient(c => ({ ...c, ...vazio }))
     setRemovingRepescagem(false)
+    fetchHistory()
   }
 
   async function toggleTreinamentoInteresse(training) {
@@ -1117,13 +1229,17 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     const collapsed = new Set()
     // Quem participa da matrícula: se já foi salva alguma vez, vem do banco;
     // senão o padrão é só quem marcou a visita (comportamento de sempre).
-    const bookerId  = currentClient.visit_scheduled_by || currentClient.created_by
+    // Quem marcou a visita: uma pessoa, ou duas quando houve remarcação
+    // (quem marcou na origem + quem remarcou dividem a comissão).
+    const bookers    = bookersDaMatricula(currentClient)
+    const bookerIds  = new Set(bookers.map(b => b.id))
     const temCredito = clientCredits.length > 0
-    const creditBooker = temCredito
-      ? clientCredits.some(c => c.credited_to === bookerId)
-      : true
+    const creditBookers = Object.fromEntries(bookers.map(b => [
+      b.id,
+      temCredito ? clientCredits.some(c => c.credited_to === b.id) : true,
+    ]))
     const creditParticipants = clientCredits
-      .filter(c => c.credited_to !== bookerId)
+      .filter(c => !bookerIds.has(c.credited_to))
       .map(c => ({ id: c.credited_to, note: c.note || '' }))
     visits.forEach((v, i) => {
       // Detecta se há custom text em visit_possibilities
@@ -1152,7 +1268,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
         matricula_status:        currentClient.matricula_status || 'efetivada',
         matricula_status_note:   currentClient.matricula_status_note || '',
         // Quem recebe a matrícula na conta (comissão)
-        credit_booker:           creditBooker,
+        credit_bookers:          creditBookers,
         credit_participants:     creditParticipants,
       }
       // expande a visita alvo (vinda do histórico) ou, sem alvo, só a mais recente
@@ -1286,10 +1402,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       // continuar marcado, + os participantes escolhidos. Roda SEMPRE que salva
       // uma matrícula — é isto que também TIRA o crédito de quem foi desmarcado.
       const { error: credErr } = await syncMatriculaCredits({
-        client:         currentClient,
-        enrolledById:   user.id,
-        bookerCredited: edit.credit_booker !== false,
-        participants:   edit.credit_participants || [],
+        client:          currentClient,
+        enrolledById:    user.id,
+        bookersCredited: edit.credit_bookers || {},
+        participants:    edit.credit_participants || [],
       })
       if (credErr) {
         setSavingRatingId(null)
@@ -1565,30 +1681,58 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 </div>
               ))
             })()}
-            {(currentClient.city || currentClient.address_street) && (() => {
-              const parts = [
-                currentClient.address_street,
-                currentClient.address_number,
-                currentClient.address_neighborhood,
-                currentClient.city,
-              ].filter(Boolean)
-              const addressText = parts.join(', ')
-              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
+            {/* Endereços — até 3. O primeiro é o ATUAL: é ele que vai para o
+                mapa, para a ficha do Google Agenda e para as listas. Os outros
+                ficam guardados (a visita pode mudar de lugar e voltar). */}
+            {(() => {
+              const lista = enderecosAtivos(currentClient)
+              if (!lista.length) return null
+              const atual = lista.find(e => e.atual) || lista[0]
+              const outros = lista.filter(e => e.id !== atual.id)
+              const mapa = (e) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enderecoTexto(e))}`
               return (
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-start gap-2.5 text-sm" style={{ color: '#958E86' }}>
-                  <MapPin size={14} style={{ color: '#C9A84C', flexShrink: 0, marginTop: '2px' }} />
-                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#C9A84C44' }}>
-                    {addressText}
-                  </span>
-                </a>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <a href={mapa(atual)} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-2.5 text-sm" style={{ color: '#958E86' }}>
+                    <MapPin size={14} style={{ color: '#C9A84C', flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#C9A84C44' }}>
+                      {enderecoTexto(atual)}
+                    </span>
+                  </a>
+                  {atual.referencia && (
+                    <p className="text-xs" style={{ color: '#958E86', paddingLeft: '26px', marginTop: '-4px' }}>
+                      Ref.: {atual.referencia}
+                    </p>
+                  )}
+
+                  {outros.map(e => (
+                    <div key={e.id} style={{ paddingLeft: '26px', display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+                      <a href={mapa(e)} target="_blank" rel="noopener noreferrer"
+                        className="text-xs" style={{ color: '#7C766F', flex: '1 1 60%', lineHeight: 1.45, textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#7C766F44' }}>
+                        {enderecoTexto(e)}
+                        {e.referencia ? ` · Ref.: ${e.referencia}` : ''}
+                      </a>
+                      <button onClick={() => marcarEnderecoAtual(e.id)}
+                        className="text-[11px] font-semibold rounded-lg"
+                        style={{ padding: '3px 8px', background: '#1A1A1A', border: '1px solid #2A2A2A', color: '#B0A99F', cursor: 'pointer' }}>
+                        usar este
+                      </button>
+                      <button onClick={() => setEndParaExcluir(e)}
+                        className="text-[11px] font-semibold rounded-lg"
+                        style={{ padding: '3px 8px', background: 'rgba(232,85,85,0.08)', border: '1px solid rgba(232,85,85,0.2)', color: '#E85555', cursor: 'pointer' }}>
+                        🗑
+                      </button>
+                    </div>
+                  ))}
+
+                  {lista.length > 1 && (
+                    <p className="text-[11px]" style={{ color: '#6B6560', paddingLeft: '26px' }}>
+                      {lista.length} de 3 endereços · o de cima é o que vale hoje
+                    </p>
+                  )}
+                </div>
               )
             })()}
-            {currentClient.address_reference && (
-              <p className="text-xs" style={{ color: '#958E86', paddingLeft: '26px', marginTop: '-8px' }}>
-                Ref.: {currentClient.address_reference}
-              </p>
-            )}
             {currentClient.list_location && (
               <p className="flex items-center gap-2.5 text-sm" style={{ color: '#958E86' }}>
                 <BookOpen size={14} style={{ color: '#C9A84C', flexShrink: 0 }} />
@@ -1646,7 +1790,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               </div>
               {editingStage && (
                 <div className="flex flex-wrap" style={{ gap: '6px', paddingLeft: '22px' }}>
-                  {Object.entries(STAGES).map(([key, s]) => (
+                  {STAGES_MANUAIS.map(([key, s]) => (
                     <button key={key}
                       onClick={() => key === 'cancelado' ? setPendingStage('cancelado')
                         : key === 'pediu_ligar' ? (setCallBackAt(''), setPendingPediuLigar(true))
@@ -1666,6 +1810,14 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   ))}
                 </div>
               )}
+
+              {/* Remarcar visita — cinza enquanto a visita está de pé; libera
+                  quando cancelou, não apareceu, ou a data passou sem registro */}
+              <RemarcarBlock
+                client={currentClient}
+                nomeRemarcador={teamProfiles.find(p => p.id === currentClient.remarcado_por)?.name?.split(' ')[0]}
+                onRemarcar={() => setShowRemarcar(true)}
+              />
             </div>
 
             {/* Situação da matrícula — efetivada / pendente / cancelada (só p/
@@ -1820,6 +1972,30 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 </span>
               </div>
             )}
+
+            {/* Remarcado por — a ÚLTIMA pessoa que remarcou. "Marcado por"
+                acima não muda nunca. O rastro de todas as remarcações fica no
+                histórico da ficha (e é dele que o relatório tira a conta). */}
+            {currentClient.remarcado_por && (() => {
+              const quem = teamProfiles.find(p => p.id === currentClient.remarcado_por)
+              const vezes = currentClient.visit_reschedule_count || 0
+              return (
+                <div className="flex items-center gap-2.5 text-sm flex-wrap">
+                  <CalendarClock size={14} style={{ color: '#22D3EE' }} />
+                  <span style={{ color: '#958E86' }}>Remarcado por: </span>
+                  <span className="text-xs font-semibold rounded-full"
+                    style={{ padding: '4px 12px', background: 'rgba(34,211,238,0.1)', color: '#22D3EE', border: '1px solid rgba(34,211,238,0.25)' }}>
+                    {quem?.name || '...'}
+                    {vezes > 1 ? ` · ${vezes}ª vez` : ''}
+                  </span>
+                  {currentClient.remarcado_em && (
+                    <span className="text-[12px]" style={{ color: '#8B857D' }}>
+                      em {new Date(currentClient.remarcado_em).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Treinamento de interesse */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2690,7 +2866,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                   outros_eventos_text: '',
                   matricula_status: currentClient.matricula_status || 'efetivada',
                   matricula_status_note: currentClient.matricula_status_note || '',
-                  credit_booker: true, credit_participants: [],
+                  credit_bookers: {}, credit_participants: [],
                 }
                 const isSaving     = savingRatingId === v.id
                 const justSaved    = syncAfterSave === v.id
@@ -2703,9 +2879,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 // "Não teve": o cliente não compareceu. A visita não aconteceu,
                 // então some tudo que se avaliaria e o marcador sozinho já basta.
                 const isNoShow     = edit.rating === NO_SHOW_RATING
-                // Comissão da matrícula: quem marcou a visita + participantes
-                const bookerId     = currentClient.visit_scheduled_by || currentClient.created_by
-                const bookerName   = teamProfiles.find(p => p.id === bookerId)?.name?.split(' ')[0]
+                // Comissão da matrícula: quem marcou/remarcou a visita +
+                // participantes. Com remarcação são DOIS marcadores dividindo.
+                const bookers      = bookersDaMatricula(currentClient)
+                const bookerIdsSet = new Set(bookers.map(b => b.id))
+                const bookersEdit  = edit.credit_bookers || {}
+                const marcado      = (id) => bookersEdit[id] !== false
                 const partList     = edit.credit_participants || []
 
                 // Validação: resultado + nota + observações + pelo menos 1 possibilidade são obrigatórios
@@ -3007,36 +3186,54 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                                 🎓 Quem participou dessa matrícula
                               </p>
 
-                              <button disabled={!canRate}
-                                onClick={() => setEdit({ credit_booker: edit.credit_booker === false })}
-                                style={{
-                                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
-                                  padding: '10px 12px', borderRadius: '10px', cursor: canRate ? 'pointer' : 'default',
-                                  background: edit.credit_booker !== false ? 'rgba(201,168,76,0.12)' : '#111',
-                                  border: `1px solid ${edit.credit_booker !== false ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
-                                }}>
-                                <span style={{
-                                  width: '18px', height: '18px', flexShrink: 0, borderRadius: '5px', marginTop: '1px',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800,
-                                  background: edit.credit_booker !== false ? '#C9A84C' : 'transparent', color: '#0A0A0A',
-                                  border: `1px solid ${edit.credit_booker !== false ? '#C9A84C' : '#3A3A3A'}`,
-                                }}>
-                                  {edit.credit_booker !== false ? '✓' : ''}
-                                </span>
-                                <span style={{ fontSize: '12px', fontWeight: 600, color: edit.credit_booker !== false ? '#C9A84C' : '#958E86' }}>
-                                  {bookerName ? `${bookerName} participou dessa matrícula` : 'Quem marcou a visita participou dessa matrícula'}
-                                  <span style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#958E86', marginTop: '2px' }}>
-                                    marcou a visita · desmarcar tira a matrícula da conta dele
-                                  </span>
-                                </span>
-                              </button>
+                              {/* Uma caixinha por marcador. Sem remarcação é
+                                  uma só (como sempre foi); com remarcação são
+                                  duas — quem marcou na origem e quem remarcou
+                                  dividem a matrícula. */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {bookers.map(b => {
+                                  const nome = teamProfiles.find(p => p.id === b.id)?.name?.split(' ')[0]
+                                  const on   = marcado(b.id)
+                                  const papel = b.role === 'remarcou'
+                                    ? 'remarcou a visita · desmarcar tira a matrícula da conta dele'
+                                    : 'marcou a visita · desmarcar tira a matrícula da conta dele'
+                                  return (
+                                    <button key={b.id} disabled={!canRate}
+                                      onClick={() => setEdit({ credit_bookers: { ...bookersEdit, [b.id]: !on } })}
+                                      style={{
+                                        width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', textAlign: 'left',
+                                        padding: '10px 12px', borderRadius: '10px', cursor: canRate ? 'pointer' : 'default',
+                                        background: on ? 'rgba(201,168,76,0.12)' : '#111',
+                                        border: `1px solid ${on ? 'rgba(201,168,76,0.45)' : '#2A2A2A'}`,
+                                      }}>
+                                      <span style={{
+                                        width: '18px', height: '18px', flexShrink: 0, borderRadius: '5px', marginTop: '1px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800,
+                                        background: on ? '#C9A84C' : 'transparent', color: '#0A0A0A',
+                                        border: `1px solid ${on ? '#C9A84C' : '#3A3A3A'}`,
+                                      }}>
+                                        {on ? '✓' : ''}
+                                      </span>
+                                      <span style={{ fontSize: '12px', fontWeight: 600, color: on ? '#C9A84C' : '#958E86' }}>
+                                        {nome
+                                          ? `${nome} participou dessa matrícula`
+                                          : b.role === 'remarcou' ? 'Quem remarcou a visita participou dessa matrícula'
+                                          : 'Quem marcou a visita participou dessa matrícula'}
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#958E86', marginTop: '2px' }}>
+                                          {papel}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
 
                               <p style={{ fontSize: '12px', fontWeight: 700, color: '#B0A99F', margin: '12px 0 6px' }}>
                                 Mais alguém participou dessa matrícula?
                               </p>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {REMARCAR_ROLES.map(r => {
-                                  const gente = teamProfiles.filter(p => p.role === r.key && p.id !== bookerId)
+                                  const gente = teamProfiles.filter(p => p.role === r.key && !bookerIdsSet.has(p.id))
                                   if (!gente.length) return null
                                   return (
                                     <div key={r.key}>
@@ -3396,6 +3593,41 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       {showRepescagem && (
         <RepescagemForm client={currentClient} onClose={() => setShowRepescagem(false)}
           onSaved={(patch) => { setCurrentClient(c => ({ ...c, ...patch })); setShowRepescagem(false) }} />
+      )}
+
+      {/* Remarcar visita */}
+      {showRemarcar && (
+        <RemarcarForm
+          client={currentClient}
+          vendedores={teamProfiles.filter(p => p.role === 'vendedor' || p.role === 'gerente')}
+          onClose={() => setShowRemarcar(false)}
+          onSaved={onRemarcado}
+        />
+      )}
+
+      {/* Excluir endereço — confirma antes, e explica que dá para recuperar */}
+      {endParaExcluir && (
+        <Sheet open onClose={() => !excluindoEnd && setEndParaExcluir(null)} title="Excluir endereço">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '4px' }}>
+            <p className="text-sm" style={{ color: '#B0A99F', lineHeight: 1.6 }}>
+              Tirar <b style={{ color: '#EFEFEF' }}>{enderecoTexto(endParaExcluir)}</b> da ficha de{' '}
+              {currentClient.contact_name || currentClient.company_name}?
+            </p>
+            <p className="text-[12px]" style={{ color: '#8B857D', lineHeight: 1.55 }}>
+              Ele some da ficha, mas continua guardado no backup da planilha — dá para
+              recuperar depois se for engano.
+            </p>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1"
+                onClick={() => setEndParaExcluir(null)} disabled={excluindoEnd}>Cancelar</Button>
+              <button type="button" onClick={confirmarExclusaoEndereco} disabled={excluindoEnd}
+                className="flex-1 text-sm font-bold rounded-xl transition-all active:scale-95"
+                style={{ padding: '13px', background: 'rgba(232,85,85,0.12)', color: '#E85555', border: '1px solid rgba(232,85,85,0.3)', cursor: 'pointer' }}>
+                {excluindoEnd ? 'Excluindo...' : 'Excluir endereço'}
+              </button>
+            </div>
+          </div>
+        </Sheet>
       )}
 
       {/* Desmarcar repescagem — confirma antes, porque apaga os lembretes e

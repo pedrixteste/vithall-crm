@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const AuthContext = createContext({})
+// Exportado para as bancadas de teste (src/dev-*.jsx) conseguirem desenhar um
+// componente logado sem subir o app inteiro. O app usa sempre o useAuth abaixo.
+export const AuthContext = createContext({})
 
 // Prazo da abertura do app. Nada aqui pode prender a tela: se a rede não
 // responder, o app abre com o que dá para saber e se conserta depois.

@@ -5,8 +5,13 @@ import { useAuth } from '../contexts/AuthContext'
 // carregado sob demanda para não pesar quem só abre a tela pra ver os números.
 import { localDateStr } from '../lib/utils'
 import { matriculaConta, creditoConta } from '../lib/matricula'
-import { personMetrics, visitaRealizada } from '../lib/personMetrics'
+import { personMetrics, visitaRealizada, destinoMarcacao } from '../lib/personMetrics'
+import {
+  remarcacoesNoPeriodo, remarcacoesPorPessoa, remarcacoesAteAMatricula,
+  repescagemMetrics, repescagensPorPessoa, REPESCAGEM_DESDE,
+} from '../lib/remarcacaoMetrics'
 import RelatoriosListas from '../components/RelatoriosListas'
+import RelatorioRemarcacoes from '../components/RelatorioRemarcacoes'
 
 // ── Constantes ─────────────────────────────────────────────────────
 
@@ -358,6 +363,8 @@ export default function RelatoriosPage() {
   const [creditClients, setCreditClients]     = useState([]) // clientes de créditos fora da carteira (participações)
   const [reschedules, setReschedules]         = useState({}) // client_id → datas das remarcações
   const [bookingsByClient, setBookingsByClient] = useState({}) // client_id → [{ at, user_id }] (quem marcou cada visita)
+  const [bookingEvents, setBookingEvents]       = useState([]) // eventos crus visit_scheduled (remarcações)
+  const [repescagemEvents, setRepescagemEvents] = useState([]) // eventos crus de repescagem
   const [view, setView]                       = useState('graficos') // graficos | listas
 
   useEffect(() => { fetchData() }, [profile])
@@ -391,6 +398,18 @@ export default function RelatoriosPage() {
     }
     setReschedules(byClient)
     setBookingsByClient(allBookings)
+    // Os eventos crus alimentam o bloco Marcações · Remarcações · Repescagem:
+    // é pelo EVENTO que a remarcação é contada, nunca pelo estágio
+    setBookingEvents(bookings || [])
+
+    // Repescagens: só existem no histórico a partir de 04/09/26 — antes disso
+    // a repescagem vivia só no estado atual do cliente e sumia ao desmarcar
+    const { data: reps } = await supabase
+      .from('client_history')
+      .select('client_id, created_at, event_data, user_id')
+      .eq('event_type', 'repescagem')
+      .order('created_at', { ascending: true })
+    setRepescagemEvents(reps || [])
 
     const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
     setProfiles(profilesData || [])
@@ -538,6 +557,35 @@ export default function RelatoriosPage() {
     ? pmFoco._matriculasList
     : filteredClients.filter(c => matriculaReal(c) && inRange(new Date(matriculaDia(c) + 'T12:00:00')))
   const noShowsInPeriod  = clientsInPeriod.filter(c => c.matricula_stage === 'nao_apareceu')
+
+  // ── Marcações · Remarcações · Repescagem ─────────────────────────
+  // Três coisas diferentes lado a lado, cada uma contada do seu jeito:
+  // marcação pelo CADASTRO, remarcação e repescagem pelos EVENTOS. Só entram
+  // eventos de clientes que este relatório já carregou — assim o bloco fala
+  // do mesmo universo do resto da tela.
+  const idsCarregados = new Set(clients.map(c => c.id))
+  const eventosDaTela = bookingEvents.filter(e => idsCarregados.has(e.client_id))
+  const repEventosTela = repescagemEvents.filter(e => idsCarregados.has(e.client_id))
+  const remarcacoesPeriodo = remarcacoesNoPeriodo(eventosDaTela, inRange, focoId)
+  const remarcRanking      = remarcacoesPorPessoa(remarcacoesNoPeriodo(eventosDaTela, inRange))
+  // "Quantas remarcações até a venda" olha as MARCAÇÕES do período (os
+  // clientes), não os eventos — a pergunta é sobre o cliente, não sobre o dia
+  const remarcAteMatricula = remarcacoesAteAMatricula(clientsInPeriod, matriculaReal)
+  const clientePorId       = (id) => clients.find(c => c.id === id) || creditClients.find(c => c.id === id)
+  const repMetrics = repescagemMetrics({
+    repescagemEvents: focoId ? repEventosTela.filter(e => e.user_id === focoId) : repEventosTela,
+    clientById:    clientePorId,
+    inRange,
+    recebeuVisita: (c) => destinoMarcacao(c) === 'recebeu',
+    matriculou:    matriculaReal,
+  })
+  const repRanking = repescagensPorPessoa(repEventosTela, inRange)
+  // A régua de comparação: sem ela o "22% matricularam" não diz nada
+  const baseRecebeu = clientsInPeriod.filter(c => destinoMarcacao(c) === 'recebeu').length
+  const baseConvMat = clientsInPeriod.length
+    ? Math.round((clientsInPeriod.filter(matriculaReal).length / clientsInPeriod.length) * 100) : null
+  const baseConvVis = clientsInPeriod.length
+    ? Math.round((baseRecebeu / clientsInPeriod.length) * 100) : null
   const totalCallsPeriod = filteredLogs
     .filter(l => inRange(new Date(l.log_date + 'T12:00:00')))
     .reduce((s, l) => s + (l.calls || 0), 0)
@@ -855,6 +903,10 @@ export default function RelatoriosPage() {
       peopleNames: Object.fromEntries(profiles.map(p => [p.id, p.name])),
       monthly,
       fontScale: exportFont,
+      // Remarcações e repescagens saem dos EVENTOS do histórico — o estágio e
+      // as colunas do cliente só sabem a última
+      bookingEvents,
+      repescagemEvents,
     })
 
     // Blob URL em vez de document.write: no celular, o "about:blank" ignora a
@@ -1151,6 +1203,24 @@ export default function RelatoriosPage() {
           <FunnelStep label="Matriculas fechadas" value={matriculasFechadas} color="#4ADE80" isLast />
         </div>
       </div>
+
+      {/* ── Marcações · Remarcações · Repescagem ──
+          Três coisas DIFERENTES, sempre juntas e nunca somadas. O bloco vive
+          em seu próprio componente para poder ser conferido na bancada de
+          teste (src/dev-relatorio.jsx) sem login. */}
+      <RelatorioRemarcacoes
+        totalMarcacoes={clientsInPeriod.length}
+        remarcacoes={remarcacoesPeriodo.length}
+        ate={remarcAteMatricula}
+        rep={repMetrics}
+        baseConvVis={baseConvVis}
+        baseConvMat={baseConvMat}
+        remarcRanking={remarcRanking}
+        repRanking={repRanking}
+        nomeDe={(id) => profiles.find(p => p.id === id)?.name?.split(' ')[0] || '—'}
+        mostrarRanking={profile?.role === 'gerente' && !focoId}
+        onInfo={setStatInfo}
+      />
 
       {/* ── Resumo mês a mês (período anual) ──
           Cada mês com seus números; o melhor mês de cada métrica ganha 🔥 */}

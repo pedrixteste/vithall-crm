@@ -12,7 +12,9 @@
 //   noShow/canceled  = das marcações dela no período
 // O que antes dava contagem dupla (Amanda marcou, Gabrielle vendeu → contava 2)
 // agora tem dono único em cada métrica.
-import { matriculaConta } from './matricula'
+// Com extensão: assim este módulo também carrega direto no Node, que é o que
+// permite testar as contas do relatório sem subir o app (scripts/teste-*.mjs)
+import { matriculaConta } from './matricula.js'
 
 // "Visita realizada": tem linha em visits e o cliente recebeu (não é "Não teve")
 export const visitaRealizada = (v) => v?.visit_date && v.rating !== 'nao_teve'
@@ -77,7 +79,9 @@ export function destinoMarcacao(c, agora = new Date()) {
   if (vs.some(v => v.rating === 'nao_teve')) return 'naoTeve'
   const marcada = c.visit_scheduled_at ? new Date(c.visit_scheduled_at) : null
   if (marcada && marcada >= agora) return 'aguardando'
-  if (marcada || ['marcado', 'nao_visitado', 'recebeu_visita', 'matriculado'].includes(c.matricula_stage)) return 'semRegistro'
+  // 'remarcado' entra aqui: sem ele, uma visita remarcada cuja data passou
+  // sem registro cairia em "sem visita marcada" — e sumiria da cobrança.
+  if (marcada || ['marcado', 'remarcado', 'nao_visitado', 'recebeu_visita', 'matriculado'].includes(c.matricula_stage)) return 'semRegistro'
   return 'semMarcacao'
 }
 

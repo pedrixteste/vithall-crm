@@ -1,4 +1,9 @@
-import { personMetrics, scopeTotals, matriculaDia, DESTINOS, NOTAS } from './personMetrics'
+import { personMetrics, scopeTotals, matriculaDia, destinoMarcacao, DESTINOS, NOTAS } from './personMetrics'
+import { matriculaConta } from './matricula'
+import {
+  remarcacoesNoPeriodo, remarcacoesPorPessoa, remarcacoesAteAMatricula,
+  repescagemMetrics, repescagensPorPessoa, REPESCAGEM_DESDE,
+} from './remarcacaoMetrics'
 
 // Gerador de relatório HTML para impressão/PDF
 // Abre em nova aba — File > Print > Salvar como PDF
@@ -453,6 +458,105 @@ function destinosSection(members, peopleNames) {
   </div>`
 }
 
+/** MARCAÇÕES · REMARCAÇÕES · REPESCAGEM — três coisas diferentes, lado a lado
+ *  e nunca somadas. Marcação vem do cadastro (já contada no resto do
+ *  relatório); remarcação e repescagem vêm dos EVENTOS do histórico, que é o
+ *  único lugar onde nenhuma escapa. */
+function remarcacoesSection({ bookingEvents = [], repescagemEvents = [], clients = [], marcacoes = [], inRange, peopleNames = {} }) {
+  const ids = new Set(clients.map(c => c.id))
+  const remarc = remarcacoesNoPeriodo(bookingEvents.filter(e => ids.has(e.client_id)), inRange)
+  const repEv  = repescagemEvents.filter(e => ids.has(e.client_id))
+  const ate    = remarcacoesAteAMatricula(marcacoes, matriculaConta)
+  const rep    = repescagemMetrics({
+    repescagemEvents: repEv,
+    clientById: (id) => clients.find(c => c.id === id),
+    inRange,
+    recebeuVisita: (c) => destinoMarcacao(c) === 'recebeu',
+    matriculou: matriculaConta,
+  })
+  if (!remarc.length && !rep.clientes && !ate.total) return ''
+
+  const baseVis = ate.total ? pct(marcacoes.filter(c => destinoMarcacao(c) === 'recebeu').length, ate.total) : null
+  const baseMat = ate.total ? pct(marcacoes.filter(matriculaConta).length, ate.total) : null
+  const porPessoa = remarcacoesPorPessoa(remarc)
+  const repPessoa = repescagensPorPessoa(repEv, inRange)
+  const nome = (id) => firstName(peopleNames[id] || '—')
+
+  return `
+  <div class="section">
+    <div class="section-title">Marcações · Remarcações · Repescagem</div>
+    <div class="foot-note" style="margin:-6px 0 12px">
+      São três coisas diferentes e nunca se somam. <b>Marcação</b> = cliente novo com visita marcada.
+      <b>Remarcação</b> = uma visita que já existia mudou de data. <b>Repescagem</b> = alguém marcou
+      para ligar de novo mais pra frente.
+    </div>
+
+    <div class="cards">
+      ${metricCard('Marcações', ate.total, 'clientes novos', '#1D4ED8')}
+      ${metricCard('Remarcações', remarc.length, ate.pctComRemarcacao != null ? `${ate.pctComRemarcacao}% das marcações` : 'mudanças de data', '#0E7490')}
+      ${metricCard('Repescagens', rep.clientes, 'clientes marcados', '#4D7C0F')}
+    </div>
+
+    ${ate.total ? `
+    <div class="divider"></div>
+    <h3 class="sub-title">Quantas remarcações até a matrícula?</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">Remarcações</th><th>Clientes</th><th>Matrículas</th><th>Conversão</th></tr></thead>
+      <tbody>
+        ${ate.linhas.map(l => `
+        <tr>
+          <td class="l">${l.label}</td>
+          <td class="b">${l.clientes}</td>
+          <td>${l.matriculas || '·'}</td>
+          <td class="b" style="color:${l.conversao >= 50 ? '#15803D' : l.conversao > 0 ? '#B45309' : '#C8C2BB'}">${fmtPct(l.conversao)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <div class="foot-note">
+      Quem <b>matriculou</b> foi remarcado em média <b>${fmt(ate.mediaMatriculados)}</b> vez(es);
+      quem <b>não matriculou</b>, <b>${fmt(ate.mediaNaoMatriculados)}</b>.
+      ${ate.mediaMatriculados != null && ate.mediaNaoMatriculados != null
+        ? (ate.mediaNaoMatriculados > ate.mediaMatriculados
+            ? 'Quanto mais remarca, menos fecha — vale rever até onde insistir.'
+            : ate.mediaNaoMatriculados < ate.mediaMatriculados
+              ? 'Insistir está dando certo: quem fechou foi quem remarcou mais.'
+              : 'Remarcar não mudou o resultado.')
+        : ''}
+    </div>` : ''}
+
+    ${rep.clientes ? `
+    <div class="divider"></div>
+    <h3 class="sub-title">A repescagem está dando resultado?</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="l">De ${rep.clientes} ${plural(rep.clientes, 'cliente')} em repescagem</th><th>Quantos</th><th>Repescagem</th><th>Média geral</th></tr></thead>
+      <tbody>
+        <tr><td class="l">Receberam visita depois</td><td class="b">${rep.receberam}</td><td class="b">${fmtPct(rep.convVisita)}</td><td>${fmtPct(baseVis)}</td></tr>
+        <tr><td class="l">Matricularam</td><td class="b">${rep.matriculas}</td><td class="b" style="color:#15803D">${fmtPct(rep.convMat)}</td><td>${fmtPct(baseMat)}</td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot-note">Se a coluna <b>Repescagem</b> for maior que a <b>Média geral</b>, a repescagem
+      está trazendo gente melhor que a média. Os registros de repescagem começam em
+      ${new Date(REPESCAGEM_DESDE + 'T12:00:00').toLocaleDateString('pt-BR')}.</div>` : ''}
+
+    ${(porPessoa.length > 1 || repPessoa.length > 1) ? `
+    <div class="divider"></div>
+    <div class="comp-grid">
+      <div>
+        <h3 class="sub-title">Quem remarcou</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>${porPessoa.map(r => `<tr><td class="l">${esc(nome(r.id))}</td><td class="b">${r.total}</td></tr>`).join('') || '<tr><td class="l">ninguém</td><td>·</td></tr>'}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <h3 class="sub-title">Quem repescou</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>${repPessoa.map(r => `<tr><td class="l">${esc(nome(r.id))}</td><td class="b">${r.total}</td></tr>`).join('') || '<tr><td class="l">ninguém</td><td>·</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>` : ''}
+  </div>`
+}
+
 /** Seção dos VENDEDORES — o trabalho de quem atende e fecha: todas as visitas
  *  que atendeu (inclusive segundas visitas), clientes visitados, matrículas
  *  vendidas, conversão sobre as visitas totais e valor vendido. */
@@ -571,6 +675,8 @@ export function generateReportHTML({
   monthly,      // resumo mês a mês (período anual) ou null
   peopleNames = {}, // id → nome (quem cancelou uma matrícula)
   fontScale = 1,    // 1 = normal · 1.2 = grande · 1.4 = extra grande (letras e números)
+  bookingEvents = [],    // eventos visit_scheduled (de onde saem as remarcações)
+  repescagemEvents = [], // eventos de repescagem
 }) {
   const now = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -1092,6 +1198,14 @@ export function generateReportHTML({
   </div>` : ''}
 
   ${destinosSection(membersWithMetrics, peopleNames)}
+
+  ${remarcacoesSection({
+    bookingEvents, repescagemEvents,
+    clients: allClients,
+    marcacoes: membersWithMetrics.flatMap(m => m._marcacoesList || []),
+    inRange: inRangeT,
+    peopleNames,
+  })}
 
   ${sellersSection(membersWithMetrics, matsPeriodo, allClients, inRangeT)}
 

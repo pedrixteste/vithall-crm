@@ -28,6 +28,9 @@ export const STAGE_BADGES = {
   nao_marcou:     <Badge variant="muted">Nao marcou ainda</Badge>,
   marcacao_futura:<Badge variant="indigo">Marcação futura</Badge>,
   marcado:        <Badge variant="teal">Marcado</Badge>,
+  // Mesma cor de "Marcado" (é a mesma coisa: visita de pé) — o 🔁 diferencia,
+  // igual ao ⏳ da matrícula pendente
+  remarcado:      <Badge variant="teal">🔁 Remarcado</Badge>,
   nao_visitado:   <Badge variant="blue">Nao foi visitado</Badge>,
   nao_apareceu:   <Badge variant="orange">Nao apareceu</Badge>,
   cancelado:      <Badge variant="bordo">Cancelou visita</Badge>,

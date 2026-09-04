@@ -95,7 +95,7 @@ export function RepescagemBlock({ client, meuId, nomeDono, onMarcar, onEditar, o
 }
 
 export default function RepescagemForm({ client, onClose, onSaved }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const cfg = client.repescagem_config
   const editando = !!user?.id && client.repescagem_by === user.id
 
@@ -145,6 +145,16 @@ export default function RepescagemForm({ client, onClose, onSaved }) {
       setError('Outra pessoa marcou a repescagem deste cliente agora. Feche e abra a ficha para ver.')
       return
     }
+    // Rastro no histórico. As colunas do cliente só sabem a repescagem ATUAL:
+    // desmarcar apagaria o dado e não daria para medir conversão nenhuma
+    // depois. Vale a partir de 04/09/26 — antes disso não existe.
+    supabase.from('client_history').insert({
+      client_id:  client.id,
+      user_id:    user?.id,
+      user_name:  profile?.name || null,
+      event_type: 'repescagem',
+      event_data: { acao: editando ? 'editada' : 'marcada', motivo: payload.repescagem_reason, config },
+    })
     onSaved(payload)
   }
 

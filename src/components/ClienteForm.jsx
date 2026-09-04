@@ -140,8 +140,23 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
   // form o call_back_at ficava nulo e o cliente nunca aparecia na aba Hoje.
   // Só continua na lista para quem JÁ está nesse estágio, senão editar um
   // cliente antigo trocaria o estágio dele sem querer.
-  const stageOptions = (!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES)
-    .filter(s => s.key !== 'pediu_ligar' || initialData?.matricula_stage === 'pediu_ligar')
+  const stageOptions = (() => {
+    const base = (!initialData || profile?.role === 'pre_vendas' ? MATRICULA_STAGES_PRE_VENDAS : MATRICULA_STAGES)
+      .filter(s => s.key !== 'pediu_ligar' || initialData?.matricula_stage === 'pediu_ligar')
+    // Estágios que só a ficha produz (Marcado, Remarcado, Cancelou...) não
+    // entram na lista — mas se o cliente ESTÁ num deles, o <select> ficaria em
+    // branco e o primeiro toque trocaria o estágio dele sem querer. Entra como
+    // opção travada, só para mostrar onde ele está.
+    const atual = initialData?.matricula_stage
+    if (atual && !base.some(s => s.key === atual)) {
+      const nomes = {
+        marcado: 'Marcado', remarcado: '🔁 Remarcado', marcacao_futura: 'Marcação futura',
+        cancelado: 'Cancelou visita', pediu_ligar: 'Pediu para ligar depois',
+      }
+      return [{ key: atual, label: `${nomes[atual] || atual} (muda só pela ficha)`, travado: true }, ...base]
+    }
+    return base
+  })()
 
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
@@ -781,7 +796,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           }}
         >
           {stageOptions.map(s => (
-            <option key={s.key} value={s.key} style={{ background: '#1A1A1A' }}>{s.label}</option>
+            <option key={s.key} value={s.key} disabled={s.travado} style={{ background: '#1A1A1A' }}>{s.label}</option>
           ))}
         </Select>
 

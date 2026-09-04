@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { allPhones } from '../lib/utils'
+import { enderecosAtivos, enderecoTexto } from '../lib/enderecos'
 
 // ── Opções ─────────────────────────────────────────────────────────
 const TREINAMENTOS = ['Impacto', 'Perfil', 'Vendas', 'LORAP', 'Academia Vithall', 'Workshop', 'Palestra', 'Mentoria']
@@ -16,6 +17,8 @@ const STAGES = {
   nao_marcou:     'Não marcou ainda',
   pediu_ligar:    'Pediu para ligar',
   marcado:        'Marcado',
+  remarcado:      'Remarcado',
+  marcacao_futura:'Marcação futura',
   nao_visitado:   'Marcação feita',
   nao_apareceu:   'Não apareceu',
   cancelado:      'Cancelou visita',
@@ -135,6 +138,9 @@ export default function RelatoriosListas({ clients = [], profiles = [], role, re
     { key: 'telefone',    label: 'Telefone',             get: c => allPhones(c).map(p => `${p.n} (${p.t})`).join(' / ') },
     { key: 'email',       label: 'Email',                get: c => c.email },
     { key: 'endereco',    label: 'Endereço',             get: c => [c.address_street, c.address_number, c.address_neighborhood, c.address_reference && `Ref.: ${c.address_reference}`].filter(Boolean).join(', ') },
+    // Endereços extras: o atual já está na coluna acima (as colunas antigas
+    // espelham sempre o que vale hoje)
+    { key: 'end_outros',  label: 'Outros endereços',     get: c => enderecosAtivos(c).filter(e => !e.atual).map(enderecoTexto).join(' | ') },
     { key: 'cidade',      label: 'Cidade',               get: c => c.city },
     { key: 'instagram',   label: 'Instagram',            get: c => c.instagram },
     { key: 'lista',       label: 'Onde encontrou na lista', get: c => c.list_location || '' },
@@ -152,6 +158,10 @@ export default function RelatoriosListas({ clients = [], profiles = [], role, re
     { key: 'marcada_1a',  label: '1ª marcação',          get: c => fmtDateTime(c.visit_first_booked_at) },
     { key: 'remarcacoes', label: 'Remarcações',          get: c => c.visit_reschedule_count || 0 },
     { key: 'datas_remarc', label: 'Datas das remarcações', get: c => (reschedules[c.id] || []).map(fmtDate).join(' / ') },
+    { key: 'remarcou',    label: 'Quem remarcou (última)', get: c => nameOf(c.remarcado_por) },
+    { key: 'motivo_remarc', label: 'Motivo da remarcação', get: c => c.remarcacao_motivo || '' },
+    { key: 'repescagem',  label: 'Repescagem de',        get: c => nameOf(c.repescagem_by) },
+    { key: 'motivo_repesc', label: 'Motivo da repescagem', get: c => c.repescagem_reason || '' },
     { key: 'data_visita', label: 'Data da visita',       get: c => fmtDate(latestVisit(c)?.visit_date) },
     { key: 'resultado',   label: 'Resultado da visita',  get: c => OUTCOMES[latestVisit(c)?.visit_outcome] || '' },
     { key: 'descricao',   label: 'Descrição da visita',  get: c => latestVisit(c)?.visit_notes || '' },

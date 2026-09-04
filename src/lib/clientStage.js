@@ -1,40 +1,50 @@
 import { supabase } from './supabase'
 import { localDateStr } from './utils'
+// Regra pura (quem divide a comissão) mora em visitRules.js para ser testável
+// no Node. Reexportada: a ficha do cliente importa daqui.
+import { bookersDaMatricula } from './visitRules'
+export { bookersDaMatricula } from './visitRules'
 
 const todayStr = () => localDateStr()
 
-// Crédito de matrícula p/ comissão: vai para quem marcou a visita ATUAL
-// (visit_scheduled_by; se remarcada, é quem remarcou), fallback created_by.
-// Desde ago/2026 a mesma matrícula pode contar para MAIS de uma pessoa (os
-// participantes escolhidos na estrela), então a chave única virou
-// (client_id, credited_to) e este crédito é só o de quem marcou.
+// Crédito de matrícula p/ comissão. Desde ago/2026 a mesma matrícula pode
+// contar para MAIS de uma pessoa (os participantes escolhidos na estrela),
+// então a chave única é (client_id, credited_to); este crédito é o de quem
+// marcou/remarcou a visita.
 export async function creditMatricula(client, enrolledById) {
-  const creditedTo = client.visit_scheduled_by || client.created_by
-  if (!creditedTo) return
-  // Insere só se a pessoa ainda não tem crédito neste cliente — assim repetir a
+  const bookers = bookersDaMatricula(client)
+  if (!bookers.length) return
+  // Insere só quem ainda não tem crédito neste cliente — assim repetir a
   // ação não duplica nem apaga o motivo/data de um crédito já existente.
-  const { data: existe } = await supabase.from('matricula_credits')
-    .select('id').eq('client_id', client.id).eq('credited_to', creditedTo).maybeSingle()
-  if (existe) return
-  await supabase.from('matricula_credits').insert({
+  const { data: existentes } = await supabase.from('matricula_credits')
+    .select('credited_to').eq('client_id', client.id)
+  const jaTem = new Set((existentes || []).map(r => r.credited_to))
+  const novos = bookers.filter(b => !jaTem.has(b.id)).map(b => ({
     client_id:   client.id,
-    credited_to: creditedTo,
+    credited_to: b.id,
     enrolled_by: enrolledById || null,
     credit_date: todayStr(),
-  })
+    role:        b.role,
+  }))
+  if (novos.length) await supabase.from('matricula_credits').insert(novos)
 }
 
-// Reconcilia QUEM recebe esta matrícula: quem marcou a visita (se continuar
-// marcado) + os participantes escolhidos na estrela, cada um com o motivo.
-// Quem for desmarcado PERDE o crédito — a matrícula sai da conta dele.
+// Reconcilia QUEM recebe esta matrícula: quem marcou/remarcou a visita (cada
+// um com sua caixinha marcada) + os participantes escolhidos na estrela, cada
+// um com o motivo. Quem for desmarcado PERDE o crédito — a matrícula sai da
+// conta dele.
+// `bookersCredited`: { [id]: bool } — quais dos marcadores ficam creditados.
 // `participants`: [{ id, note }]. Retorna { error }.
-export async function syncMatriculaCredits({ client, enrolledById, bookerCredited, participants = [] }) {
-  const booker = client.visit_scheduled_by || client.created_by
+export async function syncMatriculaCredits({ client, enrolledById, bookersCredited = null, bookerCredited, participants = [] }) {
   const desejado = new Map()
-  if (bookerCredited && booker) desejado.set(booker, { note: null, is_participant: false })
+  for (const b of bookersDaMatricula(client)) {
+    // Sem o mapa novo, cai na regra antiga (uma caixinha só para todo mundo)
+    const marcado = bookersCredited ? bookersCredited[b.id] !== false : bookerCredited !== false
+    if (marcado) desejado.set(b.id, { note: null, is_participant: false, role: b.role })
+  }
   participants.forEach(p => {
     if (!p?.id || desejado.has(p.id)) return
-    desejado.set(p.id, { note: p.note?.trim() || null, is_participant: true })
+    desejado.set(p.id, { note: p.note?.trim() || null, is_participant: true, role: 'participante' })
   })
 
   const { data: atuais, error } = await supabase.from('matricula_credits')
@@ -58,6 +68,7 @@ export async function syncMatriculaCredits({ client, enrolledById, bookerCredite
     credit_date:    dataDe.get(pid) || todayStr(),
     note:           d.note,
     is_participant: d.is_participant,
+    role:           d.role,
   }))
   const { error: upErr } = await supabase.from('matricula_credits')
     .upsert(linhas, { onConflict: 'client_id,credited_to' })
