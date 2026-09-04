@@ -5,11 +5,18 @@ import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
+// ⚠️ Quem está num estágio que NÃO está nesta lista não aparece em coluna
+// nenhuma — some do funil. Faltavam três (pediu_ligar, marcacao_futura e
+// cancelado) desde que esses estágios foram criados: os clientes existiam mas
+// esta tela nunca os mostrou. Estágio novo no app = linha nova aqui.
 const STAGES = [
   { key: 'nao_marcou',     label: 'Nao marcou ainda',   badge: 'muted',  dot: '#6B6560' },
+  { key: 'pediu_ligar',    label: 'Pediu para ligar',   badge: 'orange', dot: '#E8834A' },
+  { key: 'marcacao_futura',label: 'Marcação futura',    badge: 'indigo', dot: '#818CF8' },
   { key: 'marcado',        label: 'Marcado',            badge: 'teal',   dot: '#22D3EE' },
   { key: 'remarcado',      label: '🔁 Remarcado',       badge: 'teal',   dot: '#22D3EE' },
   { key: 'nao_visitado',   label: 'Nao foi visitado',   badge: 'blue',   dot: '#60A5FA' },
+  { key: 'cancelado',      label: 'Cancelou visita',    badge: 'bordo',  dot: '#F97316' },
   { key: 'nao_apareceu',   label: 'Nao apareceu',       badge: 'orange', dot: '#E8834A' },
   { key: 'recebeu_visita', label: 'Recebeu visita',     badge: 'purple', dot: '#A78BFA' },
   { key: 'matriculado',    label: 'Matriculado!!',      badge: 'green',  dot: '#4ADE80' },
