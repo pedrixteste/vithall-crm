@@ -99,7 +99,13 @@ try {
   ok(n(`with u as (update clients set notes = 'ok' where id = '${A}' returning 1) select count(*)::int as n from u`) === 1, 'Amanda altera o próprio → 1 linha')
   ok(n(`with u as (update clients set assigned_to = '${vend?.id || gabi.id}' where id = '${A}' returning 1) select count(*)::int as n from u`) === 1, 'Amanda passa o próprio cliente para um vendedor → permitido (sem 403)')
   ok(n(`select count(*)::int as n from clients where id = '${A}'`) === 1, '…e continua vendo (cadastrou)')
-  ok(n(`with u as (delete from clients where id = '${A}' returning 1) select count(*)::int as n from u`) === 0, 'Amanda tenta apagar → 0 linhas (só gerente)')
+  // Apagar: a política deixa só gerente — e o papel authenticated nem tem
+  // GRANT DELETE em clients, então o banco barra antes (permission denied).
+  // Qualquer um dos dois é "não pode".
+  let del = null
+  try { del = n(`with u as (delete from clients where id = '${A}' returning 1) select count(*)::int as n from u`) }
+  catch (e) { del = /permission denied/i.test(e.message) ? 'negado' : e.message }
+  ok(del === 0 || del === 'negado', 'Amanda tenta apagar → barrado', String(del).slice(0, 120))
 
   let erro = ''
   try { como(amanda.id, `insert into clients (company_name, created_by) values ('TESTE RLS X', '${gabi.id}') returning id;`) }
@@ -109,7 +115,8 @@ try {
   try { como(amanda.id, `insert into visits (client_id, visit_date) values ('${Gc}', current_date) returning id;`) }
   catch (e) { erro = e.message }
   ok(/row-level security/i.test(erro), 'Amanda cria visita em cliente da Gabi → recusado', erro.slice(0, 120))
-  const novo = como(amanda.id, `insert into clients (company_name, contact_name, created_by) values ('TESTE RLS C', 'TESTE RLS C', '${amanda.id}') returning id;`)
+  // C nasce com o MESMO telefone do cliente da Gabi: é o caso do contato repetido
+  const novo = como(amanda.id, `insert into clients (company_name, contact_name, phone, created_by) values ('TESTE RLS C', 'TESTE RLS C', '(51) 90000-0002', '${amanda.id}') returning id;`)
   ok(novo.length === 1, 'Amanda cadastra em nome próprio → ok')
   if (novo[0]?.id) criados.push(novo[0].id)
 
@@ -123,13 +130,22 @@ try {
     ok(n(`select count(*)::int as n from clients`, zero.id) === 0, 'pedrohggehlen (0 clientes) vê 0 — e sem trava de avaliação')
   }
 
-  // RPCs do 📞ˣ como Amanda: contam a base toda sem entregar ficha alheia
-  const cont = como(amanda.id, `select public.contato_contagem(array['5190000002']) as n;`)[0].n
-  ok(cont === 1, 'contato_contagem conta o telefone do cliente da Gabi (base toda)', String(cont))
-  const hist = como(amanda.id, `select count(*)::int as n from public.contato_historico(array['5190000002']);`)[0].n
-  ok(hist === 0, 'contato_historico do número da Gabi → vazio (Amanda não tem esse contato)', String(hist))
-  const histA = como(amanda.id, `select visivel from public.contato_historico(array['5190000001']);`)
-  ok(histA.length === 1 && histA[0].visivel === true, 'contato_historico do próprio número → 1 registro visível')
+  // RPCs do 📞ˣ: contam a base toda sem entregar ficha alheia.
+  // "(51) 90000-0002" → 11 dígitos: 51900000002 (o DDD entra na chave).
+  const cont = como(amanda.id, `select public.contato_contagem(array['51900000002']) as n;`)[0].n
+  ok(cont === 2, 'contato_contagem: o número repetido (Gabi + Amanda) conta 2 na base toda', String(cont))
+  const hist = como(amanda.id, `select visivel, dono, registro->>'contact_name' as nome, registro->>'phone' as fone from public.contato_historico(array['51900000002']) order by visivel;`)
+  ok(hist.length === 2, 'contato_historico do número repetido → 2 registros para a Amanda', JSON.stringify(hist))
+  const alheio = hist.find(h => h.visivel === false), meu = hist.find(h => h.visivel === true)
+  ok(!!alheio && alheio.dono === gabi.name && alheio.nome == null && alheio.fone == null, 'registro da Gabi vem SEM ficha (só data e "de quem é")', JSON.stringify(alheio))
+  ok(!!meu && meu.nome === 'TESTE RLS C', 'registro da própria Amanda vem completo', JSON.stringify(meu))
+  const histA = como(amanda.id, `select visivel from public.contato_historico(array['51900000001']);`)
+  ok(histA.length === 1 && histA[0].visivel === true, 'contato_historico do próprio número → 1 registro visível', JSON.stringify(histA))
+  const joice = perfis.find(p => p.name === 'Joice')
+  if (joice) {
+    const hj = como(joice.id, `select count(*)::int as n from public.contato_historico(array['51900000002']);`)[0].n
+    ok(hj === 0, 'Joice (não tem esse contato) → contato_historico vazio: não dá para pescar números', String(hj))
+  }
   const cc = como(amanda.id, `select count(*)::int as n from public.contato_contagens();`)[0].n
   const vis = como(amanda.id, `select count(*)::int as n from clients;`)[0].n
   ok(cc === vis, 'contato_contagens devolve uma linha por cliente visível', `${cc} ≠ ${vis}`)
