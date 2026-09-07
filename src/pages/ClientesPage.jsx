@@ -176,6 +176,7 @@ export default function ClientesPage() {
     const matchesSearch = !q ||
       c.company_name?.toLowerCase().includes(q) ||
       c.contact_name?.toLowerCase().includes(q) ||
+      c.turma?.toLowerCase().includes(q) || // turma do treinamento (ficha)
       (qDigits && allPhoneDigits(c).some(d => d.includes(qDigits)))
 
     // "Matrícula pendente" é estágio VIRTUAL (matriculado + situação pendente);
@@ -261,7 +262,7 @@ export default function ClientesPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar contato, empresa ou telefone..."
+              placeholder="Buscar contato, empresa, telefone ou turma..."
               className="w-full pl-11 pr-10 rounded-xl text-sm outline-none transition-all"
               style={{ padding: '12px 12px 12px 40px', background: '#161616', border: '1px solid #303030', color: '#EFEFEF' }}
               onFocus={e => e.target.style.borderColor = '#C9A84C'}

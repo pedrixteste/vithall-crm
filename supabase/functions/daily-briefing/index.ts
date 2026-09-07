@@ -43,6 +43,8 @@ const NTFY_TOPICS: Record<string, string> = (() => {
 const AVISO_GENERICO: Record<string, string> = {
   briefing: 'Seu resumo do dia chegou.',
   recorde:  'Você tem uma novidade boa no app.',
+  aniversario:         'Tem aniversário de cliente por perto.',
+  aniversario_vithall: 'Tem aniversário Vithall por perto.',
 }
 
 const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || ''
@@ -516,6 +518,93 @@ serve(async (req) => {
           await enviar(g.id, g.onesignal_player_id, '🏆 Recorde na equipe',
             `${r.nome} fez ${r.rotulo} — melhor dia ${r.escopo}. Já foi avisado(a).`, `${g.name} (sobre ${r.nome})`)
         }
+      }
+    }
+
+    // ── Aniversários de clientes (idade e Vithall) ──────────────────
+    // Quem recebe: todos os gerentes + quem tem o cliente na aba Clientes
+    // (a mesma regra de filtroMeusClientes no app: carteira, cadastrou,
+    // encaminhado; vendedor também o atribuído). Uma mensagem por pessoa
+    // por tipo, com todos os aniversariantes do dia. Na sexta, o aviso
+    // inclui sábado e domingo — o robô não roda no fim de semana.
+    // ⚠️ Quando houver outras franquias, "todos os gerentes" vira "os
+    // gerentes da equipe do cliente" — hoje só existe uma equipe.
+    if (slot === 'morning') {
+      const somaDias = (n: number) => { const d = new Date(today); d.setUTCDate(d.getUTCDate() + n); return dateStr(d) }
+      const dias = [{ d: todayStr, rot: 'hoje' }]
+      if (today.getUTCDay() === 5) dias.push({ d: somaDias(1), rot: 'no sábado' }, { d: somaDias(2), rot: 'no domingo' })
+      const meses = [...new Set(dias.map(x => Number(x.d.slice(5, 7))))]
+
+      const { data: anivClients } = await sb.from('clients')
+        .select('id, contact_name, company_name, created_by, dono_id, assigned_to, encaminhado_para, aniversario_dia, aniversario_mes, nascimento_ano, aniversario_vithall')
+        .or(`aniversario_mes.in.(${meses.join(',')}),aniversario_vithall.not.is.null`)
+
+      const bissexto = (a: number) => (a % 4 === 0 && a % 100 !== 0) || a % 400 === 0
+      const caiEm = (dia: number, mes: number, s: string) => {
+        const [a, m, d] = s.split('-').map(Number)
+        return mes === m && (dia === d || (dia === 29 && m === 2 && d === 28 && !bissexto(a)))
+      }
+      const quem = (c: any) => c.contact_name && c.company_name && c.contact_name !== c.company_name
+        ? `${c.contact_name} (${c.company_name})` : (c.contact_name || c.company_name || '—')
+
+      // pessoa → { idade: string[], vithall: string[] }
+      const porPessoa: Record<string, { idade: string[]; vithall: string[] }> = {}
+      const linha = (uid: string, tipo: 'idade' | 'vithall', texto: string) => {
+        (porPessoa[uid] ||= { idade: [], vithall: [] })[tipo].push(texto)
+      }
+      for (const { d, rot } of dias) {
+        const ano = Number(d.slice(0, 4))
+        for (const c of anivClients || []) {
+          const textos: Array<['idade' | 'vithall', string]> = []
+          if (c.aniversario_dia && caiEm(c.aniversario_dia, c.aniversario_mes, d)) {
+            const idade = c.nascimento_ano ? ano - c.nascimento_ano : null
+            textos.push(['idade', idade ? `${quem(c)} faz ${idade} anos ${rot}` : `${quem(c)} faz aniversário ${rot}`])
+          }
+          if (c.aniversario_vithall) {
+            const [a0, m0, d0] = String(c.aniversario_vithall).split('-').map(Number)
+            if (ano > a0 && caiEm(d0, m0, d)) {
+              const anos = ano - a0
+              textos.push(['vithall', `${quem(c)} faz ${anos} ${anos === 1 ? 'ano' : 'anos'} de Vithall ${rot}`])
+            }
+          }
+          if (!textos.length) continue
+          const destinos = new Set<string>()
+          for (const p of profiles) {
+            const meu = c.dono_id === p.id || c.created_by === p.id
+              || (c.encaminhado_para || []).includes(p.id)
+              || (p.role === 'vendedor' && c.assigned_to === p.id)
+            if (p.role === 'gerente' || meu) destinos.add(p.id)
+          }
+          for (const uid of destinos) for (const [tipo, texto] of textos) linha(uid, tipo, texto)
+        }
+      }
+
+      const avisar = async (p: any, heading: string, content: string, kind: string) => {
+        if (onlyUser && p.id !== onlyUser) return
+        if (dryRun) { results.push({ user: p.name, heading, content, aniversario: true }); return }
+        await registrarNoSino(p.id, heading, content, '/agenda', kind)
+        if (!p.onesignal_player_id) { results.push({ user: p.name, heading, content, aniversario: true, onesignal: 'sem inscrição' }); return }
+        const push = await fetch('https://onesignal.com/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': OS_AUTH, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_id: ONESIGNAL_APP_ID,
+            include_player_ids: [p.onesignal_player_id],
+            headings: { pt: heading, en: heading },
+            contents: { pt: content, en: content },
+            priority: 10,
+            ttl: 14400,
+            url: 'https://vithall-crm.vercel.app/agenda',
+          }),
+        })
+        results.push({ user: p.name, heading, content, aniversario: true,
+          onesignal: { status: push.status, ...(await push.json().catch(() => ({}))) } })
+      }
+      for (const p of profiles) {
+        const a = porPessoa[p.id]
+        if (!a) continue
+        if (a.idade.length)   await avisar(p, a.idade.length > 1 ? '🎂 Aniversários de clientes' : '🎂 Aniversário de cliente', a.idade.join(' · '), 'aniversario')
+        if (a.vithall.length) await avisar(p, a.vithall.length > 1 ? '🎓 Aniversários Vithall' : '🎓 Aniversário Vithall', a.vithall.join(' · '), 'aniversario_vithall')
       }
     }
 

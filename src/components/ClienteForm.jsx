@@ -11,6 +11,7 @@ import { scheduleClientReminder } from '../lib/onesignal'
 import { creditMatricula, removeMatriculaCredit } from '../lib/clientStage'
 import { getValidToken, createCalendarEvent } from '../lib/googleCalendar'
 import { bookingStamp, logVisitScheduled } from '../lib/visitBooking'
+import { parseAniversario, formataAniversario } from '../lib/aniversarios'
 import SpecificDates from './SpecificDates'
 import PhoneList, { TipoToggle } from './PhoneList'
 
@@ -97,6 +98,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     notes:           initialData?.notes           || '',
     list_location:   initialData?.list_location   || '',
     assigned_to:     initialData?.assigned_to     || '',
+    // Texto "dd/mm" ou "dd/mm/aaaa"; vira dia/mês/ano na hora de salvar
+    aniversario:     formataAniversario(initialData),
   })
 
   const [vendedores, setVendedores] = useState([])
@@ -202,6 +205,7 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
       indicado_por:         c.indicado_por || '',
       notes:                c.notes || '',
       list_location:        c.list_location || '',
+      aniversario:          formataAniversario(c),
     }))
     setTreinamentosInteresse(c.treinamentos_interesse || [])
     setDiasLivres(c.dias_livres || [])
@@ -346,6 +350,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     if (!form.address_reference.trim())       { setError('Ponto de referencia e obrigatorio.'); return }
     if (!form.origin)                         { setError('Como surgiu e obrigatorio.'); return }
     if (!form.notes.trim())                   { setError('Observacoes e obrigatorio.'); return }
+    const aniv = parseAniversario(form.aniversario)
+    if (!aniv.ok)                             { setError('Aniversario invalido. Use dd/mm ou dd/mm/aaaa.'); return }
     // Vendedor só é obrigatório com marcação feita — sem agendamento ainda,
     // não dá para saber a disponibilidade de quem vai visitar
     if (form.matricula_stage === 'nao_visitado') {
@@ -370,6 +376,8 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
     const newVisitIso = visitScheduledAt ? new Date(visitScheduledAt).toISOString() : null
     const payload = {
       ...form,
+      aniversario: undefined, // o texto vira as três colunas abaixo
+      aniversario_dia: aniv.dia, aniversario_mes: aniv.mes, nascimento_ano: aniv.ano,
       assigned_to: form.assigned_to || null,
       reminder_config,
       visit_scheduled_at: newVisitIso,
@@ -840,6 +848,17 @@ export default function ClienteForm({ onClose, onSaved, initialData }) {
           value={form.list_location}
           onChange={e => set('list_location', e.target.value)}
           placeholder="Ex: Pág 55, linha 12"
+        />
+
+        {/* Aniversário de idade — opcional; o ano também (nem sempre a pessoa
+            sabe). Com ano o app mostra a idade. O robô das 08:10 e a aba Hoje
+            avisam no dia. Aniversário Vithall e Turma ficam só na ficha. */}
+        <Input
+          label="Aniversario (opcional)"
+          value={form.aniversario}
+          onChange={e => set('aniversario', e.target.value)}
+          placeholder="dd/mm ou dd/mm/aaaa"
+          inputMode="numeric"
         />
 
         {/* ---- OBSERVACOES ---- */}

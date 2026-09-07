@@ -17,6 +17,8 @@ const ICONE = {
   estrela:  '⭐',
   lembrete: '🔔',
   tarefa:   '✅',
+  aniversario:         '🎂',
+  aniversario_vithall: '🎓',
 }
 
 /** "agora", "há 20 min", "há 3 h", "ontem", "24/07" */

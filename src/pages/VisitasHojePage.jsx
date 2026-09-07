@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil, Repeat } from 'lucide-react'
+import { MapPin, Clock, User, Phone, PhoneCall, PhoneForwarded, Star, AlertTriangle, Bell, CalendarPlus, Handshake, GraduationCap, Pencil, Repeat, Cake, CalendarDays } from 'lucide-react'
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
+import { aniversariosNaJanela, diasJanela, COR_DATA } from '../lib/aniversarios'
+import { filtroMeusClientes } from '../lib/visitRules'
+
+// O calendário só baixa quando alguém toca no botão
+const CalendarioDatas = lazy(() => import('../components/CalendarioDatas'))
 import CallbackForm from '../components/CallbackForm'
 import { STAGE_BADGES, stageBadgeKey } from '../components/ui/Badge'
 import { creditoConta } from '../lib/matricula'
@@ -182,6 +187,8 @@ export default function VisitasHojePage() {
   const [answeredToday, setAnsweredToday]   = useState([]) // pré-vendas: visitas de hoje já respondidas
   const [reminders, setReminders]           = useState([]) // lembretes chegando (≤3 dias)
   const [repescagens, setRepescagens]       = useState([]) // repescagens minhas chegando
+  const [aniversarios, setAniversarios]     = useState([]) // aniversários hoje/amanhã (sexta alcança segunda)
+  const [showCal, setShowCal]               = useState(false) // pop-up do calendário
   const [feedbacks, setFeedbacks]           = useState([]) // estrelas preenchidas hoje (visitas que marquei)
   const [tasks, setTasks]                   = useState([]) // "A fazer": tarefas/follow-ups em aberto
   const [callbacks, setCallbacks]           = useState([]) // "pediu p/ ligar depois" que caem hoje
@@ -217,7 +224,20 @@ export default function VisitasHojePage() {
   async function carregarDados() {
     const role = profile?.role
 
-    const [confirm, tv, tc, mv, mc, rem, tsk, cbs, reps] = await Promise.all([
+    // Aniversários na janela (hoje + até o próximo dia útil). Só os meses da
+    // janela pesam na consulta; a trava por dono já entrega só os clientes
+    // que a pessoa tem na aba Clientes.
+    const hojeStr = localDateStr()
+    const mesesJanela = [...new Set(diasJanela(hojeStr).map(d => Number(d.data.slice(5, 7))))]
+    let qAniv = supabase.from('clients').select('*')
+      .or(`aniversario_mes.in.(${mesesJanela.join(',')}),aniversario_vithall.not.is.null`)
+    // A mesma regra da aba Clientes ("quem tem o cliente lá recebe o aviso")
+    const filtroMeus = filtroMeusClientes(role, user.id)
+    if (filtroMeus) qAniv = qAniv.or(filtroMeus)
+    const buscaAniv = qAniv.then(({ data }) => aniversariosNaJanela(data || [], hojeStr))
+
+    const [anivs, confirm, tv, tc, mv, mc, rem, tsk, cbs, reps] = await Promise.all([
+      buscaAniv,
       fetchVisitsToConfirm(user.id),
       fetchVisitsForDay(role, user.id, 0),
       fetchCallbacksForDay(role, user.id, 0),
@@ -231,6 +251,7 @@ export default function VisitasHojePage() {
     ])
     setReminders(rem)
     setRepescagens(reps)
+    setAniversarios(anivs)
     setTasks(tsk)
     setCallbacks(cbs)
     // fetchVisitsForDay já traz só visitas TRATADAS (confirmada/tentativa) —
@@ -410,10 +431,11 @@ export default function VisitasHojePage() {
 
   const showConfirm  = !confirmHidden && toConfirm.length > 0
   const hasTomorrow  = tomVisits.length > 0 || tomCalls.length > 0
-  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && repescagens.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0
+  const nothingToday = !showConfirm && todayVisits.length === 0 && todayCalls.length === 0 && answeredToday.length === 0 && reminders.length === 0 && repescagens.length === 0 && feedbacks.length === 0 && tasks.length === 0 && callbacks.length === 0 && aniversarios.length === 0
 
   // ── Filtro por categoria (chips) — só categorias com item aparecem ──
   const cats = [
+    { key: 'aniversarios', label: 'Aniversários', color: COR_DATA.aniversario, count: aniversarios.length },
     { key: 'confirmar',    label: 'Confirmar',    color: '#C9A84C', count: showConfirm ? toConfirm.length : 0 },
     { key: 'visitas',      label: 'Visitas',      color: '#A78BFA', count: isVisitor ? todayVisits.length : answeredToday.length },
     { key: 'ligacoes',     label: 'Ligações',     color: '#E8834A', count: todayCalls.length },
@@ -437,13 +459,28 @@ export default function VisitasHojePage() {
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
 
-      {/* Header */}
-      <div>
-        <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1 capitalize" style={{ color: '#C9A84C' }}>
-          {today.label}
-        </p>
-        <h1 style={{ color: '#EFEFEF' }}>{isVisitor ? 'Visitas de Hoje' : 'Sua agenda'}</h1>
+      {/* Header + botão do calendário de aniversários/datas (canto direito) */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-bold uppercase tracking-[0.15em] mb-1 capitalize" style={{ color: '#C9A84C' }}>
+            {today.label}
+          </p>
+          <h1 style={{ color: '#EFEFEF' }}>{isVisitor ? 'Visitas de Hoje' : 'Sua agenda'}</h1>
+        </div>
+        <button onClick={() => setShowCal(true)} title="Calendário de aniversários e datas" aria-label="Calendário"
+          className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-95 transition-all"
+          style={{ width: '42px', height: '42px', background: '#161616', border: '1px solid #2A2A2A', color: '#C9A84C', marginTop: '4px' }}>
+          <CalendarDays size={20} />
+        </button>
       </div>
+
+      {showCal && (
+        <Suspense fallback={null}>
+          <CalendarioDatas onClose={() => setShowCal(false)}
+            filtro={filtroMeusClientes(profile?.role, user.id)}
+            onOpenClient={c => { setShowCal(false); setSelected(c) }} />
+        </Suspense>
+      )}
 
       {/* Seletor: Lembretes | Produzido hoje */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #252525' }}>
@@ -616,6 +653,30 @@ export default function VisitasHojePage() {
               onClick={() => setSelected(c)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Aniversários — de idade (rosa) e de Vithall (dourado), hoje e amanhã;
+          na sexta, sábado/domingo/segunda. Só clientes que a pessoa tem na
+          aba Clientes (trava por dono); gerente vê todos. Toque abre a ficha. */}
+      {!loading && aniversarios.length > 0 && show('aniversarios') && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <SectionLabel color={COR_DATA.aniversario}><span className="inline-flex items-center gap-1.5"><Cake size={12} /> Aniversários</span></SectionLabel>
+          {aniversarios.map((a, i) => {
+            const cor = COR_DATA[a.tipo]
+            const rot = a.rotulo.charAt(0).toUpperCase() + a.rotulo.slice(1)
+            const sub = a.tipo === 'vithall'
+              ? `🎓 ${a.anos} ${a.anos === 1 ? 'ano' : 'anos'} de Vithall`
+              : (a.anos ? `🎂 Faz ${a.anos} anos` : '🎂 Aniversário')
+            return (
+              <CompactCard key={a.client.id + a.tipo + i}
+                time={rot} tag={a.tipo === 'vithall' ? 'Aniversário Vithall' : 'Aniversário'} tagColor={cor}
+                name={a.client.contact_name || a.client.company_name} company={a.client.company_name}
+                sub={<span className="inline-flex items-center gap-2 flex-wrap"><span style={{ color: cor }}>{sub}</span>{allPhones(a.client).length > 0 && <PhoneDial c={a.client} />}</span>}
+                onClick={() => setSelected(a.client)}
+              />
+            )
+          })}
         </div>
       )}
 

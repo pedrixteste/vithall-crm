@@ -17,6 +17,7 @@ import TarefaForm from './TarefaForm'
 import ContatoHistorico from './ContatoHistorico'
 import RepescagemForm, { RepescagemBlock } from './RepescagemForm'
 import RemarcarForm, { RemarcarBlock } from './RemarcarForm'
+import DatasCliente from './DatasCliente'
 import { Sheet } from './ui/Sheet'
 import { Button } from './ui/Button'
 
@@ -2095,6 +2096,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
             </div>
           </div>
         </div>
+
+        {/* Datas: aniversário (idade), aniversário Vithall e turma. A chave
+            reinicia os campos ao trocar de registro (cliente duplicado). */}
+        <DatasCliente key={currentClient.id} client={currentClient}
+          onSaved={patch => setCurrentClient(c => ({ ...c, ...patch }))} />
 
         {/* Observações */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid #1C1C1C' }}>
