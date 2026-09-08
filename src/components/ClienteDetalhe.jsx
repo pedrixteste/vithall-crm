@@ -434,6 +434,11 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [savingConf, setSavingConf]       = useState(false)
   // Cadeia do estágio "Marcado": pergunta → formulário da marcação → lembrete da agenda
   const [pendingMarcado, setPendingMarcado] = useState(null) // 'pergunta' | 'form' | 'agenda'
+  // Pop-up "Adicionar no Google Agenda?" depois de marcar/remarcar pela ficha
+  // — o mesmo que o cadastro mostra. { visitIso, client }
+  const [calPrompt, setCalPrompt]   = useState(null)
+  const [calSaving, setCalSaving]   = useState(false)
+  const [calDone, setCalDone]       = useState(false)
   const [marcadoDate, setMarcadoDate]     = useState('')
   const [marcadoVendedor, setMarcadoVendedor] = useState('')
   const [marcadoNote, setMarcadoNote]     = useState('')
@@ -921,7 +926,47 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       })
     }
     onUpdated?.()
-    setPendingMarcado('agenda') // último passo: lembrar de ocupar o horário
+    depoisDaMarcacao(iso, { ...currentClient, ...payload }) // Google Agenda → agenda de horários
+  }
+
+  // ── Depois de marcar/remarcar pela ficha ────────────────────────
+  // Mesma cadeia do cadastro: Google Agenda (se conectado) → agenda de
+  // horários. Sem Google conectado, vai direto para o lembrete da agenda.
+  function depoisDaMarcacao(visitIso, clientNovo) {
+    if (profile?.google_connected && visitIso) {
+      setCalDone(false)
+      setCalPrompt({ visitIso, client: clientNovo })
+    } else {
+      setPendingMarcado('agenda')
+    }
+  }
+
+  function fecharCalPrompt() {
+    setCalPrompt(null)
+    setCalDone(false)
+    setPendingMarcado('agenda') // lembrar de ocupar o horário na aba Agenda
+  }
+
+  async function adicionarNaAgenda() {
+    if (!calPrompt) return
+    setCalSaving(true)
+    try {
+      const token = await getValidToken(user.id)
+      if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      const eventId = await createCalendarEvent(token, {
+        clientId:      currentClient.id,
+        client:        calPrompt.client,
+        visitDateTime: calPrompt.visitIso,
+      })
+      await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', currentClient.id)
+      setCurrentClient(c => ({ ...c, google_calendar_event_id: eventId }))
+      setCalDone(true)
+      setTimeout(fecharCalPrompt, 1000)
+    } catch (e) {
+      alert(`Erro ao adicionar: ${e.message}`)
+    } finally {
+      setCalSaving(false)
+    }
   }
 
   // ── Remarcação salva ────────────────────────────────────────────
@@ -964,7 +1009,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       })
     }
 
-    setPendingMarcado('agenda') // lembra de acertar o horário na aba Agenda
+    // Evento novo no Google Agenda (pergunta, como no cadastro) → aba Agenda
+    depoisDaMarcacao(payload.visit_scheduled_at, { ...currentClient, ...payload, google_calendar_event_id: null })
   }
 
   // Exclui um endereço da ficha (marca como excluído — não some do backup)
@@ -2839,6 +2885,43 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       )}
 
       {/* Passo 3: lembrar de ocupar o horário na aba Agenda */}
+      {/* Adicionar no Google Agenda? — depois de marcar/remarcar pela ficha */}
+      {calPrompt && (
+        <div className="fixed inset-0 z-[61] flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="w-full max-w-sm rounded-2xl animate-in"
+            style={{ background: '#1A1A1A', border: '1px solid #303030', padding: '24px', textAlign: 'center' }}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)' }}>
+              <Calendar size={20} style={{ color: '#C9A84C' }} />
+            </div>
+            {calDone ? (
+              <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>✓ Adicionado ao Google Agenda!</p>
+            ) : (
+              <>
+                <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>Adicionar no Google Agenda?</h2>
+                <p className="text-sm mb-1" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
+                  Quer adicionar <b style={{ color: '#EFEFEF' }}>"{currentClient.contact_name || currentClient.company_name}"</b>
+                  {currentClient.phone ? <> ({currentClient.phone})</> : null} no Google Agenda?
+                </p>
+                <p className="text-xs mb-5" style={{ color: '#958E86' }}>
+                  Visita: {fmtVisitDT(calPrompt.visitIso)}
+                </p>
+                <button type="button" onClick={adicionarNaAgenda} disabled={calSaving}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] mb-2"
+                  style={{ background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)', color: '#F0EAD6', border: 'none', boxShadow: '0 2px 12px rgba(201,168,76,0.2)' }}>
+                  <span className="inline-flex items-center gap-2"><Calendar size={14} /> {calSaving ? 'Adicionando...' : 'Adicionar ao Google Agenda'}</span>
+                </button>
+                <button type="button" onClick={fecharCalPrompt} disabled={calSaving}
+                  className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                  style={{ background: 'transparent', color: '#958E86' }}>
+                  Agora não
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {pendingMarcado === 'agenda' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 60,
