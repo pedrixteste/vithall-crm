@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { CalendarClock } from 'lucide-react'
+import { CalendarClock, Pencil } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Sheet } from './ui/Sheet'
 import { Button } from './ui/Button'
-import { remarcarVisita, podeRemarcar } from '../lib/visitBooking'
+import { remarcarVisita, editarRemarcacao, podeRemarcar } from '../lib/visitBooking'
 import {
   MAX_ENDERECOS, enderecosAtivos, enderecoAtual, enderecoTexto,
   adicionarEndereco, mesmoEndereco,
@@ -26,10 +26,19 @@ export const REMARCAR_COR = '#22D3EE'
 // ("São" virava "SAo"). No blur o navegador já terminou de compor.
 const titleCase = (s) => (s || '').replace(/\b\w/g, c => c.toUpperCase())
 
+// ISO (UTC) → valor do input datetime-local na hora local ("2026-09-10T14:30")
+function toLocalInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 // ── Bloco da ficha, logo abaixo do estágio ──────────────────────────
 // Menor que o da repescagem: uma linha de botão. Cinza e sem clique enquanto
 // a visita está de pé, com o motivo escrito embaixo.
-export function RemarcarBlock({ client, nomeRemarcador, onRemarcar }) {
+export function RemarcarBlock({ client, nomeRemarcador, onRemarcar, onEditar }) {
   const { pode, motivo } = podeRemarcar(client)
   const vezes = client.visit_reschedule_count || 0
 
@@ -54,6 +63,21 @@ export function RemarcarBlock({ client, nomeRemarcador, onRemarcar }) {
         <p className="text-[12px]" style={{ color: '#7C766F', lineHeight: 1.45 }}>{motivo}</p>
       )}
 
+      {/* Só quando a visita atual É uma remarcação: corrigir motivo, vendedor,
+          data, endereço ou telefone sem contar como remarcação nova */}
+      {client.matricula_stage === 'remarcado' && onEditar && (
+        <button onClick={onEditar}
+          className="flex items-center gap-2 rounded-xl transition-all"
+          style={{
+            alignSelf: 'flex-start', padding: '7px 14px',
+            background: 'transparent', border: `1px solid ${REMARCAR_COR}33`,
+            color: REMARCAR_COR, cursor: 'pointer',
+          }}>
+          <Pencil size={12} />
+          <span className="text-[13px] font-semibold">Editar remarcação</span>
+        </button>
+      )}
+
       {vezes > 0 && (
         <p className="text-[12px]" style={{ color: '#A59F97', lineHeight: 1.45 }}>
           🔁 Remarcada {vezes === 1 ? '1 vez' : `${vezes} vezes`}
@@ -65,13 +89,16 @@ export function RemarcarBlock({ client, nomeRemarcador, onRemarcar }) {
   )
 }
 
-export default function RemarcarForm({ client, vendedores = [], onClose, onSaved }) {
+// modo 'remarcar' (padrão) ou 'editar' — o mesmo formulário, pré-preenchido
+// com a remarcação atual; ao salvar chama editarRemarcacao em vez de remarcarVisita.
+export default function RemarcarForm({ client, vendedores = [], onClose, onSaved, modo = 'remarcar' }) {
   const { user, profile } = useAuth()
+  const editando = modo === 'editar'
 
-  const [motivo, setMotivo]     = useState('')
+  const [motivo, setMotivo]     = useState(editando ? (client.remarcacao_motivo || '') : '')
   const [vendedor, setVendedor] = useState(client.assigned_to || '')
-  const [data, setData]         = useState('')
-  const [mudouEnd, setMudouEnd] = useState(null)   // null | true | false
+  const [data, setData]         = useState(editando ? toLocalInput(client.visit_scheduled_at) : '')
+  const [mudouEnd, setMudouEnd] = useState(editando ? false : null)   // null | true | false
   const [end, setEnd]           = useState({
     rua: '', numero: '', bairro: '',
     cidade: client.city || '', referencia: '',
@@ -79,7 +106,7 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
   const [substituir, setSubstituir] = useState('') // id do endereço que sai (no limite)
   // Telefone: mesma ideia do endereço — o número novo vira o principal e o
   // antigo desce para o grupo "mais números" da ficha
-  const [mudouFone, setMudouFone] = useState(null)  // null | true | false
+  const [mudouFone, setMudouFone] = useState(editando ? false : null)  // null | true | false
   const [fone, setFone]           = useState({ numero: '', tipo: 'pessoal', dono: '' })
   const [foneSai, setFoneSai]     = useState('')    // número que sai (no limite)
   const [saving, setSaving]     = useState(false)
@@ -142,7 +169,8 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
     if (isNaN(new Date(novaDataIso))) { setError('Data inválida.'); return }
 
     setSaving(true); setError('')
-    const res = await remarcarVisita({
+    const gravar = editando ? editarRemarcacao : remarcarVisita
+    const res = await gravar({
       client, userId: user.id, userName: profile?.name,
       motivo, vendedorId: vendedor, novaDataIso, enderecoPayload, telefonePayload,
     })
@@ -158,7 +186,7 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
   const labelStyle = { fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9D968E', marginBottom: '8px', display: 'block' }
 
   return (
-    <Sheet open onClose={saving ? () => {} : onClose} title="Remarcar visita">
+    <Sheet open onClose={saving ? () => {} : onClose} title={editando ? 'Editar remarcação' : 'Remarcar visita'}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '4px' }}>
 
         <div className="rounded-xl" style={{ background: `${REMARCAR_COR}0f`, border: `1px solid ${REMARCAR_COR}33`, padding: '12px 14px' }}>
@@ -166,8 +194,9 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
             {client.contact_name || client.company_name}
           </p>
           <p className="text-[12px] mt-1" style={{ color: '#A59F97', lineHeight: 1.5 }}>
-            A visita vai para a data nova e o estágio vira "Remarcado".
-            Quem marcou na origem continua com a comissão — você entra junto.
+            {editando
+              ? 'Corrija o que precisar da remarcação atual. Não conta como remarcação nova: quem remarcou e a comissão continuam iguais.'
+              : 'A visita vai para a data nova e o estágio vira "Remarcado". Quem marcou na origem continua com a comissão — você entra junto.'}
           </p>
         </div>
 
@@ -415,7 +444,7 @@ export default function RemarcarForm({ client, vendedores = [], onClose, onSaved
         <div className="flex gap-3 pt-1">
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={saving}>Cancelar</Button>
           <Button type="submit" className="flex-1" disabled={saving}>
-            {saving ? 'Salvando...' : 'Remarcar visita'}
+            {saving ? 'Salvando...' : editando ? 'Salvar' : 'Remarcar visita'}
           </Button>
         </div>
       </form>

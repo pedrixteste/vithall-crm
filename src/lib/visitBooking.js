@@ -139,3 +139,67 @@ export async function remarcarVisita({
 
   return { error: null, payload, oldEventId, oldIso }
 }
+
+/**
+ * Editar uma remarcação já feita (botão "Editar remarcação" da ficha, só
+ * quando o estágio é 'remarcado'). Corrige motivo, vendedor, data, endereço
+ * e telefone SEM contar como remarcação nova: não mexe em remarcado_por/em,
+ * no contador de remarcações nem em quem marcou na origem.
+ *   Data mudou → a confirmação antiga cai e quem editou passa a confirmar.
+ * Devolve { error, payload, oldEventId, oldIso, dataMudou } para a ficha
+ * perguntar se substitui o evento no Google Agenda.
+ */
+export async function editarRemarcacao({
+  client, userId, userName, motivo, vendedorId, novaDataIso,
+  enderecoPayload = null, telefonePayload = null,
+}) {
+  const oldIso     = client.visit_scheduled_at ? new Date(client.visit_scheduled_at).toISOString() : null
+  const oldEventId = client.google_calendar_event_id || null
+  const dataMudou  = !!novaDataIso && novaDataIso !== oldIso
+
+  const payload = {
+    visit_scheduled_at: novaDataIso,
+    assigned_to:        vendedorId || client.assigned_to || null,
+    remarcacao_motivo:  (motivo || '').trim() || null,
+    ...(dataMudou ? { visit_confirmation: null, visit_confirmation_note: null, visit_scheduled_by: userId } : {}),
+    ...(enderecoPayload || {}),
+    ...(telefonePayload || {}),
+  }
+
+  const { error } = await supabase.from('clients').update(payload).eq('id', client.id)
+  if (error) return { error }
+
+  const trocouEndereco = !!enderecoPayload
+  const trocouTelefone = !!telefonePayload
+  await logVisitScheduled({
+    clientId: client.id, userId, userName, from: oldIso, to: novaDataIso,
+    extra: {
+      via: 'editar_remarcacao',
+      motivo: payload.remarcacao_motivo,
+      vendedor: payload.assigned_to,
+      data_mudou: dataMudou,
+      endereco_mudou: trocouEndereco,
+      telefone_mudou: trocouTelefone,
+    },
+  })
+  if (trocouEndereco) {
+    await supabase.from('client_history').insert({
+      client_id: client.id, user_id: userId, user_name: userName || null,
+      event_type: 'endereco',
+      event_data: { acao: 'novo', endereco: {
+        rua: payload.address_street, numero: payload.address_number,
+        bairro: payload.address_neighborhood, cidade: payload.city,
+        referencia: payload.address_reference,
+      } },
+    })
+  }
+  if (trocouTelefone) {
+    await supabase.from('client_history').insert({
+      client_id: client.id, user_id: userId, user_name: userName || null,
+      event_type: 'telefone',
+      event_data: { acao: 'novo', numero: payload.phone, anterior: client.phone || null },
+    })
+  }
+
+  return { error: null, payload, oldEventId, oldIso, dataMudou }
+}

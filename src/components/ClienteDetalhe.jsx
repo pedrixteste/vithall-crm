@@ -134,7 +134,9 @@ function describeEvent(type, data) {
   if (type === 'visit_scheduled') {
     // A data que saiu só existe aqui — na coluna ela foi substituída
     if (!data?.from) return `Visita marcada para ${fmtVisitDT(data?.to)}`
-    const base = `Visita remarcada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}`
+    const base = data.via === 'editar_remarcacao'
+      ? (data.data_mudou ? `Remarcação editada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}` : `Remarcação editada (${fmtVisitDT(data.to)})`)
+      : `Visita remarcada: ${fmtVisitDT(data.from)} → ${fmtVisitDT(data.to)}`
     // Pelo botão Remarcar vem também o motivo e se o endereço mudou
     const extra = [
       data.motivo ? `"${data.motivo}"` : null,
@@ -459,6 +461,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   const [removingRepescagem, setRemovingRepescagem] = useState(false) // confirmação do desmarcar
   const [removendoRep, setRemovendoRep]           = useState(false)
   const [showRemarcar, setShowRemarcar]           = useState(false) // pop-up de remarcar visita
+  const [showEditarRemarcacao, setShowEditarRemarcacao] = useState(false) // editar a remarcação atual
   const [showMaisFones, setShowMaisFones]         = useState(false) // grupo "mais números"
   const [endParaExcluir, setEndParaExcluir]       = useState(null)  // endereço na fila de exclusão
   const [excluindoEnd, setExcluindoEnd]           = useState(false)
@@ -942,9 +945,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   }
 
   function fecharCalPrompt() {
+    const lembrar = calPrompt?.lembrarAgenda !== false
     setCalPrompt(null)
     setCalDone(false)
-    setPendingMarcado('agenda') // lembrar de ocupar o horário na aba Agenda
+    if (lembrar) setPendingMarcado('agenda') // lembrar de ocupar o horário na aba Agenda
   }
 
   async function adicionarNaAgenda() {
@@ -953,6 +957,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     try {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
+      // Substituir: o evento antigo sai antes de entrar o novo com os dados
+      // atualizados (nome, descrição, endereço, data)
+      if (calPrompt.oldEventId) await deleteCalendarEvent(token, calPrompt.oldEventId)
       const eventId = await createCalendarEvent(token, {
         clientId:      currentClient.id,
         client:        calPrompt.client,
@@ -966,6 +973,48 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       alert(`Erro ao adicionar: ${e.message}`)
     } finally {
       setCalSaving(false)
+    }
+  }
+
+  // ── Remarcação editada ──────────────────────────────────────────
+  // Só corrige a remarcação atual (não é remarcação nova). Depois pergunta
+  // se substitui a marcação no Google Agenda: "Sim" apaga o evento atual e
+  // cria outro com os dados atualizados; sem evento antigo, só cria.
+  async function onRemarcacaoEditada({ payload, oldEventId, dataMudou }) {
+    const vendedorNovo = payload.assigned_to
+    const trocouVendedor = vendedorNovo !== currentClient.assigned_to
+    setCurrentClient(c => ({ ...c, ...payload }))
+    setShowEditarRemarcacao(false)
+    const vend = teamProfiles.find(p => p.id === vendedorNovo)
+    if (vend?.name) setAssignedName(vend.name)
+    fetchHistory()
+    onUpdated?.()
+
+    // Vendedor novo ou data nova → avisa quem vai visitar (não a si mesmo)
+    if (vendedorNovo && vendedorNovo !== user.id && (trocouVendedor || dataMudou)) {
+      supabase.functions.invoke('notify-visit', {
+        body: {
+          assignedToId:  vendedorNovo,
+          clientName:    currentClient.contact_name,
+          companyName:   currentClient.company_name,
+          visitDateTime: payload.visit_scheduled_at,
+          city:          payload.city || currentClient.city,
+          notes:         payload.remarcacao_motivo || currentClient.notes,
+        },
+      })
+    }
+
+    if (profile?.google_connected) {
+      setCalDone(false)
+      setCalPrompt({
+        visitIso: payload.visit_scheduled_at,
+        client: { ...currentClient, ...payload },
+        oldEventId,
+        substituir: !!oldEventId,
+        lembrarAgenda: dataMudou, // só faz sentido reocupar horário se a data mudou
+      })
+    } else if (dataMudou) {
+      setPendingMarcado('agenda')
     }
   }
 
@@ -1911,6 +1960,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 client={currentClient}
                 nomeRemarcador={teamProfiles.find(p => p.id === currentClient.remarcado_por)?.name?.split(' ')[0]}
                 onRemarcar={() => setShowRemarcar(true)}
+                onEditar={() => setShowEditarRemarcacao(true)}
               />
             </div>
 
@@ -2895,13 +2945,19 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <Calendar size={20} style={{ color: '#C9A84C' }} />
             </div>
             {calDone ? (
-              <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>✓ Adicionado ao Google Agenda!</p>
+              <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>{calPrompt.substituir ? '✓ Marcação substituída no Google Agenda!' : '✓ Adicionado ao Google Agenda!'}</p>
             ) : (
               <>
-                <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>Adicionar no Google Agenda?</h2>
+                <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>
+                  {calPrompt.substituir ? 'Substituir a marcação no Google Agenda?' : 'Adicionar no Google Agenda?'}
+                </h2>
                 <p className="text-sm mb-1" style={{ color: '#B0A99F', lineHeight: 1.5 }}>
-                  Quer adicionar <b style={{ color: '#EFEFEF' }}>"{currentClient.contact_name || currentClient.company_name}"</b>
-                  {currentClient.phone ? <> ({currentClient.phone})</> : null} no Google Agenda?
+                  {calPrompt.substituir ? (
+                    <>A marcação atual de <b style={{ color: '#EFEFEF' }}>"{currentClient.contact_name || currentClient.company_name}"</b> será apagada do Google Agenda e a nova entra com os dados atualizados.</>
+                  ) : (
+                    <>Quer adicionar <b style={{ color: '#EFEFEF' }}>"{currentClient.contact_name || currentClient.company_name}"</b>
+                    {currentClient.phone ? <> ({currentClient.phone})</> : null} no Google Agenda?</>
+                  )}
                 </p>
                 <p className="text-xs mb-5" style={{ color: '#958E86' }}>
                   Visita: {fmtVisitDT(calPrompt.visitIso)}
@@ -2909,12 +2965,12 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
                 <button type="button" onClick={adicionarNaAgenda} disabled={calSaving}
                   className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] mb-2"
                   style={{ background: 'linear-gradient(135deg, #7B1C3A 0%, #C9A84C 100%)', color: '#F0EAD6', border: 'none', boxShadow: '0 2px 12px rgba(201,168,76,0.2)' }}>
-                  <span className="inline-flex items-center gap-2"><Calendar size={14} /> {calSaving ? 'Adicionando...' : 'Adicionar ao Google Agenda'}</span>
+                  <span className="inline-flex items-center gap-2"><Calendar size={14} /> {calSaving ? (calPrompt.substituir ? 'Substituindo...' : 'Adicionando...') : (calPrompt.substituir ? 'Sim, substituir' : 'Adicionar ao Google Agenda')}</span>
                 </button>
                 <button type="button" onClick={fecharCalPrompt} disabled={calSaving}
                   className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
                   style={{ background: 'transparent', color: '#958E86' }}>
-                  Agora não
+                  {calPrompt.substituir ? 'Não' : 'Agora não'}
                 </button>
               </>
             )}
@@ -3738,6 +3794,16 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
           vendedores={teamProfiles.filter(p => p.role === 'vendedor' || p.role === 'gerente')}
           onClose={() => setShowRemarcar(false)}
           onSaved={onRemarcado}
+        />
+      )}
+
+      {showEditarRemarcacao && (
+        <RemarcarForm
+          modo="editar"
+          client={currentClient}
+          vendedores={teamProfiles.filter(p => p.role === 'vendedor' || p.role === 'gerente')}
+          onClose={() => setShowEditarRemarcacao(false)}
+          onSaved={onRemarcacaoEditada}
         />
       )}
 
