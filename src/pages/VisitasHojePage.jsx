@@ -855,6 +855,11 @@ export default function VisitasHojePage() {
                       {t.due_time ? t.due_time.slice(0, 5) : ''}
                     </p>
                   )}
+                  {t.phone && (
+                    <p className="text-[12px] mt-1 flex items-center gap-1" style={{ color: '#E8834A' }}>
+                      <PhoneDial c={{ phone: t.phone }} />
+                    </p>
+                  )}
                   {!t.clients && (
                     <p className="text-[11px] mt-1" style={{ color: '#8B857D' }}>Toque para opções →</p>
                   )}
@@ -1159,6 +1164,17 @@ export default function VisitasHojePage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+              {taskPanel.phone && (
+                <a href={'tel:' + taskPanel.phone.replace(/[^\d+]/g, '')}
+                  className="w-full text-left rounded-xl flex items-center gap-3 transition-all active:scale-[0.98]"
+                  style={{ padding: '14px 16px', background: 'rgba(232,131,74,0.1)', border: '1px solid rgba(232,131,74,0.3)', textDecoration: 'none' }}>
+                  <Phone size={16} style={{ color: '#E8834A', flexShrink: 0 }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#EFEFEF' }}>Ligar {taskPanel.phone}</p>
+                    <p className="text-[11px]" style={{ color: '#958E86' }}>Abre o discador com esse número</p>
+                  </div>
+                </a>
+              )}
               <button type="button" onClick={() => { completeTask(taskPanel); setTaskPanel(null) }}
                 className="w-full text-left rounded-2xl transition-all active:scale-[0.98]"
                 style={{ background: '#161616', border: '1px solid #303030', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>

@@ -525,6 +525,13 @@ export default function Dashboard() {
                             {t.due_time ? t.due_time.slice(0, 5) : ''}
                           </span>
                         )}
+                        {t.phone && (
+                          <a href={'tel:' + t.phone.replace(/[^\d+]/g, '')}
+                            className="text-[12px] flex items-center gap-1"
+                            style={{ color: '#E8834A', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                            <PhoneCall size={10} /> {t.phone}
+                          </a>
+                        )}
                       </div>
                     </div>
                     <button onClick={() => deleteTask(t.id)} title="Excluir" className="flex-shrink-0">

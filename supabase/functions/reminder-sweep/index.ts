@@ -186,7 +186,7 @@ serve(async (req) => {
       sb.from('callbacks').select('id, created_by, contact_name, company_name, phone, reminder_config, done').eq('done', false),
       sb.from('clients').select('id, contact_name, company_name, created_by, assigned_to, matricula_stage, call_back_at, visit_scheduled_at, visit_confirmation, repescagem_by, repescagem_reason, repescagem_config'),
       sb.from('push_log').select('user_id, kind, ref, sent_at'),
-      sb.from('tasks').select('id, seller_id, title, due_date, due_time, reminder_config, completed').eq('completed', false).not('due_time', 'is', null),
+      sb.from('tasks').select('id, seller_id, title, phone, due_date, due_time, reminder_config, completed').eq('completed', false).not('due_time', 'is', null),
     ])
     const profiles = profRes.data || []
     const byId: Record<string, any> = {}
@@ -277,7 +277,8 @@ serve(async (req) => {
       const [h, m] = String(t.due_time).slice(0, 5).split(':').map(Number)
       const quando = new Date(agora); quando.setUTCHours(h, m, 0, 0)
       if (quando <= agora || quando > limite) continue
-      await avisarTarefa(t.seller_id, t.title, quando, `task:${t.id}:${hoje}`)
+      // Com telefone na tarefa, o número vai no aviso — dá pra ligar da notificação
+      await avisarTarefa(t.seller_id, t.phone ? `${t.title} · ${t.phone}` : t.title, quando, `task:${t.id}:${hoje}`)
     }
 
     // ── B) Preencher as estrelas — SÓ vendedor e gerente ────────────

@@ -29,6 +29,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
   const [days, setDays]       = useState([])
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
+  const [phone, setPhone]     = useState('') // opcional: vira link "ligar" na tarefa
   const [urgency, setUrgency] = useState(5)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
@@ -52,6 +53,7 @@ export default function TaskQuickForm({ onClose, onSaved }) {
       // Data única só faz sentido em "uma vez"; repetida é o padrão que manda
       due_date:  repeat === 'once' ? (dueDate || null) : null,
       due_time:  dueTime || null,
+      phone:     phone.trim() || null,
       reminder_config,
       urgency,
       priority,
@@ -158,6 +160,17 @@ export default function TaskQuickForm({ onClose, onSaved }) {
         <p className="text-[12px] -mt-2" style={{ color: '#9D968E', lineHeight: 1.5 }}>
           Com hora marcada, você recebe uma notificação 5 minutos antes.
         </p>
+
+        {/* Telefone opcional: a tarefa mostra o número clicável (liga direto)
+            e o aviso de "Tarefa em 5 min" leva o número junto. */}
+        <Input
+          label="Telefone (opcional)"
+          type="tel"
+          inputMode="tel"
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          placeholder="(51) 99999-9999"
+        />
 
         <div>
           <div className="flex items-center justify-between mb-2">
