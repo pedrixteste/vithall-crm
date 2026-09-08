@@ -8,6 +8,7 @@ import { Card, CardHeader } from '../components/ui/Card'
 import ClienteForm from '../components/ClienteForm'
 import CallbackForm from '../components/CallbackForm'
 import TaskQuickForm from '../components/TaskQuickForm'
+import TarefaPainel from '../components/TarefaPainel'
 import AddChooser from '../components/AddChooser'
 import ClienteDetalhe from '../components/ClienteDetalheLazy'
 import VisitConfirmationModal from '../components/VisitConfirmationModal'
@@ -85,6 +86,7 @@ export default function Dashboard() {
   const [showClienteForm, setShowClienteForm]     = useState(false)
   const [showCallbackForm, setShowCallbackForm]   = useState(false)
   const [showTaskForm, setShowTaskForm]           = useState(false)
+  const [taskPanel, setTaskPanel]                 = useState(null) // tarefa aberta (painel com tudo dela)
   const [tasks, setTasks]                         = useState([])
   const [showAddMenu, setShowAddMenu]             = useState(false)
   const [selectedCliente, setSelectedCliente]     = useState(null)
@@ -135,8 +137,8 @@ export default function Dashboard() {
     if (error) { setTasks(antes); alert('Não foi possível concluir — tente de novo.') }
   }
 
-  async function deleteTask(id) {
-    if (!confirm('Excluir esta tarefa?')) return
+  async function deleteTask(id, { confirmado = false } = {}) {
+    if (!confirmado && !confirm('Excluir esta tarefa?')) return
     const antes = tasks
     setTasks(ts => ts.filter(t => t.id !== id)) // otimista
     const { error } = await supabase.from('tasks').delete().eq('id', id)
@@ -503,7 +505,7 @@ export default function Dashboard() {
                       }}>
                       {feito ? '✓' : ''}
                     </button>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0" role="button" onClick={() => setTaskPanel(t)} style={{ cursor: 'pointer' }}>
                       <p className="text-sm font-medium" style={{ color: '#EFEFEF', lineHeight: 1.4, textDecoration: feito ? 'line-through' : 'none' }}>{t.title}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {typeof t.urgency === 'number' && (
@@ -783,6 +785,14 @@ export default function Dashboard() {
           onClose={() => setShowTaskForm(false)}
           onSaved={() => { setShowTaskForm(false); fetchTasks() }}
         />
+      )}
+
+      {/* Toque na tarefa → painel com tudo dela (texto completo, dia, hora,
+          telefone, cliente) e as ações */}
+      {taskPanel && (
+        <TarefaPainel task={taskPanel} onClose={() => setTaskPanel(null)}
+          onComplete={toggleTask} onDelete={t => deleteTask(t.id, { confirmado: true })}
+          onOpenClient={c => setSelectedCliente(c)} />
       )}
 
       {showClienteForm && (
