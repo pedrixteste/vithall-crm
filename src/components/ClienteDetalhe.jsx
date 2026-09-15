@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Phone, MapPin, Edit2, Plus, Trash2, Calendar, AtSign, Minus, TrendingUp, Flag, UserCheck, Clock, X, Star, Mic, MicOff, ChevronDown, ChevronUp, BookOpen, GraduationCap, CheckCircle2, XCircle, PhoneCall, CalendarClock } from 'lucide-react'
-import { getValidToken, createCalendarEvent, deleteCalendarEvent } from '../lib/googleCalendar'
+import { getValidToken, createCalendarEvent, deleteCalendarEventStatus } from '../lib/googleCalendar'
 import { creditMatricula, removeMatriculaCredit, syncMatriculaCredits, bookersDaMatricula } from '../lib/clientStage'
 import { matriculaStatus, reembolsoTexto } from '../lib/matricula'
 import { bookingStamp, logVisitScheduled, encaminharCliente } from '../lib/visitBooking'
@@ -935,10 +935,10 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
   // ── Depois de marcar/remarcar pela ficha ────────────────────────
   // Mesma cadeia do cadastro: Google Agenda (se conectado) → agenda de
   // horários. Sem Google conectado, vai direto para o lembrete da agenda.
-  function depoisDaMarcacao(visitIso, clientNovo) {
+  function depoisDaMarcacao(visitIso, clientNovo, extra = null) {
     if (profile?.google_connected && visitIso) {
       setCalDone(false)
-      setCalPrompt({ visitIso, client: clientNovo })
+      setCalPrompt({ visitIso, client: clientNovo, ...(extra || {}) })
     } else {
       setPendingMarcado('agenda')
     }
@@ -958,8 +958,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
       // Substituir: o evento antigo sai antes de entrar o novo com os dados
-      // atualizados (nome, descrição, endereço, data)
-      if (calPrompt.oldEventId) await deleteCalendarEvent(token, calPrompt.oldEventId)
+      // atualizados (nome, descrição, endereço, data).
+      // ⚠️ O app só apaga da agenda de QUEM ESTÁ LOGADO. Se quem marcou foi
+      // outra pessoa, o evento antigo continua na agenda dela — nesse caso o
+      // pop-up avisa em vez de dizer que substituiu. Erro do Google para tudo:
+      // sem apagar o antigo, criar o novo só deixaria visita repetida.
+      let naAgendaDeOutro = false
+      if (calPrompt.oldEventId) {
+        const res = await deleteCalendarEventStatus(token, calPrompt.oldEventId)
+        if (res === 'erro') {
+          alert('O Google não deixou apagar a marcação antiga. Nada foi alterado — tente de novo em instantes.')
+          return
+        }
+        naAgendaDeOutro = res === 'nao_encontrado'
+      }
       const eventId = await createCalendarEvent(token, {
         clientId:      currentClient.id,
         client:        calPrompt.client,
@@ -968,7 +980,8 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
       await supabase.from('clients').update({ google_calendar_event_id: eventId }).eq('id', currentClient.id)
       setCurrentClient(c => ({ ...c, google_calendar_event_id: eventId }))
       setCalDone(true)
-      setTimeout(fecharCalPrompt, 1000)
+      if (naAgendaDeOutro) setCalPrompt(p => (p ? { ...p, avisoAntigo: true } : p))
+      else setTimeout(fecharCalPrompt, 1000)
     } catch (e) {
       alert(`Erro ao adicionar: ${e.message}`)
     } finally {
@@ -1032,14 +1045,20 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     fetchHistory()
     onUpdated?.()
 
-    // Evento antigo no Google Agenda: a data mudou, então ele não vale mais
+    // Evento antigo no Google Agenda: a data mudou, então ele não vale mais.
+    // ⚠️ Só sai da agenda de quem está logado — se quem marcou foi outra
+    // pessoa, o evento fica lá e o pop-up avisa para apagar na mão.
+    let avisoAntigo = false
     if (oldEventId) {
       try {
         const token = await getValidToken(user.id)
         if (token) {
-          await deleteCalendarEvent(token, oldEventId)
-          await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
-          setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+          const res = await deleteCalendarEventStatus(token, oldEventId)
+          avisoAntigo = res !== 'apagado'
+          if (res === 'apagado') {
+            await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
+            setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
+          }
         }
       } catch { /* o pop-up abaixo deixa o usuário resolver na mão */ }
     }
@@ -1059,7 +1078,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     }
 
     // Evento novo no Google Agenda (pergunta, como no cadastro) → aba Agenda
-    depoisDaMarcacao(payload.visit_scheduled_at, { ...currentClient, ...payload, google_calendar_event_id: null })
+    depoisDaMarcacao(payload.visit_scheduled_at, { ...currentClient, ...payload, google_calendar_event_id: null }, { avisoAntigo })
   }
 
   // Exclui um endereço da ficha (marca como excluído — não some do backup)
@@ -1168,7 +1187,9 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
     try {
       const token = await getValidToken(user.id)
       if (!token) { alert('Conecte o Google Agenda no seu Perfil primeiro.'); return }
-      await deleteCalendarEvent(token, currentClient.google_calendar_event_id)
+      const res = await deleteCalendarEventStatus(token, currentClient.google_calendar_event_id)
+      if (res === 'erro') { alert('O Google não deixou remover essa marcação. Tente de novo em instantes.'); return }
+      if (res === 'nao_encontrado') alert('Essa marcação não está na SUA agenda — ela está na agenda de quem marcou a visita. Peça para essa pessoa apagar lá.')
       await supabase.from('clients').update({ google_calendar_event_id: null }).eq('id', currentClient.id)
       setCurrentClient(c => ({ ...c, google_calendar_event_id: null }))
     } catch (e) {
@@ -2945,7 +2966,24 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
               <Calendar size={20} style={{ color: '#C9A84C' }} />
             </div>
             {calDone ? (
-              <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>{calPrompt.substituir ? '✓ Marcação substituída no Google Agenda!' : '✓ Adicionado ao Google Agenda!'}</p>
+              <>
+                <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>
+                  {calPrompt.avisoAntigo ? '✓ Marcação nova no Google Agenda!'
+                    : calPrompt.substituir ? '✓ Marcação substituída no Google Agenda!' : '✓ Adicionado ao Google Agenda!'}
+                </p>
+                {calPrompt.avisoAntigo && (
+                  <>
+                    <p className="text-xs mt-3" style={{ color: '#E8834A', lineHeight: 1.5 }}>
+                      ⚠️ A marcação antiga não estava na <b>sua</b> agenda — ela continua na agenda de quem marcou antes. Peça para essa pessoa apagar, senão a visita fica em dobro.
+                    </p>
+                    <button type="button" onClick={fecharCalPrompt}
+                      className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all mt-4"
+                      style={{ background: '#161616', color: '#B0A99F', border: '1px solid #303030' }}>
+                      Entendi
+                    </button>
+                  </>
+                )}
+              </>
             ) : (
               <>
                 <h2 className="text-base font-bold mb-2" style={{ color: '#EFEFEF' }}>

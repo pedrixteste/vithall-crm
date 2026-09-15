@@ -28,9 +28,16 @@ const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : null)
  * tem `from` no event_data ({from:'cancelado', to:'remarcado'}) e, numa lista
  * misturada, seria contado como remarcação — inflando o número do relatório.
  * Lista já filtrada (sem event_type nos itens) continua valendo.
+ *
+ * ⚠️ "Editar remarcação" (via:'editar_remarcacao') CORRIGE a remarcação que já
+ * existia — motivo, vendedor, data — e não é uma remarcação nova. Ele também
+ * grava `from`, então sem esta linha cada correção de digitação viraria uma
+ * remarcação a mais no total, no ranking e no PDF.
  */
 export const ehRemarcacao = (ev) =>
-  (ev?.event_type === undefined || ev?.event_type === 'visit_scheduled') && !!ev?.event_data?.from
+  (ev?.event_type === undefined || ev?.event_type === 'visit_scheduled') &&
+  !!ev?.event_data?.from &&
+  ev?.event_data?.via !== 'editar_remarcacao'
 
 /**
  * Remarcações que aconteceram no período. `bookings` são os eventos

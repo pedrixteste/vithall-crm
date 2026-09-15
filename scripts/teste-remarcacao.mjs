@@ -129,6 +129,20 @@ eq('numa lista MISTURADA só a remarcação de verdade conta',
     { event_type: 'stage_change',    user_id: 'a', created_at: '2026-09-05T10:00:00Z', event_data: { from: 'cancelado', to: 'remarcado' } },
     { event_type: 'endereco',        user_id: 'a', created_at: '2026-09-05T10:00:00Z', event_data: { acao: 'novo' } },
   ], dentro).length, 1)
+// Achado na revisão de código (15/09/26): "Editar remarcação" também grava
+// `from` — cada correção de motivo/vendedor/data virava remarcação a mais
+eq('editar remarcação NÃO é remarcação nova',
+  ehRemarcacao({ event_type: 'visit_scheduled', event_data: { from: 'a', to: 'b', via: 'editar_remarcacao' } }), false)
+eq('editar remarcação com data nova também não conta',
+  ehRemarcacao({ event_type: 'visit_scheduled', event_data: { from: 'a', to: 'c', via: 'editar_remarcacao', data_mudou: true } }), false)
+eq('a remarcação de verdade continua contando',
+  ehRemarcacao({ event_type: 'visit_scheduled', event_data: { from: 'a', to: 'b', via: 'botao_remarcar' } }), true)
+eq('editar remarcação não entra no ranking de quem remarcou',
+  remarcacoesPorPessoa(remarcacoesNoPeriodo([
+    { client_id: 'c9', user_id: 'mafe', created_at: '2026-09-11T10:00:00Z', event_data: { from: 'a', to: 'b' } },
+    { client_id: 'c9', user_id: 'mafe', created_at: '2026-09-12T10:00:00Z', event_data: { from: 'b', to: 'c', via: 'editar_remarcacao' } },
+  ], dentro)), [{ id: 'mafe', total: 1 }])
+
 eq('remarcações no período', remarcacoesNoPeriodo(eventos, dentro).length, 3)
 eq('filtrando por pessoa', remarcacoesNoPeriodo(eventos, dentro, 'mafe').length, 2)
 eq('ranking', remarcacoesPorPessoa(remarcacoesNoPeriodo(eventos, dentro)), [{ id: 'mafe', total: 2 }, { id: 'amanda', total: 1 }])

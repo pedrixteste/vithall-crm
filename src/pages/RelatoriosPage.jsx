@@ -392,6 +392,9 @@ export default function RelatoriosPage() {
     const byClient = {}
     const allBookings = {}
     for (const b of bookings || []) {
+      // "Editar remarcação" corrige a remarcação que já existia — não é
+      // marcação nem remarcação nova (senão inflava a conta e o CSV)
+      if (b.event_data?.via === 'editar_remarcacao') continue
       ;(allBookings[b.client_id] ||= []).push({ at: b.created_at, user_id: b.user_id })
       if (!b.event_data?.from) continue // primeira marcação não é remarcação
       ;(byClient[b.client_id] ||= []).push(b.created_at)

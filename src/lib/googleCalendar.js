@@ -187,10 +187,14 @@ export async function createCalendarEvent(accessToken, { clientId, client, clien
 }
 
 /**
- * Deleta um evento do Google Calendar.
- * Retorna true em caso de sucesso (204) ou evento já inexistente (404).
+ * Deleta um evento do Google Calendar dizendo o que aconteceu de verdade:
+ *   'apagado'       — saiu da agenda (204)
+ *   'nao_encontrado'— não está NESTA agenda (404). ⚠️ O app só apaga da agenda
+ *                     de quem está logado: se quem marcou foi outra pessoa, o
+ *                     evento continua lá e só ela pode tirar.
+ *   'erro'          — o Google recusou (sem permissão, fora do ar, etc.)
  */
-export async function deleteCalendarEvent(accessToken, eventId) {
+export async function deleteCalendarEventStatus(accessToken, eventId) {
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     {
@@ -198,5 +202,15 @@ export async function deleteCalendarEvent(accessToken, eventId) {
       headers: { Authorization: `Bearer ${accessToken}` },
     }
   )
-  return res.status === 204 || res.status === 404
+  if (res.status === 204) return 'apagado'
+  if (res.status === 404) return 'nao_encontrado'
+  return 'erro'
+}
+
+/**
+ * Deleta um evento do Google Calendar.
+ * Retorna true em caso de sucesso (204) ou evento já inexistente (404).
+ */
+export async function deleteCalendarEvent(accessToken, eventId) {
+  return (await deleteCalendarEventStatus(accessToken, eventId)) !== 'erro'
 }
