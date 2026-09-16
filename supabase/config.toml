@@ -1,0 +1,48 @@
+# Configuração das edge functions.
+#
+# ⚠️ O deploy PRESERVA o "pede login" que a função já tinha — não existe flag
+# para ligar, só a `--no-verify-jwt` para desligar. Quem manda é este arquivo.
+# Foi por isso que o primeiro deploy de 16/09/26 não fechou nada.
+#
+#   verify_jwt = true  → só entra com o crachá de quem está logado no CRM.
+#                        Vale para tudo que o APP chama.
+#   verify_jwt = false → porta aberta na internet; só para quem NÃO tem como
+#                        mandar crachá (o cron do banco e o Telegram). Estas
+#                        três se defendem com segredo próprio no corpo/cabeçalho.
+project_id = "pocisdsbwtwgmdrcajtv"
+
+# ── Chamadas pelo app (exigem crachá) ────────────────────────────────
+[functions.agenda-calendar]
+verify_jwt = true
+
+[functions.notify-visit]
+verify_jwt = true
+
+[functions.notify-star]
+verify_jwt = true
+
+[functions.schedule-reminder]
+verify_jwt = true
+
+[functions.schedule-rating-reminder]
+verify_jwt = true
+
+[functions.cancel-rating-reminders]
+verify_jwt = true
+
+[functions.google-auth]
+verify_jwt = true
+
+# ── Chamadas por robô (mantêm porta aberta + segredo próprio) ────────
+# daily-briefing e reminder-sweep: o cron do banco chama por net.http_post,
+# que não tem sessão; ambos exigem BRIEFING_SECRET no corpo.
+[functions.daily-briefing]
+verify_jwt = false
+
+[functions.reminder-sweep]
+verify_jwt = false
+
+# telegram-webhook: quem chama é o Telegram; confere o segredo no cabeçalho
+# x-telegram-bot-api-secret-token.
+[functions.telegram-webhook]
+verify_jwt = false
