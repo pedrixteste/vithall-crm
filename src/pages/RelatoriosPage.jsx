@@ -414,7 +414,10 @@ export default function RelatoriosPage() {
       .order('created_at', { ascending: true })
     setRepescagemEvents(reps || [])
 
-    const { data: profilesData } = await supabase.from('profiles').select('*').order('name')
+    // Sem os contatos de notificação (Telegram/push) — ver EquipePage
+    const { data: profilesData } = await supabase.from('profiles')
+      .select('id, name, role, supervisor, briefing_equipe, calendar_color, google_connected, created_at')
+      .order('name')
     setProfiles(profilesData || [])
 
     let logsQuery = supabase.from('daily_logs').select('calls, answered, appointments, log_date, user_id')

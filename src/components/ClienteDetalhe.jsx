@@ -495,7 +495,7 @@ export default function ClienteDetalhe({ client, onBack, onClose, onUpdated }) {
 
   useEffect(() => {
     // Busca perfil fresco para garantir tokens do Google atualizados (uma vez)
-    supabase.from('profiles').select('*').eq('id', user.id).single()
+    supabase.rpc('meu_perfil') // o próprio perfil, inteiro (ver AuthContext)
       .then(({ data }) => { if (data) setFreshProfile(data) })
     // Equipe inteira — alimenta o seletor de quem vai remarcar a visita
     supabase.from('profiles').select('id, name, role')

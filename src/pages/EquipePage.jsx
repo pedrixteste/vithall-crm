@@ -18,7 +18,11 @@ export default function EquipePage() {
   useEffect(() => { fetchMembers() }, [])
 
   async function fetchMembers() {
-    const { data } = await supabase.from('profiles').select('*').order('name')
+    // Sem os contatos de notificação (Telegram/push): eles são de cada um e
+    // ficaram fechados para o resto da equipe — a tela nunca os mostrou.
+    const { data } = await supabase.from('profiles')
+      .select('id, name, role, supervisor, briefing_equipe, calendar_color, google_connected, created_at')
+      .order('name')
     setMembers(data || [])
     setLoading(false)
   }

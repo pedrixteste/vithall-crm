@@ -135,11 +135,9 @@ export async function scheduleClientReminder({ clientName, clientId, reminderCon
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('onesignal_player_id')
-    .eq('id', user.id)
-    .single()
+  // meu_perfil(): o id de push é do próprio usuário e não é mais legível
+  // direto em profiles (ver AuthContext)
+  const { data: profile } = await supabase.rpc('meu_perfil')
 
   let playerId = profile?.onesignal_player_id
 

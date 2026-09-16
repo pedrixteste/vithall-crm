@@ -106,8 +106,12 @@ export function AuthProvider({ children }) {
     tentandoRef.current = true
     let r
     try {
+      // meu_perfil() devolve a linha inteira do PRÓPRIO usuário. Não dá mais
+      // para ler profiles com select('*'): os contatos de notificação da
+      // equipe (Telegram, push) ficaram fechados, e o banco recusaria a
+      // consulta inteira por causa deles.
       r = await comTimeout(
-        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.rpc('meu_perfil'),
         AUTH_TIMEOUT_MS,
       )
     } catch {

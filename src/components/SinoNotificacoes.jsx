@@ -88,9 +88,17 @@ export default function SinoNotificacoes() {
       .is('read_at', null)
   }
 
+  // Link do aviso: SÓ de dentro do app. Um aviso apontando para fora seria a
+  // porta de uma tela falsa pedindo a senha — e quem escreve o aviso não é
+  // necessariamente o app (a função do banco aceita chamada de qualquer pessoa
+  // logada). Regra: começa com '/', não é '//outro-site' e não tem ':'
+  // (javascript:, http:). O banco recusa pelo mesmo critério.
+  const linkInterno = (u) =>
+    typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') && !u.includes(':')
+
   function tocar(n) {
     setAberto(false)
-    if (n.url) navigate(n.url)
+    if (linkInterno(n.url)) navigate(n.url)
   }
 
   return (

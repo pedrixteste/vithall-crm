@@ -105,7 +105,7 @@ export default function Dashboard() {
     setupReminders()
     // Busca perfil fresco para tokens do Google
     if (user?.id) {
-      supabase.from('profiles').select('*').eq('id', user.id).single()
+      supabase.rpc('meu_perfil') // o próprio perfil, inteiro (ver AuthContext)
         .then(({ data }) => { if (data) setFreshProfile(data) })
     }
   }, [])

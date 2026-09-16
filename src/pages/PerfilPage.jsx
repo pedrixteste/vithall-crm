@@ -47,7 +47,7 @@ export default function PerfilPage() {
 
   const recarregarPerfil = useCallback(() => {
     if (!user?.id) return
-    supabase.from('profiles').select('*').eq('id', user.id).single()
+    supabase.rpc('meu_perfil') // o próprio perfil, inteiro (ver AuthContext)
       .then(({ data }) => { if (data) setFreshProfile(data) })
   }, [user?.id])
 
